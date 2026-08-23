@@ -60,61 +60,77 @@ input,select,textarea{font-family:inherit;}
 ::-webkit-scrollbar-thumb:hover{background:var(--slate-soft);}
 
 /* ===== App Shell ===== */
-.app-shell{display:flex;min-height:100vh;}
+.app-shell{display:flex;flex-direction:column;min-height:100vh;}
 
-.sidebar{
-  width:248px;
-  flex-shrink:0;
+.menubar{
   background:var(--moss-deep);
   color:#eef2ee;
-  display:flex;
-  flex-direction:column;
   position:sticky;
   top:0;
-  height:100vh;
+  z-index:50;
+  box-shadow:var(--shadow-sm);
 }
-.sidebar-brand{
-  padding:22px 20px 16px;
+.menubar-row{
   display:flex;
   align-items:center;
-  gap:10px;
-  border-bottom:1px solid rgba(255,255,255,0.08);
+  justify-content:space-between;
+  padding:0 20px;
+  height:58px;
 }
-.sidebar-brand-mark{
-  width:34px;height:34px;border-radius:9px;
+.menubar-brand{
+  display:flex;align-items:center;gap:10px;
+}
+.menubar-brand-mark{
+  width:32px;height:32px;border-radius:9px;
   background:linear-gradient(135deg,var(--gold),#dba94f);
   display:flex;align-items:center;justify-content:center;
-  font-family:'Fraunces',serif;font-weight:700;font-size:17px;color:var(--moss-deep);
+  font-family:'Fraunces',serif;font-weight:700;font-size:16px;color:var(--moss-deep);
   flex-shrink:0;
 }
-.sidebar-brand-text{font-family:'Fraunces',serif;font-size:17px;font-weight:600;line-height:1.1;}
-.sidebar-brand-sub{font-size:10.5px;color:#a9c2b2;text-transform:uppercase;letter-spacing:0.08em;margin-top:2px;}
+.menubar-brand-text{font-family:'Fraunces',serif;font-size:16px;font-weight:600;line-height:1.1;}
+.menubar-brand-sub{font-size:10px;color:#a9c2b2;text-transform:uppercase;letter-spacing:0.08em;margin-top:1px;}
 
-.sidebar-nav{flex:1;overflow-y:auto;padding:14px 12px;}
-.sidebar-group-label{
-  font-size:10.5px;text-transform:uppercase;letter-spacing:0.09em;
-  color:#87a291;padding:14px 10px 6px;font-weight:600;
+.menubar-nav{
+  display:flex;align-items:center;gap:2px;flex-wrap:wrap;
 }
-.sidebar-item{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 10px;border-radius:8px;
-  font-size:13.5px;font-weight:500;color:#d3e0d7;
-  cursor:pointer;border:none;background:transparent;width:100%;text-align:left;
+.menubar-item{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 13px;border-radius:8px;
+  font-size:13px;font-weight:500;color:#d3e0d7;
+  cursor:pointer;border:none;background:transparent;
   transition:background .12s ease, color .12s ease;
-  margin-bottom:2px;
+  white-space:nowrap;
 }
-.sidebar-item:hover{background:rgba(255,255,255,0.07);color:#fff;}
-.sidebar-item.active{background:var(--gold);color:var(--moss-deep);font-weight:600;}
-.sidebar-item svg{flex-shrink:0;opacity:0.9;}
-.sidebar-foot{
-  padding:14px 18px 18px;border-top:1px solid rgba(255,255,255,0.08);
-  font-size:11.5px;color:#8ba798;
+.menubar-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
+.menubar-item.active{background:var(--gold);color:var(--moss-deep);font-weight:600;}
+.menubar-item svg{flex-shrink:0;opacity:0.9;}
+
+.menubar-toggle{
+  display:none;
+  background:none;border:none;color:#eef2ee;padding:8px;border-radius:8px;
 }
-.sidebar-foot button{
-  background:none;border:1px solid rgba(255,255,255,0.18);color:#d3e0d7;
-  padding:6px 10px;border-radius:7px;font-size:11.5px;margin-top:8px;width:100%;
+.menubar-toggle:hover{background:rgba(255,255,255,0.08);}
+
+.menubar-mobile-panel{
+  display:none;
+  flex-direction:column;
+  padding:8px 12px 14px;
+  border-top:1px solid rgba(255,255,255,0.1);
 }
-.sidebar-foot button:hover{background:rgba(255,255,255,0.08);}
+.menubar-mobile-panel.open{display:flex;}
+.menubar-mobile-panel .menubar-item{width:100%;justify-content:flex-start;padding:11px 13px;}
+.menubar-group-label{
+  font-size:10px;text-transform:uppercase;letter-spacing:0.08em;
+  color:#87a291;padding:12px 13px 4px;font-weight:600;
+}
+
+@media(max-width:920px){
+  .menubar-nav.desktop-nav{display:none;}
+  .menubar-toggle{display:flex;}
+}
+@media(min-width:921px){
+  .menubar-mobile-panel{display:none !important;}
+}
 
 .main-col{flex:1;min-width:0;display:flex;flex-direction:column;}
 .topbar{
@@ -203,6 +219,20 @@ input,select,textarea{font-family:inherit;}
 .file-drop:hover{border-color:var(--moss);}
 .file-drop img{max-height:80px;border-radius:6px;margin-bottom:6px;}
 
+.photo-box{
+  width:120px;height:120px;border-radius:10px;
+  border:1.5px dashed var(--line);background:var(--paper);
+  cursor:pointer;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .12s;
+}
+.photo-box:hover{border-color:var(--moss);}
+.photo-box img{width:100%;height:100%;object-fit:cover;}
+.photo-box-placeholder{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  color:var(--slate-soft);font-size:11px;text-align:center;padding:8px;
+}
+
 /* ===== Table ===== */
 .table-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -266,9 +296,15 @@ tbody tr:last-child td{border-bottom:none;}
 /* ===== Print Templates ===== */
 .print-only{display:none;}
 @media print{
-  .app-shell > .sidebar, .topbar, .no-print{display:none !important;}
+  .app-shell > .menubar, .topbar, .no-print{display:none !important;}
   .content{padding:0;}
   .print-only{display:block;}
+  @page{size:A4;margin:14mm;}
+  body{background:#fff;}
+  .modal-overlay{position:static;padding:0;background:none;display:block;}
+  .modal{box-shadow:none;max-width:100%;border-radius:0;}
+  .modal-head,.modal-foot{display:none;}
+  .modal-body{padding:0;max-height:none;overflow:visible;}
 }
 .doc-preview{
   background:#fff;border:1px solid var(--line);border-radius:var(--radius);
@@ -348,7 +384,7 @@ const { useState, useEffect, useCallback, useMemo, useRef, createContext, useCon
    ========================================================= */
 // ↓↓↓ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↓↓↓
 const DEFAULT_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyzJFfLWt1MhBP0vkK_xpBH5X5XIuCirxRUr3cqD8XGFh_iTEh5AbVf04eRjk11C7D3/exec";
-const DEFAULT_SCHOOL_NAME = "Hossenpur Madrasah, Rangamati";
+const DEFAULT_SCHOOL_NAME = "Hossenpur Madrasah";
 // ↑↑↑ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↑↑↑
 
 const CONFIG_KEY = "sms_config_v1";
@@ -457,6 +493,8 @@ const Icon = {
   x: (p)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M18 6 6 18M6 6l12 12"/></svg>,
   check: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" {...p}><path d="M20 6 9 17l-5-5"/></svg>,
   chevronDown: (p)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" {...p}><path d="m6 9 6 6 6-6"/></svg>,
+  menu: (p)=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M4 6h16M4 12h16M4 18h16"/></svg>,
+  idcard: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M15 9h3M15 13h3M7 16h6"/></svg>,
   refresh: (p)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>,
 };
 
@@ -604,18 +642,12 @@ function fmtDate(d) {
   } catch (e) { return d; }
 }
 
-function FileUploadField({ label, folder, onUploaded, config, existingUrl }) {
+function PhotoBox({ label, onUploaded, existingUrl }) {
   const toast = useToast();
   const [preview, setPreview] = useState(existingUrl || "");
   const inputRef = useRef();
 
-  function handleLinkChange(e) {
-    const val = e.target.value;
-    setPreview(val);
-    onUploaded(val);
-  }
-
-  async function handleEmbed(e) {
+  async function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
     try {
@@ -623,36 +655,23 @@ function FileUploadField({ label, folder, onUploaded, config, existingUrl }) {
       const dataUrl = `data:${file.type};base64,${base64}`;
       setPreview(dataUrl);
       onUploaded(dataUrl);
-      toast && toast("Photo embedded (no link needed)");
     } catch (err) {
       toast && toast("Couldn't read file: " + err.message, "error");
     }
   }
 
   return (
-    <div className="form-field span-2">
+    <div className="form-field">
       <label>{label}</label>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input
-          type="text"
-          placeholder={`Paste GitHub (or any) link here — e.g. after uploading to /${folder} on GitHub`}
-          value={preview.startsWith("data:") ? "" : preview}
-          onChange={handleLinkChange}
-          style={{ flex: 1 }}
-        />
-        <button type="button" className="btn btn-sm" onClick={() => inputRef.current.click()}>
-          Or embed a file
-        </button>
+      <div className="photo-box" onClick={() => inputRef.current.click()}>
+        {preview ? <img src={preview} alt="" /> : (
+          <div className="photo-box-placeholder">
+            <Icon.students width={26} height={26} />
+            <span>Click to select photo</span>
+          </div>
+        )}
       </div>
-      <input ref={inputRef} type="file" style={{ display: "none" }} onChange={handleEmbed} accept="image/*,.pdf" />
-      {preview && (
-        <div className="file-drop" style={{ marginTop: 8, cursor: "default" }}>
-          {preview.startsWith("data:image") || /\.(png|jpg|jpeg|webp|gif)$/i.test(preview) ? (
-            <img src={preview} alt="" onError={(e) => { e.target.style.display = "none"; }} />
-          ) : null}
-          <div style={{ wordBreak: "break-all", fontSize: 11.5 }}>{preview.startsWith("data:") ? "Embedded file attached" : preview}</div>
-        </div>
-      )}
+      <input ref={inputRef} type="file" style={{ display: "none" }} onChange={handleFile} accept="image/*" />
     </div>
   );
 }
@@ -690,6 +709,36 @@ function ConnectionBanner({ config, onOpenSettings }) {
 /* =========================================================
    DERIVED / COMPUTED HELPERS (dues, totals)
    ========================================================= */
+
+// Returns the applicable fee heads/amounts for a student's class,
+// based on Master Fee class rules (section-specific rules override "All Sections" rules).
+function applicableFeeHeads(student, feeRules) {
+  const rulesForClass = (feeRules || []).filter(f => f.className === student.className);
+  const bySpecificSection = rulesForClass.filter(f => f.section === student.section);
+  const byAllSections = rulesForClass.filter(f => !f.section);
+  // prefer a section-specific rule for a given feeType, else fall back to the "all sections" rule
+  const map = {};
+  byAllSections.forEach(f => { map[f.feeType] = f; });
+  bySpecificSection.forEach(f => { map[f.feeType] = f; });
+  return Object.values(map);
+}
+
+// Per-head breakdown: [{ head, charged, paid, due }]
+function studentFeeBreakdown(student, feeRules) {
+  const heads = applicableFeeHeads(student, feeRules);
+  const payments = student.payments || [];
+  return heads.map(h => {
+    const paid = sumBy(payments.filter(p => p.head === h.feeType), p => p.amount);
+    const charged = Number(h.amount) || 0;
+    return { head: h.feeType, charged, paid, due: Math.max(0, charged - paid) };
+  });
+}
+
+function studentDueFromRules(student, feeRules) {
+  return sumBy(studentFeeBreakdown(student, feeRules), r => r.due);
+}
+
+// Legacy fallback (kept for any old records without fee-rule linkage)
 function studentDue(student) {
   const totalFee = Number(student.totalFee) || 0;
   const paid = Number(student.paidAmount) || 0;
@@ -726,10 +775,11 @@ function Dashboard({ data, setActiveModule }) {
   const students = data.students || [];
   const teachers = data.teachers || [];
   const finance = data.finance || [];
+  const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const totalIncome = sumBy(finance.filter(f => f.type === "income"), f => f.amount);
   const totalExpense = sumBy(finance.filter(f => f.type === "expense"), f => f.amount);
-  const studentDueTotal = sumBy(students, studentDue);
+  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules));
   const teacherDueTotal = sumBy(teachers, teacherDue);
 
   const monthIncome = sumBy(finance.filter(f => f.type === "income" && withinRange(f.date, "monthly")), f => f.amount);
@@ -815,11 +865,24 @@ function Dashboard({ data, setActiveModule }) {
 /* =========================================================
    STUDENTS MODULE
    ========================================================= */
-const emptyStudent = () => ({
-  id: null, name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
+function generateStudentId(existingStudents) {
+  const year = new Date().getFullYear();
+  const nums = (existingStudents || [])
+    .map(s => s.studentId || "")
+    .filter(id => id.startsWith(`STU-${year}-`))
+    .map(id => parseInt(id.split("-")[2], 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `STU-${year}-${String(next).padStart(4, "0")}`;
+}
+
+const emptyStudent = (existingStudents) => ({
+  id: null, studentId: generateStudentId(existingStudents),
+  name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
   className: "One", section: "A", roll: "", admissionDate: new Date().toISOString().slice(0,10),
-  bloodGroup: "", phone: "", guardianPhone: "", address: "", photoUrl: "",
-  totalFee: "", paidAmount: "", status: "Active",
+  bloodGroup: "", phone: "", guardianPhone: "",
+  presentAddress: "", permanentAddress: "", sameAsPresent: false,
+  photoUrl: "", status: "Active", payments: [],
 });
 
 function StudentsModule({ data, save, remove, config }) {
@@ -831,13 +894,18 @@ function StudentsModule({ data, save, remove, config }) {
   const toast = useToast();
 
   const students = data.students || [];
+  const feeRules = (data.fees || []).filter(f => f.kind === "class");
+
   const filtered = students.filter(s => {
-    const matchQ = !query || (s.name || "").toLowerCase().includes(query.toLowerCase()) || (s.roll || "").toLowerCase().includes(query.toLowerCase());
+    const matchQ = !query
+      || (s.name || "").toLowerCase().includes(query.toLowerCase())
+      || (s.roll || "").toLowerCase().includes(query.toLowerCase())
+      || (s.studentId || "").toLowerCase().includes(query.toLowerCase());
     const matchC = !classFilter || s.className === classFilter;
     return matchQ && matchC;
   });
 
-  function openNew() { setEditing(emptyStudent()); }
+  function openNew() { setEditing(emptyStudent(students)); }
   function openEdit(s) { setEditing({ ...s }); }
   async function handleSave(record) {
     await save("students", record);
@@ -864,30 +932,30 @@ function StudentsModule({ data, save, remove, config }) {
 
       {tab === "list" && (
         <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} />
+          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} />
       )}
-      {tab === "idcard" && <StudentPicker students={students} label="Select student for ID Card" onPick={(s) => setDocTarget({ type: "id", student: s })} />}
-      {tab === "invoice" && <StudentPicker students={students} label="Select student for Fee Invoice" onPick={(s) => setDocTarget({ type: "invoice", student: s })} />}
-      {tab === "admit" && <StudentPicker students={students} label="Select student for Admit Card" onPick={(s) => setDocTarget({ type: "admit", student: s })} />}
+      {tab === "idcard" && <StudentPicker students={students} label="Select student for ID Card (search by name, roll, or Student ID)" onPick={(s) => setDocTarget({ type: "id", student: s })} />}
+      {tab === "invoice" && <StudentPicker students={students} label="Select student for Fee Invoice (search by name, roll, or Student ID)" onPick={(s) => setDocTarget({ type: "invoice", student: s })} />}
+      {tab === "admit" && <StudentPicker students={students} label="Select student for Admit Card (search by name, roll, or Student ID)" onPick={(s) => setDocTarget({ type: "admit", student: s })} />}
       {tab === "seat" && <SeatPlanTab data={data} save={save} />}
 
       {editing && (
         <StudentFormModal student={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
       )}
       {docTarget && docTarget.type === "id" && <StudentIdCardModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
-      {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal student={docTarget.student} config={config} feeRules={feeRules} onSave={handleSave} onClose={() => setDocTarget(null)} />}
       {docTarget && docTarget.type === "admit" && <StudentAdmitCardModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
     </div>
   );
 }
 
-function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc }) {
+function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc, feeRules }) {
   return (
     <div className="card card-flush">
       <div style={{ padding: "16px 18px 0" }}>
         <div className="search-row">
           <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-            <input className="search-input" placeholder="Search by name or roll…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input className="search-input" placeholder="Search by name, roll, or Student ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
             <option value="">All Classes</option>
@@ -901,13 +969,14 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Roll</th><th>Name</th><th>Class</th><th>Section</th><th>Guardian Phone</th><th>Fee Due</th><th>Status</th><th></th></tr>
+              <tr><th>Student ID</th><th>Roll</th><th>Name</th><th>Class</th><th>Section</th><th>Guardian Phone</th><th>Fee Due</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
               {students.map(s => {
-                const due = studentDue(s);
+                const due = studentDueFromRules(s, feeRules);
                 return (
                   <tr key={s.id}>
+                    <td className="mono">{s.studentId || "—"}</td>
                     <td className="mono">{s.roll || "—"}</td>
                     <td>{s.name}</td>
                     <td>{s.className}</td>
@@ -918,7 +987,7 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
                     <td>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
-                        <button className="btn btn-sm btn-icon" title="ID Card" onClick={() => onOpenDoc({ type: "id", student: s })}><Icon.students /></button>
+                        <button className="btn btn-sm btn-icon" title="ID Card" onClick={() => onOpenDoc({ type: "id", student: s })}><Icon.idcard /></button>
                         <button className="btn btn-sm btn-icon" title="Invoice" onClick={() => onOpenDoc({ type: "invoice", student: s })}><Icon.fee /></button>
                         <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}?`)) onDelete(s.id); }}><Icon.trash /></button>
                       </div>
@@ -936,15 +1005,20 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
 
 function StudentPicker({ students, label, onPick }) {
   const [q, setQ] = useState("");
-  const filtered = students.filter(s => !q || (s.name || "").toLowerCase().includes(q.toLowerCase()));
+  const filtered = students.filter(s =>
+    !q
+    || (s.name || "").toLowerCase().includes(q.toLowerCase())
+    || (s.roll || "").toLowerCase().includes(q.toLowerCase())
+    || (s.studentId || "").toLowerCase().includes(q.toLowerCase())
+  );
   return (
     <div className="card">
       <Field label={label}>
-        <input className="search-input" placeholder="Type student name…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="search-input" placeholder="Type name, roll, or Student ID…" value={q} onChange={(e) => setQ(e.target.value)} />
       </Field>
       <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
         {filtered.slice(0, 30).map(s => (
-          <button key={s.id} className="chip" onClick={() => onPick(s)}>{s.name} · {s.className}{s.section}</button>
+          <button key={s.id} className="chip" onClick={() => onPick(s)}>{s.name} · {s.className}{s.section} · <span className="mono">{s.studentId}</span></button>
         ))}
         {students.length === 0 && <EmptyState title="No students yet" sub="Add an admission first." />}
       </div>
@@ -955,30 +1029,50 @@ function StudentPicker({ students, label, onPick }) {
 function StudentFormModal({ student, onClose, onSave, config }) {
   const [form, setForm] = useState(student);
   const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
+
+  function handlePresentChange(e) {
+    const val = e.target.value;
+    setForm(f => ({ ...f, presentAddress: val, permanentAddress: f.sameAsPresent ? val : f.permanentAddress }));
+  }
+  function toggleSameAddress(e) {
+    const checked = e.target.checked;
+    setForm(f => ({ ...f, sameAsPresent: checked, permanentAddress: checked ? f.presentAddress : f.permanentAddress }));
+  }
+
+  function handlePrint() { window.print(); }
+
   return (
     <Modal title={student.id ? "Edit Student" : "New Admission"} onClose={onClose} size="lg"
       footer={<>
         <button className="btn" onClick={onClose}>Cancel</button>
+        {student.id && <button className="btn" onClick={handlePrint}><Icon.print />Print Admission Form (A4)</button>}
         <button className="btn btn-primary" onClick={() => onSave(form)}>Save Student</button>
       </>}>
-      <div className="form-grid">
-        <Field label="Full Name" span2><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
-        <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
-        <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
-        <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
-        <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
-        <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-        <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-        <Field label="Roll Number"><input type="text" value={form.roll} onChange={set("roll")} /></Field>
-        <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
-        <Field label="Blood Group"><select value={form.bloodGroup} onChange={set("bloodGroup")}><option value="">—</option>{BLOOD_GROUPS.map(b => <option key={b}>{b}</option>)}</select></Field>
-        <Field label="Student Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
-        <Field label="Guardian Phone"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
-        <Field label="Address" span2><textarea value={form.address} onChange={set("address")} /></Field>
-        <Field label="Total Fee (Annual/Session)"><input type="number" value={form.totalFee} onChange={set("totalFee")} /></Field>
-        <Field label="Paid Amount"><input type="number" value={form.paidAmount} onChange={set("paidAmount")} /></Field>
-        <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option><option>Graduated</option></select></Field>
-        <FileUploadField label="Student Photo" folder="students" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+      <div id="doc-capture-area">
+        <div className="form-grid">
+          <Field label="Student ID" hint="auto-generated"><input type="text" value={form.studentId} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
+          <Field label="Full Name"><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
+          <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
+          <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
+          <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
+          <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
+          <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+          <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+          <Field label="Roll Number"><input type="text" value={form.roll} onChange={set("roll")} /></Field>
+          <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
+          <Field label="Blood Group"><select value={form.bloodGroup} onChange={set("bloodGroup")}><option value="">—</option>{BLOOD_GROUPS.map(b => <option key={b}>{b}</option>)}</select></Field>
+          <Field label="Student Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
+          <Field label="Guardian Phone"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
+          <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option><option>Graduated</option></select></Field>
+          <Field label="Present Address" span2><textarea value={form.presentAddress} onChange={handlePresentChange} /></Field>
+          <Field label="Permanent Address" span2
+            hint={<label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 400, cursor: "pointer" }}>
+              <input type="checkbox" checked={!!form.sameAsPresent} onChange={toggleSameAddress} /> Same as present address
+            </label>}>
+            <textarea value={form.permanentAddress} onChange={set("permanentAddress")} disabled={form.sameAsPresent} />
+          </Field>
+          <PhotoBox label="Student Photo" existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+        </div>
       </div>
     </Modal>
   );
@@ -1019,6 +1113,7 @@ function StudentIdCardModal({ student, config, onClose }) {
           <div style={{ textAlign: "center", padding: "0 16px 16px" }}>
             <div style={{ fontWeight: 700, fontSize: 15 }}>{student.name}</div>
             <div style={{ fontSize: 12, color: "var(--slate-soft)", marginBottom: 10 }}>Class {student.className} — Section {student.section}</div>
+            <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{student.studentId || "—"}</span></div>
             <div className="kv-row"><span className="k">Roll</span><span className="v">{student.roll || "—"}</span></div>
             <div className="kv-row"><span className="k">Blood Group</span><span className="v">{student.bloodGroup || "—"}</span></div>
             <div className="kv-row"><span className="k">Guardian</span><span className="v">{student.guardianPhone || "—"}</span></div>
@@ -1030,9 +1125,28 @@ function StudentIdCardModal({ student, config, onClose }) {
   );
 }
 
-function StudentInvoiceModal({ student, config, onClose }) {
-  const due = studentDue(student);
-  const invNo = "INV-" + (student.roll || student.id.slice(0,6)).toUpperCase();
+function StudentInvoiceModal({ student, config, feeRules, onSave, onClose }) {
+  const [payAmounts, setPayAmounts] = useState({}); // { head: amountString }
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+  const breakdown = studentFeeBreakdown(student, feeRules);
+  const totalCharged = sumBy(breakdown, r => r.charged);
+  const totalPaid = sumBy(breakdown, r => r.paid);
+  const totalDue = sumBy(breakdown, r => r.due);
+  const invNo = "INV-" + (student.studentId || student.roll || student.id.slice(0,6)).toUpperCase();
+
+  async function recordPayment(head) {
+    const amt = Number(payAmounts[head]);
+    if (!amt || amt <= 0) { toast && toast("Enter a valid amount", "error"); return; }
+    setSaving(true);
+    const newPayment = { head, amount: amt, date: new Date().toISOString().slice(0,10) };
+    const updated = { ...student, payments: [...(student.payments || []), newPayment] };
+    await onSave(updated);
+    setPayAmounts(p => ({ ...p, [head]: "" }));
+    setSaving(false);
+    toast && toast(`Payment recorded for ${head}`, "success");
+  }
+
   return (
     <DocShell title={`Fee Invoice — ${student.name}`} onClose={onClose}>
       <div className="doc-preview">
@@ -1047,21 +1161,45 @@ function StudentInvoiceModal({ student, config, onClose }) {
           </div>
         </div>
         <div className="grid grid-2" style={{ marginBottom: 18 }}>
+          <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{student.studentId || "—"}</span></div>
           <div className="kv-row"><span className="k">Student</span><span className="v">{student.name}</span></div>
           <div className="kv-row"><span className="k">Class / Section</span><span className="v">{student.className} — {student.section}</span></div>
           <div className="kv-row"><span className="k">Roll</span><span className="v">{student.roll || "—"}</span></div>
-          <div className="kv-row"><span className="k">Guardian</span><span className="v">{student.guardianPhone || "—"}</span></div>
         </div>
-        <table style={{ width: "100%", marginBottom: 16 }}>
-          <thead><tr><th>Description</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
-          <tbody>
-            <tr><td>Total Fee (Session)</td><td style={{ textAlign: "right" }} className="mono">৳{money(student.totalFee)}</td></tr>
-            <tr><td>Amount Paid</td><td style={{ textAlign: "right" }} className="mono">৳{money(student.paidAmount)}</td></tr>
-          </tbody>
-        </table>
+
+        {breakdown.length === 0 ? (
+          <EmptyState title="No fee rules set for this class" sub={`Add fee heads for ${student.className} in Master Fee first.`} />
+        ) : (
+          <div className="table-wrap">
+            <table style={{ width: "100%", marginBottom: 16 }}>
+              <thead><tr><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th className="no-print">Pay Now</th></tr></thead>
+              <tbody>
+                {breakdown.map(r => (
+                  <tr key={r.head}>
+                    <td>{r.head}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                    <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
+                    <td className="no-print">
+                      {r.due > 0 && (
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input type="number" placeholder="Amount" value={payAmounts[r.head] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 90, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12.5 }} />
+                          <button className="btn btn-sm btn-primary" disabled={saving} onClick={() => recordPayment(r.head)}>Pay</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ minWidth: 220 }}>
-            <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v" style={{ color: due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(due)}</span></div>
+          <div style={{ minWidth: 240 }}>
+            <div className="kv-row"><span className="k">Total Charged</span><span className="v mono">৳{money(totalCharged)}</span></div>
+            <div className="kv-row"><span className="k">Total Paid</span><span className="v mono">৳{money(totalPaid)}</span></div>
+            <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v" style={{ color: totalDue > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(totalDue)}</span></div>
           </div>
         </div>
         <div style={{ marginTop: 30, fontSize: 11, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
@@ -1083,6 +1221,7 @@ function StudentAdmitCardModal({ student, config, onClose }) {
             {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={30} height={30} />}
           </div>
           <div style={{ flex: 1 }}>
+            <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{student.studentId || "—"}</span></div>
             <div className="kv-row"><span className="k">Name</span><span className="v">{student.name}</span></div>
             <div className="kv-row"><span className="k">Father's Name</span><span className="v">{student.fatherName || "—"}</span></div>
             <div className="kv-row"><span className="k">Class / Section</span><span className="v">{student.className} — {student.section}</span></div>
@@ -1260,7 +1399,7 @@ function TeacherFormModal({ teacher, onClose, onSave, config }) {
         <Field label="Basic Salary"><input type="number" value={form.basicSalary} onChange={set("basicSalary")} /></Field>
         <Field label="Allowance"><input type="number" value={form.allowance} onChange={set("allowance")} /></Field>
         <Field label="Paid Amount (this cycle)"><input type="number" value={form.paidAmount} onChange={set("paidAmount")} /></Field>
-        <FileUploadField label="Staff Photo" folder="teachers" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+        <PhotoBox label="Staff Photo" existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
       </div>
     </Modal>
   );
@@ -1485,8 +1624,11 @@ function DueModule({ data }) {
   const students = data.students || [];
   const teachers = data.teachers || [];
   const finance = data.finance || [];
+  const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
-  const studentDues = students.map(s => ({ ...s, due: studentDue(s) })).filter(s => s.due > 0);
+  const studentDues = students
+    .map(s => ({ ...s, breakdown: studentFeeBreakdown(s, feeRules), due: studentDueFromRules(s, feeRules) }))
+    .filter(s => s.due > 0);
   const teacherDues = teachers.map(t => ({ ...t, due: teacherDue(t) })).filter(t => t.due > 0);
 
   const bySection = {};
@@ -1511,9 +1653,15 @@ function DueModule({ data }) {
             <div className="card" key={sec} style={{ marginBottom: 14 }}>
               <h3 style={{ fontSize: 14.5, marginBottom: 10 }}>{sec} <span style={{ color: "var(--slate-soft)", fontWeight: 400 }}>({list.length} students)</span></h3>
               <table>
-                <thead><tr><th>Roll</th><th>Name</th><th>Total Fee</th><th>Paid</th><th>Due</th></tr></thead>
+                <thead><tr><th>Student ID</th><th>Roll</th><th>Name</th><th>Due Heads</th><th>Total Due</th></tr></thead>
                 <tbody>{list.map(s => (
-                  <tr key={s.id}><td className="mono">{s.roll || "—"}</td><td>{s.name}</td><td className="mono">৳{money(s.totalFee)}</td><td className="mono">৳{money(s.paidAmount)}</td><td className="mono" style={{ color: "var(--red)" }}>৳{money(s.due)}</td></tr>
+                  <tr key={s.id}>
+                    <td className="mono">{s.studentId || "—"}</td>
+                    <td className="mono">{s.roll || "—"}</td>
+                    <td>{s.name}</td>
+                    <td style={{ fontSize: 12 }}>{s.breakdown.filter(r => r.due > 0).map(r => r.head).join(", ")}</td>
+                    <td className="mono" style={{ color: "var(--red)" }}>৳{money(s.due)}</td>
+                  </tr>
                 ))}</tbody>
               </table>
             </div>
@@ -1546,23 +1694,81 @@ function DueModule({ data }) {
 /* =========================================================
    MASTER FEE MODULE
    ========================================================= */
-const emptyFeeRule = (kind) => ({
-  id: null, kind, className: "One", section: "", feeType: "Tuition Fee", amount: "",
-  designation: "Assistant Teacher", note: "",
+const emptyFeeRuleGroup = (kind) => ({
+  kind, className: "One", section: "", designation: "Assistant Teacher",
+  items: [{ feeType: kind === "class" ? INCOME_HEADS[0] : "Base Salary", amount: "" }],
+  note: "",
 });
 
 function MasterFeeModule({ data, save, remove }) {
   const [tab, setTab] = useState("class");
-  const [editing, setEditing] = useState(null);
+  const [editingGroup, setEditingGroup] = useState(null); // { kind, className, section, designation, items:[{id,feeType,amount}], note }
   const fees = data.fees || [];
   const classFees = fees.filter(f => f.kind === "class");
   const teacherFees = fees.filter(f => f.kind === "teacher");
 
+  // group class fee rows by className+section
+  const classGroups = {};
+  classFees.forEach(f => {
+    const key = `${f.className}||${f.section || ""}`;
+    if (!classGroups[key]) classGroups[key] = { className: f.className, section: f.section, rows: [] };
+    classGroups[key].rows.push(f);
+  });
+  // group teacher fee rows by designation
+  const teacherGroups = {};
+  teacherFees.forEach(f => {
+    const key = f.designation;
+    if (!teacherGroups[key]) teacherGroups[key] = { designation: f.designation, rows: [] };
+    teacherGroups[key].rows.push(f);
+  });
+
+  function openNewGroup() { setEditingGroup(emptyFeeRuleGroup(tab)); }
+
+  function editGroup(group, kind) {
+    if (kind === "class") {
+      setEditingGroup({
+        kind: "class", className: group.className, section: group.section,
+        items: group.rows.map(r => ({ id: r.id, feeType: r.feeType, amount: r.amount })),
+        note: group.rows[0]?.note || "",
+      });
+    } else {
+      setEditingGroup({
+        kind: "teacher", designation: group.designation,
+        items: group.rows.map(r => ({ id: r.id, feeType: r.feeType, amount: r.amount })),
+        note: group.rows[0]?.note || "",
+      });
+    }
+  }
+
+  async function deleteGroup(rows) {
+    if (!confirm("Delete this entire fee group?")) return;
+    for (const r of rows) { await remove("fees", r.id); }
+  }
+
+  async function saveGroup(group) {
+    // upsert each item row; delete removed ones is out of scope for simplicity (items rarely removed after save)
+    for (const item of group.items) {
+      if (!item.feeType || item.amount === "") continue;
+      const row = {
+        id: item.id || undefined,
+        kind: group.kind,
+        className: group.kind === "class" ? group.className : undefined,
+        section: group.kind === "class" ? group.section : undefined,
+        designation: group.kind === "teacher" ? group.designation : undefined,
+        feeType: item.feeType,
+        amount: item.amount,
+        note: group.note,
+      };
+      await save("fees", row);
+    }
+    setEditingGroup(null);
+  }
+
   return (
     <div>
       <div className="section-head">
-        <div><h2>Master Fee Setup</h2><p>Determine class-wise (sector-based) fees and teacher-based salary scales.</p></div>
-        <button className="btn btn-primary" onClick={() => setEditing(emptyFeeRule(tab))}><Icon.plus />New Rule</button>
+        <div><h2>Master Fee Setup</h2><p>Determine class-wise (sector-based) fees and teacher-based salary scales — add multiple fee heads at once per class or designation.</p></div>
+        <button className="btn btn-primary" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
       </div>
       <div className="tabs no-print">
         <button className={`tab ${tab === "class" ? "active" : ""}`} onClick={() => setTab("class")}>Class Fee Rules</button>
@@ -1570,63 +1776,113 @@ function MasterFeeModule({ data, save, remove }) {
       </div>
 
       {tab === "class" && (
-        <div className="card card-flush">
-          {classFees.length === 0 ? <EmptyState title="No class fee rules yet" sub="Define fees per class and section." /> : (
-            <table>
-              <thead><tr><th>Class</th><th>Section</th><th>Fee Type</th><th>Amount</th><th>Note</th><th></th></tr></thead>
-              <tbody>{classFees.map(f => (
-                <tr key={f.id}>
-                  <td>{f.className}</td><td>{f.section || "All"}</td><td>{f.feeType}</td><td className="mono">৳{money(f.amount)}</td><td>{f.note || "—"}</td>
-                  <td><div style={{ display: "flex", gap: 6 }}><button className="btn btn-sm btn-icon" onClick={() => setEditing({...f})}><Icon.edit/></button><button className="btn btn-sm btn-icon" onClick={() => remove("fees", f.id)}><Icon.trash/></button></div></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          )}
-        </div>
+        Object.keys(classGroups).length === 0 ? (
+          <div className="card"><EmptyState title="No class fee rules yet" sub="Add a fee group with multiple heads (Tuition, Exam, etc.) per class." /></div>
+        ) : (
+          <div className="grid grid-2">
+            {Object.values(classGroups).map(group => (
+              <div className="card" key={group.className + group.section}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <h3 style={{ fontSize: 15 }}>{group.className} <span style={{ color: "var(--slate-soft)", fontWeight: 400 }}>— {group.section || "All Sections"}</span></h3>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-sm btn-icon" onClick={() => editGroup(group, "class")}><Icon.edit /></button>
+                    <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(group.rows)}><Icon.trash /></button>
+                  </div>
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  {group.rows.map(r => (
+                    <div className="kv-row" key={r.id}><span className="k">{r.feeType}</span><span className="v">৳{money(r.amount)}</span></div>
+                  ))}
+                  <div className="kv-row" style={{ fontWeight: 700 }}><span className="k">Total</span><span className="v">৳{money(sumBy(group.rows, r => r.amount))}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       )}
       {tab === "teacher" && (
-        <div className="card card-flush">
-          {teacherFees.length === 0 ? <EmptyState title="No teacher fee scales yet" sub="Define salary scale per designation." /> : (
-            <table>
-              <thead><tr><th>Designation</th><th>Base Amount</th><th>Note</th><th></th></tr></thead>
-              <tbody>{teacherFees.map(f => (
-                <tr key={f.id}>
-                  <td>{f.designation}</td><td className="mono">৳{money(f.amount)}</td><td>{f.note || "—"}</td>
-                  <td><div style={{ display: "flex", gap: 6 }}><button className="btn btn-sm btn-icon" onClick={() => setEditing({...f})}><Icon.edit/></button><button className="btn btn-sm btn-icon" onClick={() => remove("fees", f.id)}><Icon.trash/></button></div></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          )}
-        </div>
+        Object.keys(teacherGroups).length === 0 ? (
+          <div className="card"><EmptyState title="No teacher fee scales yet" sub="Add a fee group with multiple components (Basic, Allowance, etc.) per designation." /></div>
+        ) : (
+          <div className="grid grid-2">
+            {Object.values(teacherGroups).map(group => (
+              <div className="card" key={group.designation}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <h3 style={{ fontSize: 15 }}>{group.designation}</h3>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-sm btn-icon" onClick={() => editGroup(group, "teacher")}><Icon.edit /></button>
+                    <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(group.rows)}><Icon.trash /></button>
+                  </div>
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  {group.rows.map(r => (
+                    <div className="kv-row" key={r.id}><span className="k">{r.feeType}</span><span className="v">৳{money(r.amount)}</span></div>
+                  ))}
+                  <div className="kv-row" style={{ fontWeight: 700 }}><span className="k">Total</span><span className="v">৳{money(sumBy(group.rows, r => r.amount))}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       )}
 
-      {editing && <FeeRuleModal rule={editing} onClose={() => setEditing(null)} onSave={async (r) => { await save("fees", r); setEditing(null); }} />}
+      {editingGroup && <FeeGroupModal group={editingGroup} onClose={() => setEditingGroup(null)} onSave={saveGroup} />}
     </div>
   );
 }
 
-function FeeRuleModal({ rule, onClose, onSave }) {
-  const [form, setForm] = useState(rule);
+function FeeGroupModal({ group, onClose, onSave }) {
+  const [form, setForm] = useState(group);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  function updateItem(i, key, val) {
+    const items = [...form.items];
+    items[i] = { ...items[i], [key]: val };
+    setForm({ ...form, items });
+  }
+  function addItem() {
+    setForm({ ...form, items: [...form.items, { feeType: form.kind === "class" ? INCOME_HEADS[0] : "", amount: "" }] });
+  }
+  function removeItem(i) {
+    setForm({ ...form, items: form.items.filter((_, idx) => idx !== i) });
+  }
+
   return (
-    <Modal title={form.kind === "class" ? "Class Fee Rule" : "Teacher Fee Scale"} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
-      <div className="form-grid">
+    <Modal title={form.kind === "class" ? "Class Fee Group" : "Teacher Fee Scale Group"} onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save All</button></>}>
+      <div className="form-grid" style={{ marginBottom: 16 }}>
         {form.kind === "class" ? (
           <>
             <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
             <Field label="Section (optional)"><select value={form.section} onChange={set("section")}><option value="">All Sections</option>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-            <Field label="Fee Type"><select value={form.feeType} onChange={set("feeType")}>{INCOME_HEADS.map(h => <option key={h}>{h}</option>)}</select></Field>
-            <Field label="Amount"><input type="number" value={form.amount} onChange={set("amount")} /></Field>
           </>
         ) : (
-          <>
-            <Field label="Designation" span2><select value={form.designation} onChange={set("designation")}>{DESIGNATIONS.map(d => <option key={d}>{d}</option>)}</select></Field>
-            <Field label="Base Salary Amount" span2><input type="number" value={form.amount} onChange={set("amount")} /></Field>
-          </>
+          <Field label="Designation" span2><select value={form.designation} onChange={set("designation")}>{DESIGNATIONS.map(d => <option key={d}>{d}</option>)}</select></Field>
         )}
-        <Field label="Note" span2><textarea value={form.note} onChange={set("note")} /></Field>
       </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)" }}>Fee Heads &amp; Amounts</label>
+        <button className="link-btn" onClick={addItem}>+ Add another fee head</button>
+      </div>
+      {form.items.map((item, i) => (
+        <div key={i} className="form-grid cols-3" style={{ marginBottom: 10, alignItems: "end" }}>
+          <Field label="Fee Type / Head">
+            {form.kind === "class" ? (
+              <select value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)}>
+                {INCOME_HEADS.map(h => <option key={h}>{h}</option>)}
+              </select>
+            ) : (
+              <input type="text" value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)} placeholder="e.g. Basic Salary, House Allowance" />
+            )}
+          </Field>
+          <Field label="Amount"><input type="number" value={item.amount} onChange={(e) => updateItem(i, "amount", e.target.value)} /></Field>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeItem(i)}><Icon.trash /></button>
+          </div>
+        </div>
+      ))}
+      <Field label="Note" span2><textarea value={form.note} onChange={set("note")} /></Field>
     </Modal>
   );
 }
@@ -1724,13 +1980,14 @@ function ReportsModule({ data }) {
   const finance = data.finance || [];
   const students = data.students || [];
   const teachers = data.teachers || [];
+  const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filtered = finance.filter(f => withinRange(f.date, range));
   const income = sumBy(filtered.filter(f => f.type === "income"), f => f.amount);
   const expense = sumBy(filtered.filter(f => f.type === "expense"), f => f.amount);
   const net = income - expense;
 
-  const studentDueTotal = sumBy(students, studentDue);
+  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules));
   const teacherDueTotal = sumBy(teachers, teacherDue);
 
   const headBreakdown = {};
@@ -1884,6 +2141,57 @@ const MODULE_TITLES = {
   due: "Due List", fees: "Master Fee", committee: "Committee", reports: "Reports", settings: "Settings",
 };
 
+function MenuBar({ active, setActive, config, store }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const flatItems = NAV_GROUPS.flatMap(g => g.items);
+
+  function pick(key) {
+    setActive(key);
+    setMobileOpen(false);
+  }
+
+  return (
+    <div className="menubar no-print">
+      <div className="menubar-row">
+        <div className="menubar-brand">
+          <div className="menubar-brand-mark">V</div>
+          <div>
+            <div className="menubar-brand-text">Vidyalaya</div>
+            <div className="menubar-brand-sub">{config.schoolName || "School Manager"}</div>
+          </div>
+        </div>
+
+        <nav className="menubar-nav desktop-nav">
+          {flatItems.map(item => (
+            <button key={item.key} className={`menubar-item ${active === item.key ? "active" : ""}`} onClick={() => pick(item.key)}>
+              <IconWrap name={item.icon} />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <button className="menubar-toggle" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
+          <IconWrap name={mobileOpen ? "x" : "menu"} />
+        </button>
+      </div>
+
+      <div className={`menubar-mobile-panel ${mobileOpen ? "open" : ""}`}>
+        {NAV_GROUPS.map(group => (
+          <div key={group.label}>
+            <div className="menubar-group-label">{group.label}</div>
+            {group.items.map(item => (
+              <button key={item.key} className={`menubar-item ${active === item.key ? "active" : ""}`} onClick={() => pick(item.key)}>
+                <IconWrap name={item.icon} />
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AppShell() {
   const [config, setConfigState] = useState(loadConfig());
   const [active, setActive] = useState("dashboard");
@@ -1893,32 +2201,7 @@ function AppShell() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar no-print">
-        <div className="sidebar-brand">
-          <div className="sidebar-brand-mark">V</div>
-          <div>
-            <div className="sidebar-brand-text">Vidyalaya</div>
-            <div className="sidebar-brand-sub">School Manager</div>
-          </div>
-        </div>
-        <nav className="sidebar-nav">
-          {NAV_GROUPS.map(group => (
-            <div key={group.label}>
-              <div className="sidebar-group-label">{group.label}</div>
-              {group.items.map(item => (
-                <button key={item.key} className={`sidebar-item ${active === item.key ? "active" : ""}`} onClick={() => setActive(item.key)}>
-                  <IconWrap name={item.icon} />
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          ))}
-        </nav>
-        <div className="sidebar-foot">
-          {config.schoolName || "Your School"}
-          <button onClick={store.refresh}><IconWrap name="refresh" style={{ marginRight: 5, verticalAlign: -1 }} />Sync now</button>
-        </div>
-      </aside>
+      <MenuBar active={active} setActive={setActive} config={config} store={store} />
 
       <div className="main-col">
         <div className="topbar no-print">
@@ -1928,6 +2211,7 @@ function AppShell() {
               <span className={`sync-dot ${store.status === "loading" ? "pending" : store.status === "error" ? "error" : ""}`}></span>
               {store.status === "loading" ? "Syncing…" : store.status === "error" ? "Sync error" : store.status === "offline" ? "Offline mode" : "Synced"}
             </div>
+            <button className="btn btn-sm btn-icon" title="Sync now" onClick={store.refresh}><IconWrap name="refresh" /></button>
           </div>
         </div>
         <div className="content">
