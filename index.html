@@ -1,0 +1,1955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vidyalaya — School Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --ink:#1c2521;
+  --paper:#f6f4ee;
+  --paper-raised:#ffffff;
+  --slate:#3d4a45;
+  --slate-soft:#6b7770;
+  --line:#dcd8cc;
+  --moss:#3f6b52;
+  --moss-deep:#2c4d3a;
+  --moss-tint:#e7efe8;
+  --clay:#b8562f;
+  --clay-tint:#f7e9e0;
+  --gold:#c8963e;
+  --gold-tint:#f6edd9;
+  --red:#b0403a;
+  --red-tint:#f7e4e2;
+  --radius-sm:6px;
+  --radius:10px;
+  --radius-lg:16px;
+  --shadow-sm:0 1px 2px rgba(28,37,33,0.06);
+  --shadow-md:0 4px 16px rgba(28,37,33,0.08);
+  --shadow-lg:0 12px 40px rgba(28,37,33,0.14);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  letter-spacing:-0.01em;
+  margin:0;
+}
+.mono{font-family:'IBM Plex Mono',monospace;}
+#root{min-height:100vh;}
+::selection{background:var(--moss-tint);color:var(--moss-deep);}
+a{color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:10px;}
+::-webkit-scrollbar-thumb:hover{background:var(--slate-soft);}
+
+/* ===== App Shell ===== */
+.app-shell{display:flex;min-height:100vh;}
+
+.sidebar{
+  width:248px;
+  flex-shrink:0;
+  background:var(--moss-deep);
+  color:#eef2ee;
+  display:flex;
+  flex-direction:column;
+  position:sticky;
+  top:0;
+  height:100vh;
+}
+.sidebar-brand{
+  padding:22px 20px 16px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.sidebar-brand-mark{
+  width:34px;height:34px;border-radius:9px;
+  background:linear-gradient(135deg,var(--gold),#dba94f);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fraunces',serif;font-weight:700;font-size:17px;color:var(--moss-deep);
+  flex-shrink:0;
+}
+.sidebar-brand-text{font-family:'Fraunces',serif;font-size:17px;font-weight:600;line-height:1.1;}
+.sidebar-brand-sub{font-size:10.5px;color:#a9c2b2;text-transform:uppercase;letter-spacing:0.08em;margin-top:2px;}
+
+.sidebar-nav{flex:1;overflow-y:auto;padding:14px 12px;}
+.sidebar-group-label{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:0.09em;
+  color:#87a291;padding:14px 10px 6px;font-weight:600;
+}
+.sidebar-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:8px;
+  font-size:13.5px;font-weight:500;color:#d3e0d7;
+  cursor:pointer;border:none;background:transparent;width:100%;text-align:left;
+  transition:background .12s ease, color .12s ease;
+  margin-bottom:2px;
+}
+.sidebar-item:hover{background:rgba(255,255,255,0.07);color:#fff;}
+.sidebar-item.active{background:var(--gold);color:var(--moss-deep);font-weight:600;}
+.sidebar-item svg{flex-shrink:0;opacity:0.9;}
+.sidebar-foot{
+  padding:14px 18px 18px;border-top:1px solid rgba(255,255,255,0.08);
+  font-size:11.5px;color:#8ba798;
+}
+.sidebar-foot button{
+  background:none;border:1px solid rgba(255,255,255,0.18);color:#d3e0d7;
+  padding:6px 10px;border-radius:7px;font-size:11.5px;margin-top:8px;width:100%;
+}
+.sidebar-foot button:hover{background:rgba(255,255,255,0.08);}
+
+.main-col{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  height:62px;flex-shrink:0;
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 26px;background:var(--paper-raised);
+  position:sticky;top:0;z-index:20;
+}
+.topbar-title{font-family:'Fraunces',serif;font-size:19px;font-weight:600;}
+.topbar-actions{display:flex;align-items:center;gap:10px;}
+.sync-pill{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--slate-soft);
+  padding:5px 10px;border-radius:20px;background:var(--paper);border:1px solid var(--line);
+}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--moss);}
+.sync-dot.pending{background:var(--gold);}
+.sync-dot.error{background:var(--red);}
+
+.content{padding:26px;flex:1;}
+
+/* ===== Buttons ===== */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 16px;border-radius:8px;border:1px solid var(--line);
+  background:var(--paper-raised);color:var(--ink);font-size:13.5px;font-weight:600;
+  transition:all .12s ease;
+}
+.btn:hover{border-color:var(--slate-soft);background:var(--paper);}
+.btn-primary{background:var(--moss);border-color:var(--moss);color:#fff;}
+.btn-primary:hover{background:var(--moss-deep);border-color:var(--moss-deep);}
+.btn-clay{background:var(--clay);border-color:var(--clay);color:#fff;}
+.btn-clay:hover{background:#96461f;}
+.btn-danger{background:transparent;border-color:var(--red);color:var(--red);}
+.btn-danger:hover{background:var(--red-tint);}
+.btn-sm{padding:6px 11px;font-size:12.5px;border-radius:7px;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+.btn-icon{padding:8px;}
+
+/* ===== Cards / Layout ===== */
+.card{
+  background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius);
+  padding:20px;box-shadow:var(--shadow-sm);
+}
+.card-flush{padding:0;overflow:hidden;}
+.grid{display:grid;gap:16px;}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-2{grid-template-columns:repeat(2,1fr);}
+@media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:repeat(2,1fr);}}
+
+.stat-card{
+  background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;position:relative;overflow:hidden;
+}
+.stat-label{font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--slate-soft);font-weight:600;}
+.stat-value{font-family:'Fraunces',serif;font-size:28px;font-weight:600;margin-top:6px;}
+.stat-sub{font-size:12px;color:var(--slate-soft);margin-top:4px;}
+.stat-accent{position:absolute;left:0;top:0;bottom:0;width:4px;}
+
+/* ===== Forms ===== */
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 16px;}
+.form-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.form-field{display:flex;flex-direction:column;gap:5px;}
+.form-field.span-2{grid-column:span 2;}
+.form-field label{font-size:12px;font-weight:600;color:var(--slate);}
+.form-field .hint{font-size:11px;color:var(--slate-soft);font-weight:400;}
+.form-field input[type=text],
+.form-field input[type=number],
+.form-field input[type=date],
+.form-field input[type=email],
+.form-field input[type=tel],
+.form-field input[type=password],
+.form-field select,
+.form-field textarea{
+  padding:9px 11px;border:1px solid var(--line);border-radius:7px;
+  font-size:13.5px;background:var(--paper-raised);color:var(--ink);
+  outline:none;transition:border-color .12s;
+}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--moss);}
+.form-field textarea{resize:vertical;min-height:70px;}
+.file-drop{
+  border:1.5px dashed var(--line);border-radius:8px;padding:16px;text-align:center;
+  font-size:12.5px;color:var(--slate-soft);background:var(--paper);cursor:pointer;
+}
+.file-drop:hover{border-color:var(--moss);}
+.file-drop img{max-height:80px;border-radius:6px;margin-bottom:6px;}
+
+/* ===== Table ===== */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{
+  text-align:left;padding:10px 14px;font-size:11px;text-transform:uppercase;
+  letter-spacing:0.05em;color:var(--slate-soft);font-weight:600;
+  border-bottom:1px solid var(--line);background:var(--paper);white-space:nowrap;
+}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap;}
+tbody tr:hover{background:var(--paper);}
+tbody tr:last-child td{border-bottom:none;}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
+  font-size:11px;font-weight:600;
+}
+.badge-green{background:var(--moss-tint);color:var(--moss-deep);}
+.badge-gold{background:var(--gold-tint);color:#8a6318;}
+.badge-red{background:var(--red-tint);color:var(--red);}
+.badge-slate{background:var(--paper);color:var(--slate-soft);border:1px solid var(--line);}
+
+/* ===== Tabs ===== */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:20px;overflow-x:auto;}
+.tab{
+  padding:10px 16px;font-size:13px;font-weight:600;color:var(--slate-soft);
+  border:none;background:none;border-bottom:2px solid transparent;white-space:nowrap;
+}
+.tab.active{color:var(--moss-deep);border-bottom-color:var(--moss);}
+.tab:hover:not(.active){color:var(--ink);}
+
+/* ===== Modal ===== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(28,37,33,0.5);
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:40px 20px;overflow-y:auto;z-index:100;
+}
+.modal{
+  background:var(--paper-raised);border-radius:var(--radius-lg);width:100%;max-width:680px;
+  box-shadow:var(--shadow-lg);
+}
+.modal.modal-lg{max-width:920px;}
+.modal-head{
+  padding:18px 24px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.modal-head h3{font-size:18px;}
+.modal-close{background:none;border:none;font-size:20px;color:var(--slate-soft);padding:4px;}
+.modal-body{padding:22px 24px;max-height:70vh;overflow-y:auto;}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;}
+
+/* ===== Toast ===== */
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:8px;z-index:200;}
+.toast{
+  background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;
+  box-shadow:var(--shadow-md);display:flex;align-items:center;gap:8px;min-width:220px;
+  animation:toastIn .18s ease;
+}
+.toast.error{background:var(--red);}
+.toast.success{background:var(--moss-deep);}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* ===== Print Templates ===== */
+.print-only{display:none;}
+@media print{
+  .app-shell > .sidebar, .topbar, .no-print{display:none !important;}
+  .content{padding:0;}
+  .print-only{display:block;}
+}
+.doc-preview{
+  background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+  padding:28px;max-width:640px;margin:0 auto;
+}
+
+/* Empty state */
+.empty-state{
+  text-align:center;padding:50px 20px;color:var(--slate-soft);
+}
+.empty-state h4{color:var(--ink);margin-bottom:6px;}
+
+/* Search bar */
+.search-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.search-input{
+  flex:1;min-width:200px;padding:9px 13px;border:1px solid var(--line);border-radius:8px;
+  font-size:13.5px;background:var(--paper-raised);
+}
+.filter-select{
+  padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--paper-raised);
+}
+
+/* Section header */
+.section-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;gap:14px;flex-wrap:wrap;}
+.section-head h2{font-size:22px;}
+.section-head p{font-size:13px;color:var(--slate-soft);margin-top:4px;max-width:520px;}
+
+.id-card-preview{
+  width:320px;border-radius:14px;overflow:hidden;box-shadow:var(--shadow-md);
+  background:#fff;border:1px solid var(--line);
+}
+.id-card-head{background:var(--moss-deep);color:#fff;padding:14px 16px;text-align:center;}
+.id-card-photo{
+  width:88px;height:88px;border-radius:10px;background:var(--paper);margin:14px auto 8px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid var(--line);
+}
+.id-card-photo img{width:100%;height:100%;object-fit:cover;}
+
+.kv-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;}
+.kv-row:last-child{border-bottom:none;}
+.kv-row .k{color:var(--slate-soft);}
+.kv-row .v{font-weight:600;}
+
+.link-btn{background:none;border:none;color:var(--moss);font-weight:600;font-size:12.5px;padding:0;}
+.link-btn:hover{text-decoration:underline;}
+
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;background:var(--paper);border:1px solid var(--line);cursor:pointer;}
+.chip.active{background:var(--moss);color:#fff;border-color:var(--moss);}
+
+.loading-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;
+  background:var(--paper);
+}
+.spinner{
+  width:32px;height:32px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--moss);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } = React;
+
+/* =========================================================
+   CONFIG / SETTINGS STORAGE (localStorage — client config only,
+   never used for school records, per storage rules)
+   ========================================================= */
+// ↓↓↓ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↓↓↓
+const DEFAULT_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyzJFfLWt1MhBP0vkK_xpBH5X5XIuCirxRUr3cqD8XGFh_iTEh5AbVf04eRjk11C7D3/exec";
+const DEFAULT_SCHOOL_NAME = "হোসেনপুরস স্বতন্ত্র ইবতেদায়ী মাদরাসা";
+// ↑↑↑ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↑↑↑
+
+const CONFIG_KEY = "sms_config_v1";
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // if a URL was hardcoded above and nothing saved yet in this browser, prefer the hardcoded one
+      if (!saved.sheetsUrl && DEFAULT_SHEETS_URL && !DEFAULT_SHEETS_URL.startsWith("PASTE_")) {
+        saved.sheetsUrl = DEFAULT_SHEETS_URL;
+      }
+      return saved;
+    }
+  } catch (e) {}
+  return {
+    sheetsUrl: DEFAULT_SHEETS_URL.startsWith("PASTE_") ? "" : DEFAULT_SHEETS_URL,
+    schoolName: DEFAULT_SCHOOL_NAME,
+  };
+}
+function saveConfig(cfg) {
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+}
+
+/* =========================================================
+   GOOGLE SHEETS API CLIENT
+   ========================================================= */
+async function sheetsCall(config, payload) {
+  if (!config.sheetsUrl) throw new Error("NO_URL");
+  const res = await fetch(config.sheetsUrl, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("HTTP_" + res.status);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+const SheetsAPI = {
+  list: (config, sheet) => sheetsCall(config, { action: "list", sheet }),
+  bulkGet: (config, sheets) => sheetsCall(config, { action: "bulkGet", sheets: sheets.join(",") }),
+  upsert: (config, sheet, row) => sheetsCall(config, { action: "upsert", sheet, row }),
+  remove: (config, sheet, id) => sheetsCall(config, { action: "delete", sheet, id }),
+};
+
+/* =========================================================
+   FILE HANDLING — simplified, no GitHub API/token required.
+   Workflow: user uploads the file to their GitHub repo manually
+   (drag & drop on github.com), then pastes the resulting link here.
+   As a fallback, small images can be embedded directly (base64).
+   ========================================================= */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* =========================================================
+   TOAST SYSTEM
+   ========================================================= */
+const ToastContext = createContext(null);
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const push = useCallback((message, type = "default") => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((t) => [...t, { id, message, type }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3400);
+  }, []);
+  return (
+    <ToastContext.Provider value={push}>
+      {children}
+      <div className="toast-stack no-print">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast ${t.type}`}>{t.message}</div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+function useToast() { return useContext(ToastContext); }
+
+/* =========================================================
+   ICONS (inline SVG, minimal line set)
+   ========================================================= */
+const Icon = {
+  dashboard: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>,
+  students: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M22 10L12 5 2 10l10 5 10-5Z"/><path d="M6 12.5V17c0 1.5 3 3 6 3s6-1.5 6-3v-4.5"/></svg>,
+  teachers: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>,
+  finance: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5a2.5 2.5 0 0 1 2.5-1.5c1.5 0 2.5.8 2.5 2s-1 1.5-2.5 2-2.5.8-2.5 2 1 2 2.5 2a2.5 2.5 0 0 0 2.5-1.5"/></svg>,
+  due: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>,
+  fee: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M20 6H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1Z"/><path d="M3 10h18M7 15h4"/></svg>,
+  committee: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.6"/><path d="M2 20c0-3 2.7-5 6-5s6 2 6 5M14.5 15.2c2.7.3 4.5 2 4.5 4.8"/></svg>,
+  reports: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M4 19V5a1 1 0 0 1 1-1h9l6 6v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/><path d="M14 4v5a1 1 0 0 0 1 1h5M8 13h8M8 16.5h5"/></svg>,
+  settings: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.32.5.7 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>,
+  plus: (p)=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" {...p}><path d="M12 5v14M5 12h14"/></svg>,
+  search: (p)=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>,
+  print: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2M6 14h12v7H6z"/></svg>,
+  download: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>,
+  edit: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>,
+  trash: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/></svg>,
+  x: (p)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M18 6 6 18M6 6l12 12"/></svg>,
+  check: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" {...p}><path d="M20 6 9 17l-5-5"/></svg>,
+  chevronDown: (p)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" {...p}><path d="m6 9 6 6 6-6"/></svg>,
+  refresh: (p)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>,
+};
+
+function IconWrap({ name, ...rest }) {
+  const C = Icon[name];
+  return C ? <C {...rest} /> : null;
+}
+
+/* =========================================================
+   DATA STORE — central hook wrapping Google Sheets as DB
+   Collections: students, teachers, finance, fees, committee, seatplans
+   ========================================================= */
+const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans"];
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function useDataStore(config) {
+  const [data, setData] = useState({ students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [] });
+  const [status, setStatus] = useState("idle"); // idle | loading | ready | error | offline
+  const toast = useToast();
+
+  const refresh = useCallback(async () => {
+    if (!config.sheetsUrl) { setStatus("offline"); return; }
+    setStatus("loading");
+    try {
+      const res = await SheetsAPI.bulkGet(config, COLLECTIONS.map(c => SHEET_MAP[c]));
+      const mapped = {};
+      COLLECTIONS.forEach(c => { mapped[c] = res.data[SHEET_MAP[c]] || []; });
+      setData(mapped);
+      setStatus("ready");
+    } catch (err) {
+      console.error(err);
+      setStatus("error");
+      toast && toast("Couldn't reach Google Sheets. Check Settings.", "error");
+    }
+  }, [config.sheetsUrl]);
+
+  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [config.sheetsUrl]);
+
+  const save = useCallback(async (collection, record) => {
+    const sheet = SHEET_MAP[collection];
+    const withId = record.id ? record : { ...record, id: uid() };
+    // optimistic update
+    setData((d) => {
+      const list = d[collection] || [];
+      const idx = list.findIndex((r) => r.id === withId.id);
+      const next = idx > -1 ? list.map((r, i) => (i === idx ? { ...r, ...withId } : r)) : [withId, ...list];
+      return { ...d, [collection]: next };
+    });
+    if (!config.sheetsUrl) { toast && toast("Saved locally (offline mode)"); return withId; }
+    try {
+      await SheetsAPI.upsert(config, sheet, withId);
+      toast && toast("Saved", "success");
+    } catch (err) {
+      toast && toast("Save failed — will retry on refresh", "error");
+    }
+    return withId;
+  }, [config.sheetsUrl]);
+
+  const remove = useCallback(async (collection, id) => {
+    const sheet = SHEET_MAP[collection];
+    setData((d) => ({ ...d, [collection]: (d[collection] || []).filter((r) => r.id !== id) }));
+    if (!config.sheetsUrl) return;
+    try {
+      await SheetsAPI.remove(config, sheet, id);
+      toast && toast("Deleted", "success");
+    } catch (err) {
+      toast && toast("Delete failed on server", "error");
+    }
+  }, [config.sheetsUrl]);
+
+  return { data, status, refresh, save, remove };
+}
+
+const SHEET_MAP = {
+  students: "Students",
+  teachers: "Teachers",
+  finance: "Finance",
+  fees: "MasterFees",
+  committee: "Committee",
+  seatplans: "SeatPlans",
+};
+
+/* =========================================================
+   SHARED UI PRIMITIVES
+   ========================================================= */
+function Modal({ title, onClose, children, footer, size }) {
+  return (
+    <div className="modal-overlay no-print" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={`modal ${size === "lg" ? "modal-lg" : ""}`}>
+        <div className="modal-head">
+          <h3>{title}</h3>
+          <button className="modal-close" onClick={onClose}><Icon.x /></button>
+        </div>
+        <div className="modal-body">{children}</div>
+        {footer && <div className="modal-foot">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, hint, span2, children }) {
+  return (
+    <div className={`form-field ${span2 ? "span-2" : ""}`}>
+      <label>{label} {hint && <span className="hint">{hint}</span>}</label>
+      {children}
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, accent }) {
+  return (
+    <div className="stat-card">
+      <div className="stat-accent" style={{ background: accent || "var(--moss)" }} />
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{value}</div>
+      {sub && <div className="stat-sub">{sub}</div>}
+    </div>
+  );
+}
+
+function EmptyState({ title, sub, action }) {
+  return (
+    <div className="empty-state">
+      <h4>{title}</h4>
+      <p style={{ fontSize: 13 }}>{sub}</p>
+      {action}
+    </div>
+  );
+}
+
+function money(n) {
+  const num = Number(n) || 0;
+  return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function fmtDate(d) {
+  if (!d) return "—";
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    return dt.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  } catch (e) { return d; }
+}
+
+function FileUploadField({ label, folder, onUploaded, config, existingUrl }) {
+  const toast = useToast();
+  const [preview, setPreview] = useState(existingUrl || "");
+  const inputRef = useRef();
+
+  function handleLinkChange(e) {
+    const val = e.target.value;
+    setPreview(val);
+    onUploaded(val);
+  }
+
+  async function handleEmbed(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const base64 = await fileToBase64(file);
+      const dataUrl = `data:${file.type};base64,${base64}`;
+      setPreview(dataUrl);
+      onUploaded(dataUrl);
+      toast && toast("Photo embedded (no link needed)");
+    } catch (err) {
+      toast && toast("Couldn't read file: " + err.message, "error");
+    }
+  }
+
+  return (
+    <div className="form-field span-2">
+      <label>{label}</label>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          type="text"
+          placeholder={`Paste GitHub (or any) link here — e.g. after uploading to /${folder} on GitHub`}
+          value={preview.startsWith("data:") ? "" : preview}
+          onChange={handleLinkChange}
+          style={{ flex: 1 }}
+        />
+        <button type="button" className="btn btn-sm" onClick={() => inputRef.current.click()}>
+          Or embed a file
+        </button>
+      </div>
+      <input ref={inputRef} type="file" style={{ display: "none" }} onChange={handleEmbed} accept="image/*,.pdf" />
+      {preview && (
+        <div className="file-drop" style={{ marginTop: 8, cursor: "default" }}>
+          {preview.startsWith("data:image") || /\.(png|jpg|jpeg|webp|gif)$/i.test(preview) ? (
+            <img src={preview} alt="" onError={(e) => { e.target.style.display = "none"; }} />
+          ) : null}
+          <div style={{ wordBreak: "break-all", fontSize: 11.5 }}>{preview.startsWith("data:") ? "Embedded file attached" : preview}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   DOMAIN CONSTANTS
+   ========================================================= */
+const CLASSES = ["Play", "Nursery", "KG", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+const SECTIONS = ["A", "B", "C", "D"];
+const GENDERS = ["Male", "Female", "Other"];
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const DESIGNATIONS = ["Principal", "Vice Principal", "Senior Teacher", "Assistant Teacher", "Librarian", "Accountant", "Office Staff", "Lab Assistant", "Peon/Support Staff"];
+const SUBJECTS = ["Bangla", "English", "Mathematics", "Science", "Social Science", "Religion", "ICT", "Physical Education", "Arts", "General"];
+const INCOME_HEADS = ["Admission Fee", "Tuition Fee", "Exam Fee", "Session Fee", "Transport Fee", "Hostel Fee", "Donation", "Other Income"];
+const EXPENSE_HEADS = ["Salary", "Utility Bill", "Rent", "Maintenance", "Stationery", "Transport", "Furniture", "Event/Function", "Other Expense"];
+const PAYMENT_METHODS = ["Cash", "Bank Transfer", "Mobile Banking (bKash/Nagad)", "Cheque"];
+
+function ConnectionBanner({ config, onOpenSettings }) {
+  if (config.sheetsUrl) return null;
+  return (
+    <div className="card no-print" style={{ marginBottom: 18, borderColor: "var(--gold)", background: "var(--gold-tint)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <strong>Running in offline/local mode.</strong>
+          <div style={{ fontSize: 13, color: "var(--slate)", marginTop: 3 }}>
+            Connect your Google Sheets backend to save data permanently and sync across devices.
+          </div>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={onOpenSettings}>Connect Google Sheets</button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   DERIVED / COMPUTED HELPERS (dues, totals)
+   ========================================================= */
+function studentDue(student) {
+  const totalFee = Number(student.totalFee) || 0;
+  const paid = Number(student.paidAmount) || 0;
+  return Math.max(0, totalFee - paid);
+}
+function teacherDue(teacher) {
+  const totalSalary = (Number(teacher.basicSalary) || 0) + (Number(teacher.allowance) || 0);
+  const paid = Number(teacher.paidAmount) || 0;
+  return Math.max(0, totalSalary - paid);
+}
+function sumBy(arr, fn) { return arr.reduce((s, x) => s + (Number(fn(x)) || 0), 0); }
+
+function withinRange(dateStr, range) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  if (range === "daily") {
+    return d.toDateString() === now.toDateString();
+  }
+  if (range === "monthly") {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  if (range === "yearly") {
+    return d.getFullYear() === now.getFullYear();
+  }
+  return true;
+}
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+function Dashboard({ data, setActiveModule }) {
+  const students = data.students || [];
+  const teachers = data.teachers || [];
+  const finance = data.finance || [];
+
+  const totalIncome = sumBy(finance.filter(f => f.type === "income"), f => f.amount);
+  const totalExpense = sumBy(finance.filter(f => f.type === "expense"), f => f.amount);
+  const studentDueTotal = sumBy(students, studentDue);
+  const teacherDueTotal = sumBy(teachers, teacherDue);
+
+  const monthIncome = sumBy(finance.filter(f => f.type === "income" && withinRange(f.date, "monthly")), f => f.amount);
+  const monthExpense = sumBy(finance.filter(f => f.type === "expense" && withinRange(f.date, "monthly")), f => f.amount);
+
+  const classCounts = {};
+  students.forEach(s => { classCounts[s.className] = (classCounts[s.className] || 0) + 1; });
+
+  const recentFinance = [...finance].sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)).slice(0, 6);
+
+  return (
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Dashboard</h2>
+          <p>A live snapshot of enrollment, staffing, and finances across your institution.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-4" style={{ marginBottom: 20 }}>
+        <StatCard label="Total Students" value={students.length} sub={`${Object.keys(classCounts).length} active classes`} accent="var(--moss)" />
+        <StatCard label="Total Teachers & Staff" value={teachers.length} sub="Active roster" accent="var(--clay)" />
+        <StatCard label="This Month's Income" value={"৳" + money(monthIncome)} sub={`All-time: ৳${money(totalIncome)}`} accent="var(--gold)" />
+        <StatCard label="This Month's Expense" value={"৳" + money(monthExpense)} sub={`All-time: ৳${money(totalExpense)}`} accent="var(--red)" />
+      </div>
+
+      <div className="grid grid-2" style={{ marginBottom: 20 }}>
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <h3 style={{ fontSize: 15 }}>Outstanding Dues</h3>
+            <button className="link-btn" onClick={() => setActiveModule("due")}>View all →</button>
+          </div>
+          <div className="kv-row"><span className="k">Student fee dues</span><span className="v" style={{ color: "var(--red)" }}>৳{money(studentDueTotal)}</span></div>
+          <div className="kv-row"><span className="k">Teacher salary dues</span><span className="v" style={{ color: "var(--red)" }}>৳{money(teacherDueTotal)}</span></div>
+          <div className="kv-row"><span className="k">Total outstanding</span><span className="v">৳{money(studentDueTotal + teacherDueTotal)}</span></div>
+        </div>
+
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <h3 style={{ fontSize: 15 }}>Students by Class</h3>
+            <button className="link-btn" onClick={() => setActiveModule("students")}>Manage →</button>
+          </div>
+          {Object.keys(classCounts).length === 0 ? (
+            <EmptyState title="No students yet" sub="Add your first student to see class-wise distribution." />
+          ) : (
+            CLASSES.filter(c => classCounts[c]).map(c => (
+              <div className="kv-row" key={c}><span className="k">{c}</span><span className="v">{classCounts[c]} students</span></div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h3 style={{ fontSize: 15 }}>Recent Transactions</h3>
+          <button className="link-btn" onClick={() => setActiveModule("finance")}>View finance →</button>
+        </div>
+        {recentFinance.length === 0 ? (
+          <EmptyState title="No transactions recorded" sub="Income and expense entries will appear here." />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Type</th><th>Head</th><th>Description</th><th>Amount</th></tr></thead>
+              <tbody>
+                {recentFinance.map(f => (
+                  <tr key={f.id}>
+                    <td>{fmtDate(f.date)}</td>
+                    <td><span className={`badge ${f.type === "income" ? "badge-green" : "badge-red"}`}>{f.type}</span></td>
+                    <td>{f.head}</td>
+                    <td>{f.description || "—"}</td>
+                    <td className="mono">৳{money(f.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   STUDENTS MODULE
+   ========================================================= */
+const emptyStudent = () => ({
+  id: null, name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
+  className: "One", section: "A", roll: "", admissionDate: new Date().toISOString().slice(0,10),
+  bloodGroup: "", phone: "", guardianPhone: "", address: "", photoUrl: "",
+  totalFee: "", paidAmount: "", status: "Active",
+});
+
+function StudentsModule({ data, save, remove, config }) {
+  const [tab, setTab] = useState("list");
+  const [editing, setEditing] = useState(null);
+  const [query, setQuery] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [docTarget, setDocTarget] = useState(null); // { type: 'id'|'invoice'|'admit'|'seat', student }
+  const toast = useToast();
+
+  const students = data.students || [];
+  const filtered = students.filter(s => {
+    const matchQ = !query || (s.name || "").toLowerCase().includes(query.toLowerCase()) || (s.roll || "").toLowerCase().includes(query.toLowerCase());
+    const matchC = !classFilter || s.className === classFilter;
+    return matchQ && matchC;
+  });
+
+  function openNew() { setEditing(emptyStudent()); }
+  function openEdit(s) { setEditing({ ...s }); }
+  async function handleSave(record) {
+    await save("students", record);
+    setEditing(null);
+  }
+
+  return (
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Students</h2>
+          <p>Admissions, ID cards, invoices, admit cards, seat plans, and class-wise records.</p>
+        </div>
+        <button className="btn btn-primary" onClick={openNew}><Icon.plus />New Admission</button>
+      </div>
+
+      <div className="tabs no-print">
+        <button className={`tab ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>Class-wise List</button>
+        <button className={`tab ${tab === "idcard" ? "active" : ""}`} onClick={() => setTab("idcard")}>ID Cards</button>
+        <button className={`tab ${tab === "invoice" ? "active" : ""}`} onClick={() => setTab("invoice")}>Fee Invoice</button>
+        <button className={`tab ${tab === "admit" ? "active" : ""}`} onClick={() => setTab("admit")}>Admit Card</button>
+        <button className={`tab ${tab === "seat" ? "active" : ""}`} onClick={() => setTab("seat")}>Seat Plan</button>
+      </div>
+
+      {tab === "list" && (
+        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
+          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} />
+      )}
+      {tab === "idcard" && <StudentPicker students={students} label="Select student for ID Card" onPick={(s) => setDocTarget({ type: "id", student: s })} />}
+      {tab === "invoice" && <StudentPicker students={students} label="Select student for Fee Invoice" onPick={(s) => setDocTarget({ type: "invoice", student: s })} />}
+      {tab === "admit" && <StudentPicker students={students} label="Select student for Admit Card" onPick={(s) => setDocTarget({ type: "admit", student: s })} />}
+      {tab === "seat" && <SeatPlanTab data={data} save={save} />}
+
+      {editing && (
+        <StudentFormModal student={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
+      )}
+      {docTarget && docTarget.type === "id" && <StudentIdCardModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "admit" && <StudentAdmitCardModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
+    </div>
+  );
+}
+
+function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc }) {
+  return (
+    <div className="card card-flush">
+      <div style={{ padding: "16px 18px 0" }}>
+        <div className="search-row">
+          <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+            <input className="search-input" placeholder="Search by name or roll…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+            <option value="">All Classes</option>
+            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      </div>
+      {students.length === 0 ? (
+        <EmptyState title="No students found" sub="Try adjusting filters, or add a new admission." />
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Roll</th><th>Name</th><th>Class</th><th>Section</th><th>Guardian Phone</th><th>Fee Due</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              {students.map(s => {
+                const due = studentDue(s);
+                return (
+                  <tr key={s.id}>
+                    <td className="mono">{s.roll || "—"}</td>
+                    <td>{s.name}</td>
+                    <td>{s.className}</td>
+                    <td>{s.section}</td>
+                    <td>{s.guardianPhone || "—"}</td>
+                    <td>{due > 0 ? <span className="badge badge-red">৳{money(due)}</span> : <span className="badge badge-green">Paid</span>}</td>
+                    <td><span className={`badge ${s.status === "Active" ? "badge-green" : "badge-slate"}`}>{s.status || "Active"}</span></td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="ID Card" onClick={() => onOpenDoc({ type: "id", student: s })}><Icon.students /></button>
+                        <button className="btn btn-sm btn-icon" title="Invoice" onClick={() => onOpenDoc({ type: "invoice", student: s })}><Icon.fee /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}?`)) onDelete(s.id); }}><Icon.trash /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudentPicker({ students, label, onPick }) {
+  const [q, setQ] = useState("");
+  const filtered = students.filter(s => !q || (s.name || "").toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="card">
+      <Field label={label}>
+        <input className="search-input" placeholder="Type student name…" value={q} onChange={(e) => setQ(e.target.value)} />
+      </Field>
+      <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {filtered.slice(0, 30).map(s => (
+          <button key={s.id} className="chip" onClick={() => onPick(s)}>{s.name} · {s.className}{s.section}</button>
+        ))}
+        {students.length === 0 && <EmptyState title="No students yet" sub="Add an admission first." />}
+      </div>
+    </div>
+  );
+}
+
+function StudentFormModal({ student, onClose, onSave, config }) {
+  const [form, setForm] = useState(student);
+  const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
+  return (
+    <Modal title={student.id ? "Edit Student" : "New Admission"} onClose={onClose} size="lg"
+      footer={<>
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={() => onSave(form)}>Save Student</button>
+      </>}>
+      <div className="form-grid">
+        <Field label="Full Name" span2><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
+        <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
+        <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
+        <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
+        <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
+        <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Roll Number"><input type="text" value={form.roll} onChange={set("roll")} /></Field>
+        <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
+        <Field label="Blood Group"><select value={form.bloodGroup} onChange={set("bloodGroup")}><option value="">—</option>{BLOOD_GROUPS.map(b => <option key={b}>{b}</option>)}</select></Field>
+        <Field label="Student Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
+        <Field label="Guardian Phone"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
+        <Field label="Address" span2><textarea value={form.address} onChange={set("address")} /></Field>
+        <Field label="Total Fee (Annual/Session)"><input type="number" value={form.totalFee} onChange={set("totalFee")} /></Field>
+        <Field label="Paid Amount"><input type="number" value={form.paidAmount} onChange={set("paidAmount")} /></Field>
+        <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option><option>Graduated</option></select></Field>
+        <FileUploadField label="Student Photo" folder="students" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+      </div>
+    </Modal>
+  );
+}
+
+function DocShell({ title, onClose, children, filename }) {
+  function handlePrint() { window.print(); }
+  function handleDownloadPdf() {
+    const node = document.getElementById("doc-capture-area");
+    if (!node || !window.jspdf) { window.print(); return; }
+    const { jsPDF } = window.jspdf;
+    // Simple text-based fallback isn't ideal for styled content; use print dialog as primary path.
+    window.print();
+  }
+  return (
+    <Modal title={title} onClose={onClose} size="lg"
+      footer={<>
+        <button className="btn" onClick={onClose}>Close</button>
+        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print / Save as PDF</button>
+      </>}>
+      <div id="doc-capture-area">{children}</div>
+    </Modal>
+  );
+}
+
+function StudentIdCardModal({ student, config, onClose }) {
+  return (
+    <DocShell title={`ID Card — ${student.name}`} onClose={onClose}>
+      <div style={{ display: "flex", justifyContent: "center", padding: "10px 0" }}>
+        <div className="id-card-preview">
+          <div className="id-card-head">
+            <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>{config.schoolName || "School Name"}</div>
+            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 15, marginTop: 2 }}>Student Identity Card</div>
+          </div>
+          <div className="id-card-photo">
+            {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={30} height={30} />}
+          </div>
+          <div style={{ textAlign: "center", padding: "0 16px 16px" }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{student.name}</div>
+            <div style={{ fontSize: 12, color: "var(--slate-soft)", marginBottom: 10 }}>Class {student.className} — Section {student.section}</div>
+            <div className="kv-row"><span className="k">Roll</span><span className="v">{student.roll || "—"}</span></div>
+            <div className="kv-row"><span className="k">Blood Group</span><span className="v">{student.bloodGroup || "—"}</span></div>
+            <div className="kv-row"><span className="k">Guardian</span><span className="v">{student.guardianPhone || "—"}</span></div>
+            <div className="kv-row"><span className="k">DOB</span><span className="v">{fmtDate(student.dob)}</span></div>
+          </div>
+        </div>
+      </div>
+    </DocShell>
+  );
+}
+
+function StudentInvoiceModal({ student, config, onClose }) {
+  const due = studentDue(student);
+  const invNo = "INV-" + (student.roll || student.id.slice(0,6)).toUpperCase();
+  return (
+    <DocShell title={`Fee Invoice — ${student.name}`} onClose={onClose}>
+      <div className="doc-preview">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
+          <div>
+            <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
+            <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>Fee Invoice</div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 12.5 }}>
+            <div>Invoice No: <strong className="mono">{invNo}</strong></div>
+            <div>Date: {fmtDate(new Date().toISOString())}</div>
+          </div>
+        </div>
+        <div className="grid grid-2" style={{ marginBottom: 18 }}>
+          <div className="kv-row"><span className="k">Student</span><span className="v">{student.name}</span></div>
+          <div className="kv-row"><span className="k">Class / Section</span><span className="v">{student.className} — {student.section}</span></div>
+          <div className="kv-row"><span className="k">Roll</span><span className="v">{student.roll || "—"}</span></div>
+          <div className="kv-row"><span className="k">Guardian</span><span className="v">{student.guardianPhone || "—"}</span></div>
+        </div>
+        <table style={{ width: "100%", marginBottom: 16 }}>
+          <thead><tr><th>Description</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
+          <tbody>
+            <tr><td>Total Fee (Session)</td><td style={{ textAlign: "right" }} className="mono">৳{money(student.totalFee)}</td></tr>
+            <tr><td>Amount Paid</td><td style={{ textAlign: "right" }} className="mono">৳{money(student.paidAmount)}</td></tr>
+          </tbody>
+        </table>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ minWidth: 220 }}>
+            <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v" style={{ color: due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(due)}</span></div>
+          </div>
+        </div>
+        <div style={{ marginTop: 30, fontSize: 11, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
+      </div>
+    </DocShell>
+  );
+}
+
+function StudentAdmitCardModal({ student, config, onClose }) {
+  return (
+    <DocShell title={`Admit Card — ${student.name}`} onClose={onClose}>
+      <div className="doc-preview">
+        <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
+          <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
+          <div style={{ fontSize: 12, color: "var(--slate-soft)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>Examination Admit Card</div>
+        </div>
+        <div style={{ display: "flex", gap: 20 }}>
+          <div className="id-card-photo" style={{ margin: 0, flexShrink: 0 }}>
+            {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={30} height={30} />}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="kv-row"><span className="k">Name</span><span className="v">{student.name}</span></div>
+            <div className="kv-row"><span className="k">Father's Name</span><span className="v">{student.fatherName || "—"}</span></div>
+            <div className="kv-row"><span className="k">Class / Section</span><span className="v">{student.className} — {student.section}</span></div>
+            <div className="kv-row"><span className="k">Roll No.</span><span className="v">{student.roll || "—"}</span></div>
+          </div>
+        </div>
+        <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>Valid only with school seal & signature.</div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 50 }}>
+          <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 150, textAlign: "center" }}>Class Teacher</div>
+          <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 150, textAlign: "center" }}>Head Teacher / Principal</div>
+        </div>
+      </div>
+    </DocShell>
+  );
+}
+
+function SeatPlanTab({ data, save }) {
+  const [form, setForm] = useState({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" });
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const plans = data.seatplans || [];
+
+  return (
+    <div>
+      <div className="grid grid-2" style={{ alignItems: "start" }}>
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 14 }}>Create Seat Plan</h3>
+          <div className="form-grid">
+            <Field label="Exam Name" span2><input type="text" value={form.examName} onChange={set("examName")} placeholder="e.g. Half-Yearly Exam 2026" /></Field>
+            <Field label="Room / Hall No."><input type="text" value={form.room} onChange={set("room")} /></Field>
+            <Field label="Capacity"><input type="number" value={form.capacity} onChange={set("capacity")} /></Field>
+            <Field label="Class"><select value={form.className} onChange={set("className")}><option value="">—</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+            <Field label="Section"><select value={form.section} onChange={set("section")}><option value="">—</option>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+            <Field label="Roll Range From"><input type="text" value={form.rangeFrom} onChange={set("rangeFrom")} /></Field>
+            <Field label="Roll Range To"><input type="text" value={form.rangeTo} onChange={set("rangeTo")} /></Field>
+          </div>
+          <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={async () => { await save("seatplans", form); setForm({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" }); }}>Save Seat Plan</button>
+        </div>
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 14 }}>Saved Seat Plans</h3>
+          {plans.length === 0 ? <EmptyState title="No seat plans yet" sub="Create one on the left." /> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {plans.map(p => (
+                <div key={p.id} className="kv-row" style={{ display: "block" }}>
+                  <strong>{p.examName}</strong> — Room {p.room}
+                  <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>{p.className} {p.section} · Roll {p.rangeFrom}–{p.rangeTo} · Capacity {p.capacity}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   TEACHERS MODULE
+   ========================================================= */
+const emptyTeacher = () => ({
+  id: null, name: "", designation: "Assistant Teacher", subject: "", joinDate: new Date().toISOString().slice(0,10),
+  phone: "", email: "", address: "", nid: "", photoUrl: "",
+  basicSalary: "", allowance: "", paidAmount: "", status: "Active", resignDate: "",
+});
+
+function TeachersModule({ data, save, remove, config }) {
+  const [tab, setTab] = useState("list");
+  const [editing, setEditing] = useState(null);
+  const [query, setQuery] = useState("");
+  const [docTarget, setDocTarget] = useState(null);
+  const teachers = data.teachers || [];
+  const filtered = teachers.filter(t => !query || (t.name || "").toLowerCase().includes(query.toLowerCase()));
+
+  function openNew() { setEditing(emptyTeacher()); }
+  async function handleSave(record) { await save("teachers", record); setEditing(null); }
+
+  return (
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Teachers & Staff</h2>
+          <p>Manage staff records, letters, ID cards, salary invoices, and dues.</p>
+        </div>
+        <button className="btn btn-primary" onClick={openNew}><Icon.plus />Add Staff</button>
+      </div>
+
+      <div className="tabs no-print">
+        <button className={`tab ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>Staff List</button>
+        <button className={`tab ${tab === "letter" ? "active" : ""}`} onClick={() => setTab("letter")}>Join / Resign Letter</button>
+        <button className={`tab ${tab === "idcard" ? "active" : ""}`} onClick={() => setTab("idcard")}>ID Card</button>
+        <button className={`tab ${tab === "salary" ? "active" : ""}`} onClick={() => setTab("salary")}>Salary Invoice</button>
+      </div>
+
+      {tab === "list" && (
+        <div className="card card-flush">
+          <div style={{ padding: "16px 18px 0" }}>
+            <div className="search-row">
+              <input className="search-input" placeholder="Search staff…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+          </div>
+          {filtered.length === 0 ? <EmptyState title="No staff records" sub="Add your first staff member." /> : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Name</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  {filtered.map(t => {
+                    const due = teacherDue(t);
+                    return (
+                      <tr key={t.id}>
+                        <td>{t.name}</td>
+                        <td>{t.designation}</td>
+                        <td>{t.subject || "—"}</td>
+                        <td>{t.phone || "—"}</td>
+                        <td>{due > 0 ? <span className="badge badge-red">৳{money(due)}</span> : <span className="badge badge-green">Cleared</span>}</td>
+                        <td><span className={`badge ${t.status === "Active" ? "badge-green" : "badge-slate"}`}>{t.status}</span></td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...t })}><Icon.edit /></button>
+                            <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${t.name}?`)) remove("teachers", t.id); }}><Icon.trash /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+      {tab === "letter" && <TeacherPicker teachers={teachers} label="Select staff for Join / Resign Letter" onPick={(t) => setDocTarget({ type: "letter", teacher: t })} />}
+      {tab === "idcard" && <TeacherPicker teachers={teachers} label="Select staff for ID Card" onPick={(t) => setDocTarget({ type: "id", teacher: t })} />}
+      {tab === "salary" && <TeacherPicker teachers={teachers} label="Select staff for Salary Invoice" onPick={(t) => setDocTarget({ type: "salary", teacher: t })} />}
+
+      {editing && <TeacherFormModal teacher={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} />}
+      {docTarget && docTarget.type === "letter" && <TeacherLetterModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "id" && <TeacherIdCardModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "salary" && <TeacherSalaryInvoiceModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
+    </div>
+  );
+}
+
+function TeacherPicker({ teachers, label, onPick }) {
+  const [q, setQ] = useState("");
+  const filtered = teachers.filter(t => !q || (t.name || "").toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="card">
+      <Field label={label}><input className="search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type staff name…" /></Field>
+      <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {filtered.map(t => <button key={t.id} className="chip" onClick={() => onPick(t)}>{t.name} · {t.designation}</button>)}
+        {teachers.length === 0 && <EmptyState title="No staff yet" sub="Add a staff member first." />}
+      </div>
+    </div>
+  );
+}
+
+function TeacherFormModal({ teacher, onClose, onSave, config }) {
+  const [form, setForm] = useState(teacher);
+  const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
+  return (
+    <Modal title={teacher.id ? "Edit Staff" : "Add Staff"} onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
+      <div className="form-grid">
+        <Field label="Full Name" span2><input type="text" value={form.name} onChange={set("name")} /></Field>
+        <Field label="Designation"><select value={form.designation} onChange={set("designation")}>{DESIGNATIONS.map(d => <option key={d}>{d}</option>)}</select></Field>
+        <Field label="Subject"><select value={form.subject} onChange={set("subject")}><option value="">—</option>{SUBJECTS.map(s => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Join Date"><input type="date" value={form.joinDate} onChange={set("joinDate")} /></Field>
+        <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Resigned</option><option>On Leave</option></select></Field>
+        {form.status === "Resigned" && <Field label="Resign Date"><input type="date" value={form.resignDate} onChange={set("resignDate")} /></Field>}
+        <Field label="Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
+        <Field label="Email"><input type="email" value={form.email} onChange={set("email")} /></Field>
+        <Field label="NID Number"><input type="text" value={form.nid} onChange={set("nid")} /></Field>
+        <Field label="Address" span2><textarea value={form.address} onChange={set("address")} /></Field>
+        <Field label="Basic Salary"><input type="number" value={form.basicSalary} onChange={set("basicSalary")} /></Field>
+        <Field label="Allowance"><input type="number" value={form.allowance} onChange={set("allowance")} /></Field>
+        <Field label="Paid Amount (this cycle)"><input type="number" value={form.paidAmount} onChange={set("paidAmount")} /></Field>
+        <FileUploadField label="Staff Photo" folder="teachers" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+      </div>
+    </Modal>
+  );
+}
+
+function TeacherLetterModal({ teacher, config, onClose }) {
+  const isResign = teacher.status === "Resigned";
+  return (
+    <DocShell title={`${isResign ? "Resignation Acceptance" : "Appointment"} Letter — ${teacher.name}`} onClose={onClose}>
+      <div className="doc-preview" style={{ textAlign: "left", lineHeight: 1.7 }}>
+        <div style={{ textAlign: "center", marginBottom: 22 }}>
+          <h3 style={{ fontSize: 19 }}>{config.schoolName || "School Name"}</h3>
+          <div style={{ fontSize: 11.5, color: "var(--slate-soft)" }}>{fmtDate(new Date().toISOString())}</div>
+        </div>
+        {isResign ? (
+          <>
+            <p><strong>Subject: Acceptance of Resignation</strong></p>
+            <p>Dear {teacher.name},</p>
+            <p>
+              We acknowledge receipt of your resignation as {teacher.designation}, effective {fmtDate(teacher.resignDate) || "the date noted in your letter"}.
+              Your resignation has been accepted, and we thank you for your service and contribution to our institution during your tenure.
+            </p>
+            <p>Please coordinate with the administration office to complete the handover and clearance formalities.</p>
+          </>
+        ) : (
+          <>
+            <p><strong>Subject: Letter of Appointment</strong></p>
+            <p>Dear {teacher.name},</p>
+            <p>
+              We are pleased to confirm your appointment as {teacher.designation}{teacher.subject ? ` (${teacher.subject})` : ""} at our institution,
+              effective from {fmtDate(teacher.joinDate)}. We look forward to your valuable contribution to our school community.
+            </p>
+            <p>Your compensation and other terms of employment will be communicated separately by the administration.</p>
+          </>
+        )}
+        <p style={{ marginTop: 40 }}>Sincerely,</p>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 40 }}>
+          <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 180, textAlign: "center" }}>Authorized Signature</div>
+          <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 180, textAlign: "center" }}>School Seal</div>
+        </div>
+      </div>
+    </DocShell>
+  );
+}
+
+function TeacherIdCardModal({ teacher, config, onClose }) {
+  return (
+    <DocShell title={`ID Card — ${teacher.name}`} onClose={onClose}>
+      <div style={{ display: "flex", justifyContent: "center", padding: "10px 0" }}>
+        <div className="id-card-preview">
+          <div className="id-card-head">
+            <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>{config.schoolName || "School Name"}</div>
+            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 15, marginTop: 2 }}>Staff Identity Card</div>
+          </div>
+          <div className="id-card-photo">
+            {teacher.photoUrl ? <img src={teacher.photoUrl} alt="" /> : <Icon.teachers style={{ opacity: 0.3 }} width={30} height={30} />}
+          </div>
+          <div style={{ textAlign: "center", padding: "0 16px 16px" }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{teacher.name}</div>
+            <div style={{ fontSize: 12, color: "var(--slate-soft)", marginBottom: 10 }}>{teacher.designation}</div>
+            <div className="kv-row"><span className="k">Subject</span><span className="v">{teacher.subject || "—"}</span></div>
+            <div className="kv-row"><span className="k">Phone</span><span className="v">{teacher.phone || "—"}</span></div>
+            <div className="kv-row"><span className="k">Join Date</span><span className="v">{fmtDate(teacher.joinDate)}</span></div>
+          </div>
+        </div>
+      </div>
+    </DocShell>
+  );
+}
+
+function TeacherSalaryInvoiceModal({ teacher, config, onClose }) {
+  const total = (Number(teacher.basicSalary) || 0) + (Number(teacher.allowance) || 0);
+  const due = teacherDue(teacher);
+  return (
+    <DocShell title={`Salary Invoice — ${teacher.name}`} onClose={onClose}>
+      <div className="doc-preview">
+        <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
+          <div>
+            <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
+            <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>Salary & Allowance Invoice</div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 12.5 }}>Date: {fmtDate(new Date().toISOString())}</div>
+        </div>
+        <div className="kv-row"><span className="k">Staff Name</span><span className="v">{teacher.name}</span></div>
+        <div className="kv-row"><span className="k">Designation</span><span className="v">{teacher.designation}</span></div>
+        <table style={{ width: "100%", margin: "16px 0" }}>
+          <thead><tr><th>Component</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
+          <tbody>
+            <tr><td>Basic Salary</td><td style={{ textAlign: "right" }} className="mono">৳{money(teacher.basicSalary)}</td></tr>
+            <tr><td>Allowance</td><td style={{ textAlign: "right" }} className="mono">৳{money(teacher.allowance)}</td></tr>
+            <tr><td><strong>Total Payable</strong></td><td style={{ textAlign: "right" }} className="mono"><strong>৳{money(total)}</strong></td></tr>
+            <tr><td>Paid</td><td style={{ textAlign: "right" }} className="mono">৳{money(teacher.paidAmount)}</td></tr>
+          </tbody>
+        </table>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="kv-row" style={{ fontSize: 15, minWidth: 220 }}><span className="k">Balance Due</span><span className="v" style={{ color: due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(due)}</span></div>
+        </div>
+      </div>
+    </DocShell>
+  );
+}
+
+/* =========================================================
+   FINANCE MODULE — Income Invoice, Expense Voucher
+   ========================================================= */
+const emptyFinance = (type) => ({
+  id: null, type, head: type === "income" ? INCOME_HEADS[0] : EXPENSE_HEADS[0],
+  amount: "", date: new Date().toISOString().slice(0,10), method: "Cash",
+  description: "", receivedFrom: "", paidTo: "", reference: "",
+});
+
+function FinanceModule({ data, save, remove, config }) {
+  const [tab, setTab] = useState("income");
+  const [editing, setEditing] = useState(null);
+  const [docTarget, setDocTarget] = useState(null);
+  const finance = data.finance || [];
+  const list = finance.filter(f => f.type === tab).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  return (
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Finance</h2>
+          <p>Record income invoices and expense vouchers for full financial tracking.</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => setEditing(emptyFinance(tab))}><Icon.plus />New {tab === "income" ? "Income" : "Expense"}</button>
+      </div>
+
+      <div className="tabs no-print">
+        <button className={`tab ${tab === "income" ? "active" : ""}`} onClick={() => setTab("income")}>Income Invoices</button>
+        <button className={`tab ${tab === "expense" ? "active" : ""}`} onClick={() => setTab("expense")}>Expense Vouchers</button>
+      </div>
+
+      <div className="card card-flush">
+        {list.length === 0 ? <EmptyState title={`No ${tab} records`} sub="Add a new entry to get started." /> : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Head</th><th>{tab === "income" ? "Received From" : "Paid To"}</th><th>Method</th><th>Amount</th><th></th></tr></thead>
+              <tbody>
+                {list.map(f => (
+                  <tr key={f.id}>
+                    <td>{fmtDate(f.date)}</td>
+                    <td>{f.head}</td>
+                    <td>{tab === "income" ? (f.receivedFrom || "—") : (f.paidTo || "—")}</td>
+                    <td>{f.method}</td>
+                    <td className="mono">৳{money(f.amount)}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-sm btn-icon" title="View/Print" onClick={() => setDocTarget(f)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...f })}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this record?")) remove("finance", f.id); }}><Icon.trash /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {editing && <FinanceFormModal record={editing} onClose={() => setEditing(null)} onSave={async (r) => { await save("finance", r); setEditing(null); }} />}
+      {docTarget && <FinanceDocModal record={docTarget} config={config} onClose={() => setDocTarget(null)} />}
+    </div>
+  );
+}
+
+function FinanceFormModal({ record, onClose, onSave }) {
+  const [form, setForm] = useState(record);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const heads = form.type === "income" ? INCOME_HEADS : EXPENSE_HEADS;
+  return (
+    <Modal title={`${form.type === "income" ? "Income Invoice" : "Expense Voucher"}`} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
+      <div className="form-grid">
+        <Field label="Head / Category"><select value={form.head} onChange={set("head")}>{heads.map(h => <option key={h}>{h}</option>)}</select></Field>
+        <Field label="Amount"><input type="number" value={form.amount} onChange={set("amount")} /></Field>
+        <Field label="Date"><input type="date" value={form.date} onChange={set("date")} /></Field>
+        <Field label="Payment Method"><select value={form.method} onChange={set("method")}>{PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}</select></Field>
+        {form.type === "income" ? (
+          <Field label="Received From" span2><input type="text" value={form.receivedFrom} onChange={set("receivedFrom")} /></Field>
+        ) : (
+          <Field label="Paid To" span2><input type="text" value={form.paidTo} onChange={set("paidTo")} /></Field>
+        )}
+        <Field label="Reference No."><input type="text" value={form.reference} onChange={set("reference")} /></Field>
+        <Field label="Description" span2><textarea value={form.description} onChange={set("description")} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+function FinanceDocModal({ record, config, onClose }) {
+  const isIncome = record.type === "income";
+  return (
+    <DocShell title={`${isIncome ? "Income Invoice" : "Expense Voucher"}`} onClose={onClose}>
+      <div className="doc-preview">
+        <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
+          <div>
+            <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
+            <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>{isIncome ? "Income Invoice" : "Expense Voucher"}</div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 12.5 }}>Date: {fmtDate(record.date)}</div>
+        </div>
+        <div className="kv-row"><span className="k">Head</span><span className="v">{record.head}</span></div>
+        <div className="kv-row"><span className="k">{isIncome ? "Received From" : "Paid To"}</span><span className="v">{isIncome ? record.receivedFrom : record.paidTo || "—"}</span></div>
+        <div className="kv-row"><span className="k">Payment Method</span><span className="v">{record.method}</span></div>
+        <div className="kv-row"><span className="k">Reference</span><span className="v">{record.reference || "—"}</span></div>
+        <div className="kv-row"><span className="k">Description</span><span className="v">{record.description || "—"}</span></div>
+        <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
+          <div className="kv-row" style={{ fontSize: 16, minWidth: 220 }}><span className="k">Amount</span><span className="v">৳{money(record.amount)}</span></div>
+        </div>
+      </div>
+    </DocShell>
+  );
+}
+
+/* =========================================================
+   DUE MODULE
+   ========================================================= */
+function DueModule({ data }) {
+  const [tab, setTab] = useState("students");
+  const students = data.students || [];
+  const teachers = data.teachers || [];
+  const finance = data.finance || [];
+
+  const studentDues = students.map(s => ({ ...s, due: studentDue(s) })).filter(s => s.due > 0);
+  const teacherDues = teachers.map(t => ({ ...t, due: teacherDue(t) })).filter(t => t.due > 0);
+
+  const bySection = {};
+  studentDues.forEach(s => {
+    const key = `${s.className} — ${s.section}`;
+    bySection[key] = bySection[key] || [];
+    bySection[key].push(s);
+  });
+
+  return (
+    <div>
+      <div className="section-head"><div><h2>Due List</h2><p>Track outstanding student fees, teacher salaries, and other dues.</p></div></div>
+      <div className="tabs no-print">
+        <button className={`tab ${tab === "students" ? "active" : ""}`} onClick={() => setTab("students")}>Student Dues</button>
+        <button className={`tab ${tab === "teachers" ? "active" : ""}`} onClick={() => setTab("teachers")}>Teacher Dues</button>
+        <button className={`tab ${tab === "others" ? "active" : ""}`} onClick={() => setTab("others")}>Other Dues</button>
+      </div>
+
+      {tab === "students" && (
+        studentDues.length === 0 ? <EmptyState title="No outstanding student dues" sub="All student fees are cleared." /> : (
+          Object.entries(bySection).map(([sec, list]) => (
+            <div className="card" key={sec} style={{ marginBottom: 14 }}>
+              <h3 style={{ fontSize: 14.5, marginBottom: 10 }}>{sec} <span style={{ color: "var(--slate-soft)", fontWeight: 400 }}>({list.length} students)</span></h3>
+              <table>
+                <thead><tr><th>Roll</th><th>Name</th><th>Total Fee</th><th>Paid</th><th>Due</th></tr></thead>
+                <tbody>{list.map(s => (
+                  <tr key={s.id}><td className="mono">{s.roll || "—"}</td><td>{s.name}</td><td className="mono">৳{money(s.totalFee)}</td><td className="mono">৳{money(s.paidAmount)}</td><td className="mono" style={{ color: "var(--red)" }}>৳{money(s.due)}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ))
+        )
+      )}
+
+      {tab === "teachers" && (
+        <div className="card">
+          {teacherDues.length === 0 ? <EmptyState title="No outstanding teacher dues" sub="All salaries are cleared." /> : (
+            <table>
+              <thead><tr><th>Name</th><th>Designation</th><th>Total Payable</th><th>Paid</th><th>Due</th></tr></thead>
+              <tbody>{teacherDues.map(t => (
+                <tr key={t.id}><td>{t.name}</td><td>{t.designation}</td><td className="mono">৳{money((Number(t.basicSalary)||0)+(Number(t.allowance)||0))}</td><td className="mono">৳{money(t.paidAmount)}</td><td className="mono" style={{ color: "var(--red)" }}>৳{money(t.due)}</td></tr>
+              ))}</tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {tab === "others" && (
+        <div className="card">
+          <EmptyState title="No other dues tracked" sub="Other dues (vendor bills, utilities pending) can be logged as Expense Vouchers in Finance and will appear once marked unpaid." />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   MASTER FEE MODULE
+   ========================================================= */
+const emptyFeeRule = (kind) => ({
+  id: null, kind, className: "One", section: "", feeType: "Tuition Fee", amount: "",
+  designation: "Assistant Teacher", note: "",
+});
+
+function MasterFeeModule({ data, save, remove }) {
+  const [tab, setTab] = useState("class");
+  const [editing, setEditing] = useState(null);
+  const fees = data.fees || [];
+  const classFees = fees.filter(f => f.kind === "class");
+  const teacherFees = fees.filter(f => f.kind === "teacher");
+
+  return (
+    <div>
+      <div className="section-head">
+        <div><h2>Master Fee Setup</h2><p>Determine class-wise (sector-based) fees and teacher-based salary scales.</p></div>
+        <button className="btn btn-primary" onClick={() => setEditing(emptyFeeRule(tab))}><Icon.plus />New Rule</button>
+      </div>
+      <div className="tabs no-print">
+        <button className={`tab ${tab === "class" ? "active" : ""}`} onClick={() => setTab("class")}>Class Fee Rules</button>
+        <button className={`tab ${tab === "teacher" ? "active" : ""}`} onClick={() => setTab("teacher")}>Teacher Fee Scale</button>
+      </div>
+
+      {tab === "class" && (
+        <div className="card card-flush">
+          {classFees.length === 0 ? <EmptyState title="No class fee rules yet" sub="Define fees per class and section." /> : (
+            <table>
+              <thead><tr><th>Class</th><th>Section</th><th>Fee Type</th><th>Amount</th><th>Note</th><th></th></tr></thead>
+              <tbody>{classFees.map(f => (
+                <tr key={f.id}>
+                  <td>{f.className}</td><td>{f.section || "All"}</td><td>{f.feeType}</td><td className="mono">৳{money(f.amount)}</td><td>{f.note || "—"}</td>
+                  <td><div style={{ display: "flex", gap: 6 }}><button className="btn btn-sm btn-icon" onClick={() => setEditing({...f})}><Icon.edit/></button><button className="btn btn-sm btn-icon" onClick={() => remove("fees", f.id)}><Icon.trash/></button></div></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          )}
+        </div>
+      )}
+      {tab === "teacher" && (
+        <div className="card card-flush">
+          {teacherFees.length === 0 ? <EmptyState title="No teacher fee scales yet" sub="Define salary scale per designation." /> : (
+            <table>
+              <thead><tr><th>Designation</th><th>Base Amount</th><th>Note</th><th></th></tr></thead>
+              <tbody>{teacherFees.map(f => (
+                <tr key={f.id}>
+                  <td>{f.designation}</td><td className="mono">৳{money(f.amount)}</td><td>{f.note || "—"}</td>
+                  <td><div style={{ display: "flex", gap: 6 }}><button className="btn btn-sm btn-icon" onClick={() => setEditing({...f})}><Icon.edit/></button><button className="btn btn-sm btn-icon" onClick={() => remove("fees", f.id)}><Icon.trash/></button></div></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {editing && <FeeRuleModal rule={editing} onClose={() => setEditing(null)} onSave={async (r) => { await save("fees", r); setEditing(null); }} />}
+    </div>
+  );
+}
+
+function FeeRuleModal({ rule, onClose, onSave }) {
+  const [form, setForm] = useState(rule);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  return (
+    <Modal title={form.kind === "class" ? "Class Fee Rule" : "Teacher Fee Scale"} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
+      <div className="form-grid">
+        {form.kind === "class" ? (
+          <>
+            <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+            <Field label="Section (optional)"><select value={form.section} onChange={set("section")}><option value="">All Sections</option>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+            <Field label="Fee Type"><select value={form.feeType} onChange={set("feeType")}>{INCOME_HEADS.map(h => <option key={h}>{h}</option>)}</select></Field>
+            <Field label="Amount"><input type="number" value={form.amount} onChange={set("amount")} /></Field>
+          </>
+        ) : (
+          <>
+            <Field label="Designation" span2><select value={form.designation} onChange={set("designation")}>{DESIGNATIONS.map(d => <option key={d}>{d}</option>)}</select></Field>
+            <Field label="Base Salary Amount" span2><input type="number" value={form.amount} onChange={set("amount")} /></Field>
+          </>
+        )}
+        <Field label="Note" span2><textarea value={form.note} onChange={set("note")} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+/* =========================================================
+   COMMITTEE MODULE
+   ========================================================= */
+const emptyCommittee = () => ({
+  id: null, committeeName: "", purpose: "", formedDate: new Date().toISOString().slice(0,10),
+  members: [{ name: "", role: "Chairperson", phone: "" }],
+});
+
+function CommitteeModule({ data, save, remove }) {
+  const [editing, setEditing] = useState(null);
+  const committees = data.committee || [];
+  return (
+    <div>
+      <div className="section-head">
+        <div><h2>Committee</h2><p>Form and manage school committees with member details.</p></div>
+        <button className="btn btn-primary" onClick={() => setEditing(emptyCommittee())}><Icon.plus />New Committee</button>
+      </div>
+      {committees.length === 0 ? (
+        <div className="card"><EmptyState title="No committees formed yet" sub="Create your first committee." /></div>
+      ) : (
+        <div className="grid grid-2">
+          {committees.map(c => (
+            <div className="card" key={c.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <h3 style={{ fontSize: 15 }}>{c.committeeName}</h3>
+                  <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>Formed {fmtDate(c.formedDate)}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button className="btn btn-sm btn-icon" onClick={() => setEditing({...c})}><Icon.edit/></button>
+                  <button className="btn btn-sm btn-icon" onClick={() => remove("committee", c.id)}><Icon.trash/></button>
+                </div>
+              </div>
+              {c.purpose && <p style={{ fontSize: 13, color: "var(--slate)", marginTop: 8 }}>{c.purpose}</p>}
+              <div style={{ marginTop: 12 }}>
+                {(c.members || []).map((m, i) => (
+                  <div className="kv-row" key={i}><span className="k">{m.role}</span><span className="v">{m.name} {m.phone && `· ${m.phone}`}</span></div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {editing && <CommitteeFormModal committee={editing} onClose={() => setEditing(null)} onSave={async (r) => { await save("committee", r); setEditing(null); }} />}
+    </div>
+  );
+}
+
+function CommitteeFormModal({ committee, onClose, onSave }) {
+  const [form, setForm] = useState(committee);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  function updateMember(i, key, val) {
+    const members = [...form.members];
+    members[i] = { ...members[i], [key]: val };
+    setForm({ ...form, members });
+  }
+  function addMember() { setForm({ ...form, members: [...form.members, { name: "", role: "Member", phone: "" }] }); }
+  function removeMember(i) { setForm({ ...form, members: form.members.filter((_, idx) => idx !== i) }); }
+
+  return (
+    <Modal title={committee.id ? "Edit Committee" : "New Committee"} onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save Committee</button></>}>
+      <div className="form-grid" style={{ marginBottom: 16 }}>
+        <Field label="Committee Name" span2><input type="text" value={form.committeeName} onChange={set("committeeName")} placeholder="e.g. School Managing Committee" /></Field>
+        <Field label="Formed Date"><input type="date" value={form.formedDate} onChange={set("formedDate")} /></Field>
+        <Field label="Purpose" span2><textarea value={form.purpose} onChange={set("purpose")} /></Field>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)" }}>Members</label>
+        <button className="link-btn" onClick={addMember}>+ Add member</button>
+      </div>
+      {form.members.map((m, i) => (
+        <div key={i} className="form-grid cols-3" style={{ marginBottom: 10, alignItems: "end" }}>
+          <Field label="Name"><input type="text" value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} /></Field>
+          <Field label="Role"><input type="text" value={m.role} onChange={(e) => updateMember(i, "role", e.target.value)} placeholder="Chairperson / Member" /></Field>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Field label="Phone"><input type="tel" value={m.phone} onChange={(e) => updateMember(i, "phone", e.target.value)} /></Field>
+            <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeMember(i)}><Icon.trash /></button>
+          </div>
+        </div>
+      ))}
+    </Modal>
+  );
+}
+
+/* =========================================================
+   REPORTS MODULE
+   ========================================================= */
+function ReportsModule({ data }) {
+  const [range, setRange] = useState("monthly");
+  const finance = data.finance || [];
+  const students = data.students || [];
+  const teachers = data.teachers || [];
+
+  const filtered = finance.filter(f => withinRange(f.date, range));
+  const income = sumBy(filtered.filter(f => f.type === "income"), f => f.amount);
+  const expense = sumBy(filtered.filter(f => f.type === "expense"), f => f.amount);
+  const net = income - expense;
+
+  const studentDueTotal = sumBy(students, studentDue);
+  const teacherDueTotal = sumBy(teachers, teacherDue);
+
+  const headBreakdown = {};
+  filtered.forEach(f => {
+    const key = `${f.type}:${f.head}`;
+    headBreakdown[key] = (headBreakdown[key] || 0) + (Number(f.amount) || 0);
+  });
+
+  return (
+    <div>
+      <div className="section-head"><div><h2>Reports</h2><p>Income, expense, and due summaries — daily, monthly, or yearly.</p></div></div>
+      <div className="chip-row no-print" style={{ marginBottom: 18 }}>
+        {["daily","monthly","yearly"].map(r => (
+          <button key={r} className={`chip ${range === r ? "active" : ""}`} onClick={() => setRange(r)} style={{ textTransform: "capitalize" }}>{r}</button>
+        ))}
+      </div>
+
+      <div className="grid grid-3" style={{ marginBottom: 20 }}>
+        <StatCard label={`${range} Income`} value={"৳"+money(income)} accent="var(--moss)" />
+        <StatCard label={`${range} Expense`} value={"৳"+money(expense)} accent="var(--red)" />
+        <StatCard label="Net Balance" value={"৳"+money(net)} sub={net >= 0 ? "Surplus" : "Deficit"} accent={net >= 0 ? "var(--gold)" : "var(--red)"} />
+      </div>
+
+      <div className="grid grid-2">
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 12 }}>Breakdown by Head ({range})</h3>
+          {Object.keys(headBreakdown).length === 0 ? <EmptyState title="No transactions in this range" sub="Add finance entries to see breakdowns." /> : (
+            Object.entries(headBreakdown).map(([key, val]) => {
+              const [type, head] = key.split(":");
+              return <div className="kv-row" key={key}><span className="k">{head} <span className={`badge ${type === "income" ? "badge-green" : "badge-red"}`} style={{ marginLeft: 6 }}>{type}</span></span><span className="v">৳{money(val)}</span></div>;
+            })
+          )}
+        </div>
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 12 }}>Total Outstanding Dues</h3>
+          <div className="kv-row"><span className="k">Student fee dues</span><span className="v" style={{ color: "var(--red)" }}>৳{money(studentDueTotal)}</span></div>
+          <div className="kv-row"><span className="k">Teacher salary dues</span><span className="v" style={{ color: "var(--red)" }}>৳{money(teacherDueTotal)}</span></div>
+          <div className="kv-row"><span className="k">Combined</span><span className="v">৳{money(studentDueTotal + teacherDueTotal)}</span></div>
+        </div>
+      </div>
+
+      <div className="no-print" style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
+        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Report</button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   SETTINGS MODULE
+   ========================================================= */
+function SettingsModule({ config, setConfig }) {
+  const [form, setForm] = useState(config);
+  const [testing, setTesting] = useState(false);
+  const toast = useToast();
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  function handleSave() {
+    setConfig(form);
+    saveConfig(form);
+    toast("Settings saved");
+  }
+
+  async function testConnection() {
+    setTesting(true);
+    try {
+      await SheetsAPI.list(form, "Students");
+      toast("Connected to Google Sheets successfully", "success");
+    } catch (err) {
+      toast("Connection failed: " + err.message, "error");
+    }
+    setTesting(false);
+  }
+
+  return (
+    <div>
+      <div className="section-head"><div><h2>Settings</h2><p>Connect your Google Sheets backend and GitHub file storage.</p></div></div>
+
+      <div className="grid grid-2" style={{ alignItems: "start" }}>
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 4 }}>School Profile</h3>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 14 }}>Appears on ID cards, invoices, and letters.</p>
+          <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+            <Field label="School Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Google Sheets (Database)</h3>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 14 }}>
+            Paste the Web App URL from your deployed Apps Script (see AppsScript-Code.gs).
+          </p>
+          <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+            <Field label="Apps Script Web App URL"><input type="text" value={form.sheetsUrl} onChange={set("sheetsUrl")} placeholder="https://script.google.com/macros/s/.../exec" /></Field>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button className="btn btn-sm" onClick={testConnection} disabled={testing || !form.sheetsUrl}>{testing ? "Testing…" : "Test Connection"}</button>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Photos & Documents</h3>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 14, lineHeight: 1.7 }}>
+            No token needed. Upload a photo/file to your GitHub repo yourself (drag & drop on github.com),
+            then paste the resulting link into the Photo field on each form. Or use "Embed a file" to attach it directly — no GitHub required at all.
+          </p>
+        </div>
+
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 10 }}>Setup Guide</h3>
+          <ol style={{ paddingLeft: 18, fontSize: 13, lineHeight: 1.9, color: "var(--slate)" }}>
+            <li>Open <span className="mono">script.google.com</span> → New Project</li>
+            <li>Paste in the contents of <span className="mono">AppsScript-Code.gs</span></li>
+            <li>Deploy → New deployment → Web app → Execute as "Me", Access "Anyone"</li>
+            <li>Copy the <span className="mono">/exec</span> URL into the field on the left (or paste it directly at the top of the code)</li>
+            <li>To attach photos: upload the file to a GitHub repo on github.com, open it, click "Raw", and paste that link into any Photo field — or just use "Embed a file" instead</li>
+          </ol>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <button className="btn btn-primary" onClick={handleSave}>Save Settings</button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   APP SHELL
+   ========================================================= */
+const NAV_GROUPS = [
+  { label: "Overview", items: [{ key: "dashboard", label: "Dashboard", icon: "dashboard" }] },
+  { label: "People", items: [
+    { key: "students", label: "Students", icon: "students" },
+    { key: "teachers", label: "Teachers", icon: "teachers" },
+  ]},
+  { label: "Money", items: [
+    { key: "finance", label: "Finance", icon: "finance" },
+    { key: "due", label: "Due List", icon: "due" },
+    { key: "fees", label: "Master Fee", icon: "fee" },
+  ]},
+  { label: "Organization", items: [
+    { key: "committee", label: "Committee", icon: "committee" },
+    { key: "reports", label: "Reports", icon: "reports" },
+  ]},
+  { label: "System", items: [{ key: "settings", label: "Settings", icon: "settings" }] },
+];
+
+const MODULE_TITLES = {
+  dashboard: "Dashboard", students: "Students", teachers: "Teachers", finance: "Finance",
+  due: "Due List", fees: "Master Fee", committee: "Committee", reports: "Reports", settings: "Settings",
+};
+
+function AppShell() {
+  const [config, setConfigState] = useState(loadConfig());
+  const [active, setActive] = useState("dashboard");
+  const store = useDataStore(config);
+
+  function setConfig(c) { setConfigState(c); }
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar no-print">
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-mark">V</div>
+          <div>
+            <div className="sidebar-brand-text">Vidyalaya</div>
+            <div className="sidebar-brand-sub">School Manager</div>
+          </div>
+        </div>
+        <nav className="sidebar-nav">
+          {NAV_GROUPS.map(group => (
+            <div key={group.label}>
+              <div className="sidebar-group-label">{group.label}</div>
+              {group.items.map(item => (
+                <button key={item.key} className={`sidebar-item ${active === item.key ? "active" : ""}`} onClick={() => setActive(item.key)}>
+                  <IconWrap name={item.icon} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          {config.schoolName || "Your School"}
+          <button onClick={store.refresh}><IconWrap name="refresh" style={{ marginRight: 5, verticalAlign: -1 }} />Sync now</button>
+        </div>
+      </aside>
+
+      <div className="main-col">
+        <div className="topbar no-print">
+          <div className="topbar-title">{MODULE_TITLES[active]}</div>
+          <div className="topbar-actions">
+            <div className="sync-pill">
+              <span className={`sync-dot ${store.status === "loading" ? "pending" : store.status === "error" ? "error" : ""}`}></span>
+              {store.status === "loading" ? "Syncing…" : store.status === "error" ? "Sync error" : store.status === "offline" ? "Offline mode" : "Synced"}
+            </div>
+          </div>
+        </div>
+        <div className="content">
+          <ConnectionBanner config={config} onOpenSettings={() => setActive("settings")} />
+          {active === "dashboard" && <Dashboard data={store.data} setActiveModule={setActive} />}
+          {active === "students" && <StudentsModule data={store.data} save={store.save} remove={store.remove} config={config} />}
+          {active === "teachers" && <TeachersModule data={store.data} save={store.save} remove={store.remove} config={config} />}
+          {active === "finance" && <FinanceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
+          {active === "due" && <DueModule data={store.data} />}
+          {active === "fees" && <MasterFeeModule data={store.data} save={store.save} remove={store.remove} />}
+          {active === "committee" && <CommitteeModule data={store.data} save={store.save} remove={store.remove} />}
+          {active === "reports" && <ReportsModule data={store.data} />}
+          {active === "settings" && <SettingsModule config={config} setConfig={setConfig} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Root() {
+  return (
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root />);
+
+</script>
+</body>
+</html>
