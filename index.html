@@ -297,14 +297,16 @@ tbody tr:last-child td{border-bottom:none;}
 .print-only{display:none;}
 @media print{
   .app-shell > .menubar, .topbar, .no-print{display:none !important;}
-  .content{padding:0;}
   .print-only{display:block;}
   @page{size:A4;margin:14mm;}
   body{background:#fff;}
+  /* Hide the entire app content behind the modal — only the open document should print.
+     Scoped to when a modal is actually open, so non-modal print actions (e.g. Reports) still work. */
+  body.modal-open .content{display:none !important;}
   .modal-overlay{position:static;padding:0;background:none;display:block;}
-  .modal{box-shadow:none;max-width:100%;border-radius:0;}
+  .modal{box-shadow:none;max-width:100%;border-radius:0;width:auto;}
   .modal-head,.modal-foot{display:none;}
-  .modal-body{padding:0;max-height:none;overflow:visible;}
+  .modal-body{padding:0;max-height:none;overflow:visible;position:relative;}
 }
 .doc-preview{
   background:#fff;border:1px solid var(--line);border-radius:var(--radius);
@@ -384,7 +386,7 @@ const { useState, useEffect, useCallback, useMemo, useRef, createContext, useCon
    ========================================================= */
 // ↓↓↓ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↓↓↓
 const DEFAULT_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyzJFfLWt1MhBP0vkK_xpBH5X5XIuCirxRUr3cqD8XGFh_iTEh5AbVf04eRjk11C7D3/exec";
-const DEFAULT_SCHOOL_NAME = "Hossenpur Madrasah";
+const DEFAULT_SCHOOL_NAME = "Your School Name";
 // ↑↑↑ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↑↑↑
 
 const CONFIG_KEY = "sms_config_v1";
@@ -584,18 +586,26 @@ const SHEET_MAP = {
    SHARED UI PRIMITIVES
    ========================================================= */
 function Modal({ title, onClose, children, footer, size }) {
-  return (
-    <div className="modal-overlay no-print" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+  useEffect(() => {
+    document.body.classList.add("modal-open");
+    return () => document.body.classList.remove("modal-open");
+  }, []);
+  const overlay = (
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={`modal ${size === "lg" ? "modal-lg" : ""}`}>
-        <div className="modal-head">
+        <div className="modal-head no-print">
           <h3>{title}</h3>
           <button className="modal-close" onClick={onClose}><Icon.x /></button>
         </div>
         <div className="modal-body">{children}</div>
-        {footer && <div className="modal-foot">{footer}</div>}
+        {footer && <div className="modal-foot no-print">{footer}</div>}
       </div>
     </div>
   );
+  // Render via portal so the modal is a sibling of .content in the DOM,
+  // not a descendant — this lets print CSS hide the page behind it
+  // without also hiding the modal (and its document) itself.
+  return ReactDOM.createPortal(overlay, document.body);
 }
 
 function Field({ label, hint, span2, children }) {
@@ -935,7 +945,14 @@ function StudentsModule({ data, save, remove, config }) {
           onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} />
       )}
       {tab === "idcard" && <StudentPicker students={students} label="Select student for ID Card (search by name, roll, or Student ID)" onPick={(s) => setDocTarget({ type: "id", student: s })} />}
-      {tab === "invoice" && <StudentPicker students={students} label="Select student for Fee Invoice (search by name, roll, or Student ID)" onPick={(s) => setDocTarget({ type: "invoice", student: s })} />}
+      {tab === "invoice" && (
+        <div className="card">
+          <EmptyState title="Fee Invoice" sub="Open the invoice form to search a student by ID or name, view their fee breakdown, and record payments." />
+          <div style={{ textAlign: "center" }}>
+            <button className="btn btn-primary" onClick={() => setDocTarget({ type: "invoice" })}><Icon.fee />Open Fee Invoice Form</button>
+          </div>
+        </div>
+      )}
       {tab === "admit" && <StudentPicker students={students} label="Select student for Admit Card (search by name, roll, or Student ID)" onPick={(s) => setDocTarget({ type: "admit", student: s })} />}
       {tab === "seat" && <SeatPlanTab data={data} save={save} />}
 
@@ -943,7 +960,7 @@ function StudentsModule({ data, save, remove, config }) {
         <StudentFormModal student={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
       )}
       {docTarget && docTarget.type === "id" && <StudentIdCardModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
-      {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal student={docTarget.student} config={config} feeRules={feeRules} onSave={handleSave} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal students={students} initialStudent={docTarget.student} config={config} feeRules={feeRules} onSave={handleSave} onClose={() => setDocTarget(null)} />}
       {docTarget && docTarget.type === "admit" && <StudentAdmitCardModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
     </div>
   );
@@ -1125,86 +1142,159 @@ function StudentIdCardModal({ student, config, onClose }) {
   );
 }
 
-function StudentInvoiceModal({ student, config, feeRules, onSave, onClose }) {
+function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSave, onClose }) {
+  const [selected, setSelected] = useState(initialStudent || null);
+  const [query, setQuery] = useState("");
   const [payAmounts, setPayAmounts] = useState({}); // { head: amountString }
   const [saving, setSaving] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
   const toast = useToast();
-  const breakdown = studentFeeBreakdown(student, feeRules);
+
+  const matches = query.trim() ? students.filter(s =>
+    (s.name || "").toLowerCase().includes(query.toLowerCase())
+    || (s.roll || "").toLowerCase().includes(query.toLowerCase())
+    || (s.studentId || "").toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 20) : [];
+
+  const breakdown = selected ? studentFeeBreakdown(selected, feeRules) : [];
   const totalCharged = sumBy(breakdown, r => r.charged);
   const totalPaid = sumBy(breakdown, r => r.paid);
   const totalDue = sumBy(breakdown, r => r.due);
-  const invNo = "INV-" + (student.studentId || student.roll || student.id.slice(0,6)).toUpperCase();
+  const invNo = selected ? "INV-" + (selected.studentId || selected.roll || selected.id.slice(0,6)).toUpperCase() : "";
 
-  async function recordPayment(head) {
-    const amt = Number(payAmounts[head]);
-    if (!amt || amt <= 0) { toast && toast("Enter a valid amount", "error"); return; }
+  async function submitPayments() {
+    const entries = Object.entries(payAmounts).filter(([head, amt]) => Number(amt) > 0);
+    if (entries.length === 0) { toast && toast("Enter at least one payment amount", "error"); return; }
     setSaving(true);
-    const newPayment = { head, amount: amt, date: new Date().toISOString().slice(0,10) };
-    const updated = { ...student, payments: [...(student.payments || []), newPayment] };
-    await onSave(updated);
-    setPayAmounts(p => ({ ...p, [head]: "" }));
+    const newPayments = entries.map(([head, amt]) => ({ head, amount: Number(amt), date: new Date().toISOString().slice(0,10) }));
+    const updated = { ...selected, payments: [...(selected.payments || []), ...newPayments] };
+    const saved = await onSave(updated);
+    setSelected(saved || updated);
+    setPayAmounts({});
     setSaving(false);
-    toast && toast(`Payment recorded for ${head}`, "success");
+    toast && toast("Payments submitted", "success");
+  }
+
+  function handlePrintInvoice() {
+    setShowPrint(true);
   }
 
   return (
-    <DocShell title={`Fee Invoice — ${student.name}`} onClose={onClose}>
-      <div className="doc-preview">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
-          <div>
-            <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
-            <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>Fee Invoice</div>
+    <Modal title="Fee Invoice" onClose={onClose} size="lg"
+      footer={selected && !showPrint ? (
+        <>
+          <button className="btn" onClick={() => { setSelected(null); setPayAmounts({}); }}>← Search Another Student</button>
+          <button className="btn" onClick={handlePrintInvoice}><Icon.print />Print Invoice</button>
+          <button className="btn btn-primary" disabled={saving} onClick={submitPayments}>Submit Payments</button>
+        </>
+      ) : showPrint ? (
+        <>
+          <button className="btn" onClick={() => setShowPrint(false)}>← Back to Invoice</button>
+          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
+        </>
+      ) : (
+        <button className="btn" onClick={onClose}>Close</button>
+      )}>
+      {selected && showPrint ? (
+        <div className="doc-preview">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
+            <div>
+              <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
+              <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>Fee Invoice</div>
+            </div>
+            <div style={{ textAlign: "right", fontSize: 12.5 }}>
+              <div>Invoice No: <strong className="mono">{invNo}</strong></div>
+              <div>Date: {fmtDate(new Date().toISOString())}</div>
+            </div>
           </div>
-          <div style={{ textAlign: "right", fontSize: 12.5 }}>
-            <div>Invoice No: <strong className="mono">{invNo}</strong></div>
-            <div>Date: {fmtDate(new Date().toISOString())}</div>
+          <div className="grid grid-2" style={{ marginBottom: 18 }}>
+            <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{selected.studentId || "—"}</span></div>
+            <div className="kv-row"><span className="k">Student</span><span className="v">{selected.name}</span></div>
+            <div className="kv-row"><span className="k">Class / Section</span><span className="v">{selected.className} — {selected.section}</span></div>
+            <div className="kv-row"><span className="k">Roll</span><span className="v">{selected.roll || "—"}</span></div>
+          </div>
+          <table style={{ width: "100%", marginBottom: 16 }}>
+            <thead><tr><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
+            <tbody>
+              {breakdown.map(r => (
+                <tr key={r.head}>
+                  <td>{r.head}</td>
+                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ minWidth: 240 }}>
+              <div className="kv-row"><span className="k">Total Charged</span><span className="v mono">৳{money(totalCharged)}</span></div>
+              <div className="kv-row"><span className="k">Total Paid</span><span className="v mono">৳{money(totalPaid)}</span></div>
+              <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v">৳{money(totalDue)}</span></div>
+            </div>
+          </div>
+          <div style={{ marginTop: 30, fontSize: 11, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
+        </div>
+      ) : !selected ? (
+        <div>
+          <Field label="Search Student" hint="by name, roll, or Student ID">
+            <input className="search-input" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Type to search…" />
+          </Field>
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            {matches.map(s => (
+              <button key={s.id} className="btn" style={{ justifyContent: "flex-start", textAlign: "left" }} onClick={() => setSelected(s)}>
+                <strong style={{ marginRight: 8 }}>{s.name}</strong>
+                <span style={{ color: "var(--slate-soft)", fontSize: 12.5 }}>{s.className}{s.section} · Roll {s.roll || "—"} · <span className="mono">{s.studentId}</span></span>
+              </button>
+            ))}
+            {query.trim() && matches.length === 0 && <EmptyState title="No matching students" sub="Try a different name, roll, or Student ID." />}
+            {!query.trim() && <EmptyState title="Search for a student" sub="Type a name, roll number, or Student ID above to load their fee invoice." />}
           </div>
         </div>
-        <div className="grid grid-2" style={{ marginBottom: 18 }}>
-          <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{student.studentId || "—"}</span></div>
-          <div className="kv-row"><span className="k">Student</span><span className="v">{student.name}</span></div>
-          <div className="kv-row"><span className="k">Class / Section</span><span className="v">{student.className} — {student.section}</span></div>
-          <div className="kv-row"><span className="k">Roll</span><span className="v">{student.roll || "—"}</span></div>
-        </div>
+      ) : (
+        <div>
+          <div className="grid grid-2" style={{ marginBottom: 18 }}>
+            <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{selected.studentId || "—"}</span></div>
+            <div className="kv-row"><span className="k">Student</span><span className="v">{selected.name}</span></div>
+            <div className="kv-row"><span className="k">Class / Section</span><span className="v">{selected.className} — {selected.section}</span></div>
+            <div className="kv-row"><span className="k">Roll</span><span className="v">{selected.roll || "—"}</span></div>
+          </div>
 
-        {breakdown.length === 0 ? (
-          <EmptyState title="No fee rules set for this class" sub={`Add fee heads for ${student.className} in Master Fee first.`} />
-        ) : (
-          <div className="table-wrap">
-            <table style={{ width: "100%", marginBottom: 16 }}>
-              <thead><tr><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th className="no-print">Pay Now</th></tr></thead>
-              <tbody>
-                {breakdown.map(r => (
-                  <tr key={r.head}>
-                    <td>{r.head}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
-                    <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
-                    <td className="no-print">
-                      {r.due > 0 && (
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <input type="number" placeholder="Amount" value={payAmounts[r.head] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 90, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12.5 }} />
-                          <button className="btn btn-sm btn-primary" disabled={saving} onClick={() => recordPayment(r.head)}>Pay</button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          {breakdown.length === 0 ? (
+            <EmptyState title="No fee rules set for this class" sub={`Add fee heads for ${selected.className} in Master Fee first.`} />
+          ) : (
+            <div className="table-wrap">
+              <table style={{ width: "100%", marginBottom: 16 }}>
+                <thead><tr><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th>Pay Amount</th></tr></thead>
+                <tbody>
+                  {breakdown.map(r => (
+                    <tr key={r.head}>
+                      <td>{r.head}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                      <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
+                      <td>
+                        {r.due > 0 ? (
+                          <input type="number" placeholder="0" value={payAmounts[r.head] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 100, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                        ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ minWidth: 240 }}>
-            <div className="kv-row"><span className="k">Total Charged</span><span className="v mono">৳{money(totalCharged)}</span></div>
-            <div className="kv-row"><span className="k">Total Paid</span><span className="v mono">৳{money(totalPaid)}</span></div>
-            <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v" style={{ color: totalDue > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(totalDue)}</span></div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ minWidth: 240 }}>
+              <div className="kv-row"><span className="k">Total Charged</span><span className="v mono">৳{money(totalCharged)}</span></div>
+              <div className="kv-row"><span className="k">Total Paid</span><span className="v mono">৳{money(totalPaid)}</span></div>
+              <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v" style={{ color: totalDue > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(totalDue)}</span></div>
+            </div>
           </div>
         </div>
-        <div style={{ marginTop: 30, fontSize: 11, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
-      </div>
-    </DocShell>
+      )}
+    </Modal>
   );
 }
 

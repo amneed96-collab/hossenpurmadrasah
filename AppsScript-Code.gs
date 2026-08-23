@@ -12,18 +12,10 @@
  * 5. Paste that URL into the School App's Settings screen
  *
  * This script auto-creates all needed sheets/tabs on first run.
- * No manual sheet setup required.
+ * Every field is stored in its OWN column (auto-expanding headers) —
+ * not squeezed into a single JSON column — so the Google Sheet itself
+ * is directly readable/editable like a normal spreadsheet.
  */
-
-const SHEET_NAMES = {
-  students: "Students",
-  teachers: "Teachers",
-  finance: "Finance",
-  fees: "MasterFees",
-  committee: "Committee",
-  seatplans: "SeatPlans",
-  meta: "Meta"
-};
 
 function doGet(e) {
   return handle(e);
@@ -75,23 +67,67 @@ function getSheet(name) {
   let sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    sheet.appendRow(["id", "data", "createdAt", "updatedAt"]);
+    sheet.appendRow(["id", "createdAt", "updatedAt"]);
+    sheet.setFrozenRows(1);
   }
   return sheet;
 }
 
+function getHeaders(sheet) {
+  const lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return [];
+  return sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+}
+
+// Ensures every key in `row` has a matching column; adds new columns as needed.
+function ensureColumns(sheet, row) {
+  let headers = getHeaders(sheet);
+  if (headers.length === 0) {
+    headers = ["id", "createdAt", "updatedAt"];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  const existing = new Set(headers);
+  const newKeys = Object.keys(row).filter(k => !existing.has(k));
+  if (newKeys.length > 0) {
+    const startCol = headers.length + 1;
+    sheet.getRange(1, startCol, 1, newKeys.length).setValues([newKeys]);
+    headers = headers.concat(newKeys);
+  }
+  return headers;
+}
+
+// Nested objects/arrays (e.g. payments: [...]) are JSON-stringified into their single cell
+// since a spreadsheet cell can't hold a nested structure — every top-level field
+// (name, class, roll, phone, etc.) still gets its own column.
+function cellValue(val) {
+  if (val === undefined || val === null) return "";
+  if (typeof val === "object") return JSON.stringify(val);
+  return val;
+}
+
+function parseCell(val) {
+  if (typeof val === "string" && (val.startsWith("[") || val.startsWith("{"))) {
+    try { return JSON.parse(val); } catch (e) { return val; }
+  }
+  return val;
+}
+
 function listRows(sheetName) {
   const sheet = getSheet(sheetName);
-  const values = sheet.getDataRange().getValues();
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) return { rows: [] };
+  const headers = getHeaders(sheet);
+  const values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   const rows = [];
-  for (let i = 1; i < values.length; i++) {
-    const [id, data, createdAt, updatedAt] = values[i];
-    if (!id) continue;
-    try {
-      rows.push({ id, ...JSON.parse(data), createdAt, updatedAt });
-    } catch (err) {
-      // skip malformed row
-    }
+  for (let i = 0; i < values.length; i++) {
+    const rowArr = values[i];
+    if (!rowArr[0]) continue; // skip rows without id
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h] = parseCell(rowArr[idx]);
+    });
+    rows.push(obj);
   }
   return { rows };
 }
@@ -111,34 +147,42 @@ function upsertRow(sheetName, rowJson) {
   if (!row.id) {
     row.id = Utilities.getUuid();
   }
-  const values = sheet.getDataRange().getValues();
+  const now = new Date().toISOString();
+  if (!row.createdAt) row.createdAt = now;
+  row.updatedAt = now;
+
+  const headers = ensureColumns(sheet, row);
+
+  const lastRow = sheet.getLastRow();
   let foundRowIndex = -1;
-  for (let i = 1; i < values.length; i++) {
-    if (values[i][0] === row.id) {
-      foundRowIndex = i + 1; // 1-indexed sheet row
-      break;
+  if (lastRow >= 2) {
+    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < ids.length; i++) {
+      if (ids[i][0] === row.id) {
+        foundRowIndex = i + 2;
+        break;
+      }
     }
   }
-  const now = new Date().toISOString();
-  const { id, ...rest } = row;
-  const dataStr = JSON.stringify(rest);
+
+  const rowValues = headers.map(h => cellValue(row[h]));
 
   if (foundRowIndex > -1) {
-    sheet.getRange(foundRowIndex, 2).setValue(dataStr);
-    sheet.getRange(foundRowIndex, 4).setValue(now);
+    sheet.getRange(foundRowIndex, 1, 1, headers.length).setValues([rowValues]);
   } else {
-    const createdAt = now;
-    sheet.appendRow([id, dataStr, createdAt, now]);
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, headers.length).setValues([rowValues]);
   }
   return { success: true, id: row.id };
 }
 
 function deleteRow(sheetName, id) {
   const sheet = getSheet(sheetName);
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (values[i][0] === id) {
-      sheet.deleteRow(i + 1);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, error: "Row not found" };
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (ids[i][0] === id) {
+      sheet.deleteRow(i + 2);
       return { success: true };
     }
   }
