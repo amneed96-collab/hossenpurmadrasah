@@ -332,7 +332,14 @@ tbody tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react">
+<script>
+  // Force classic JSX runtime (React.createElement) so Babel Standalone
+  // never injects "import ... from react/jsx-runtime" into the output.
+  Babel.registerPreset("react-classic", {
+    presets: [[Babel.availablePresets["react"], { runtime: "classic" }]]
+  });
+</script>
+<script type="text/babel" data-presets="react-classic">
 const { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } = React;
 
 /* =========================================================
@@ -341,7 +348,7 @@ const { useState, useEffect, useCallback, useMemo, useRef, createContext, useCon
    ========================================================= */
 // ↓↓↓ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↓↓↓
 const DEFAULT_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyzJFfLWt1MhBP0vkK_xpBH5X5XIuCirxRUr3cqD8XGFh_iTEh5AbVf04eRjk11C7D3/exec";
-const DEFAULT_SCHOOL_NAME = "হোসেনপুরস স্বতন্ত্র ইবতেদায়ী মাদরাসা";
+const DEFAULT_SCHOOL_NAME = "Hossenpur Madrasah, Rangamati";
 // ↑↑↑ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↑↑↑
 
 const CONFIG_KEY = "sms_config_v1";
