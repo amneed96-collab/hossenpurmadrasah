@@ -312,6 +312,17 @@ tbody tr:last-child td{border-bottom:none;}
   background:#fff;border:1px solid var(--line);border-radius:var(--radius);
   padding:28px;max-width:640px;margin:0 auto;
 }
+.doc-preview.half-a4{max-width:100%;width:99mm;min-height:140mm;padding:14mm 10mm;}
+@media print{
+  .doc-preview.half-a4{width:100%;min-height:0;box-shadow:none;border:none;}
+}
+
+.id-card-grid{display:flex;flex-wrap:wrap;gap:0.14in;justify-content:flex-start;}
+@media print{
+  .id-card-grid{gap:0.1in;}
+}
+
+.field-form-title{text-align:center;margin-bottom:14px;}
 
 /* Empty state */
 .empty-state{
@@ -344,6 +355,43 @@ tbody tr:last-child td{border-bottom:none;}
   display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid var(--line);
 }
 .id-card-photo img{width:100%;height:100%;object-fit:cover;}
+
+/* Physical ID card: 2.2in x 3.2in (portrait) with a curved footer band showing school + phone */
+.id-card-physical{
+  width:2.2in;height:3.2in;border-radius:0.18in;overflow:hidden;position:relative;
+  background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-sm);
+  display:flex;flex-direction:column;
+  font-family:'Inter',sans-serif;
+  break-inside:avoid;page-break-inside:avoid;
+}
+.id-card-physical .icp-head{
+  background:var(--moss-deep);color:#fff;text-align:center;
+  padding:0.1in 0.12in 0.08in;flex-shrink:0;
+}
+.id-card-physical .icp-head .icp-school{font-size:7.5pt;text-transform:uppercase;letter-spacing:0.05em;opacity:0.85;}
+.id-card-physical .icp-head .icp-doctype{font-family:'Fraunces',serif;font-size:10.5pt;font-weight:600;margin-top:1px;}
+.id-card-physical .icp-photo{
+  width:0.85in;height:0.85in;border-radius:0.1in;overflow:hidden;margin:0.12in auto 0.06in;
+  border:1.5px solid var(--line);background:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+}
+.id-card-physical .icp-photo img{width:100%;height:100%;object-fit:cover;}
+.id-card-physical .icp-name{font-weight:700;font-size:9pt;text-align:center;padding:0 0.1in;}
+.id-card-physical .icp-sub{font-size:7pt;color:var(--slate-soft);text-align:center;margin-bottom:0.06in;}
+.id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;}
+.id-card-physical .icp-footer{
+  margin-top:auto;background:var(--gold);color:var(--moss-deep);
+  padding:0.07in 0.12in;text-align:center;
+  border-radius:0.5in 0.5in 0 0;
+  font-size:6.8pt;font-weight:700;flex-shrink:0;
+}
+.id-card-physical .icp-footer .icp-phone{display:block;font-size:7.2pt;margin-top:1px;}
+
+.field-row{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;gap:6px;}
+.field-row:last-child{border-bottom:none;}
+.field-row .fr-name{flex:1;text-align:left;color:var(--slate-soft);}
+.field-row .fr-colon{flex:0 0 14px;text-align:center;color:var(--slate-soft);}
+.field-row .fr-value{flex:1.4;text-align:left;font-weight:600;}
 
 .kv-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;}
 .kv-row:last-child{border-bottom:none;}
@@ -387,7 +435,8 @@ const { useState, useEffect, useCallback, useMemo, useRef, createContext, useCon
 // ↓↓↓ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↓↓↓
 const DEFAULT_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyzJFfLWt1MhBP0vkK_xpBH5X5XIuCirxRUr3cqD8XGFh_iTEh5AbVf04eRjk11C7D3/exec";
 const DEFAULT_SCHOOL_NAME = "Your School Name";
-// ↑↑↑ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↑↑↑
+const DEFAULT_SCHOOL_PHONE = "";
+// ↑↑↑ EDIT THESE LINES WITH YOUR OWN VALUES ↑↑↑
 
 const CONFIG_KEY = "sms_config_v1";
 function loadConfig() {
@@ -399,12 +448,14 @@ function loadConfig() {
       if (!saved.sheetsUrl && DEFAULT_SHEETS_URL && !DEFAULT_SHEETS_URL.startsWith("PASTE_")) {
         saved.sheetsUrl = DEFAULT_SHEETS_URL;
       }
+      if (!saved.schoolPhone) saved.schoolPhone = DEFAULT_SCHOOL_PHONE;
       return saved;
     }
   } catch (e) {}
   return {
     sheetsUrl: DEFAULT_SHEETS_URL.startsWith("PASTE_") ? "" : DEFAULT_SHEETS_URL,
     schoolName: DEFAULT_SCHOOL_NAME,
+    schoolPhone: DEFAULT_SCHOOL_PHONE,
   };
 }
 function saveConfig(cfg) {
@@ -628,6 +679,16 @@ function StatCard({ label, value, sub, accent }) {
   );
 }
 
+function FieldRow({ name, value }) {
+  return (
+    <div className="field-row">
+      <div className="fr-name">{name}</div>
+      <div className="fr-colon">:</div>
+      <div className="fr-value">{value}</div>
+    </div>
+  );
+}
+
 function EmptyState({ title, sub, action }) {
   return (
     <div className="empty-state">
@@ -759,6 +820,38 @@ function teacherDue(teacher) {
   const paid = Number(teacher.paidAmount) || 0;
   return Math.max(0, totalSalary - paid);
 }
+
+// Per-head breakdown for a teacher's payable amounts.
+// Uses Master Fee "Teacher Fee Scale" rules matching their designation when available;
+// otherwise falls back to the two legacy components (Basic Salary, Allowance).
+function teacherFeeBreakdown(teacher, teacherFeeRules) {
+  const rules = (teacherFeeRules || []).filter(f => f.designation === teacher.designation);
+  const payments = teacher.payments || [];
+
+  if (rules.length > 0) {
+    return rules.map(r => {
+      const paid = sumBy(payments.filter(p => p.head === r.feeType), p => p.amount);
+      const charged = Number(r.amount) || 0;
+      return { head: r.feeType, charged, paid, due: Math.max(0, charged - paid) };
+    });
+  }
+
+  // Fallback: legacy basicSalary/allowance/paidAmount fields, paidAmount applied to Basic first.
+  const basic = Number(teacher.basicSalary) || 0;
+  const allowance = Number(teacher.allowance) || 0;
+  const totalPaid = Number(teacher.paidAmount) || 0;
+  const paidToBasic = Math.min(totalPaid, basic);
+  const paidToAllowance = Math.min(Math.max(0, totalPaid - basic), allowance);
+  return [
+    { head: "Basic Salary", charged: basic, paid: paidToBasic, due: Math.max(0, basic - paidToBasic) },
+    { head: "Allowance", charged: allowance, paid: paidToAllowance, due: Math.max(0, allowance - paidToAllowance) },
+  ].filter(r => r.charged > 0);
+}
+
+function teacherDueFromRules(teacher, teacherFeeRules) {
+  return sumBy(teacherFeeBreakdown(teacher, teacherFeeRules), r => r.due);
+}
+
 function sumBy(arr, fn) { return arr.reduce((s, x) => s + (Number(fn(x)) || 0), 0); }
 
 function withinRange(dateStr, range) {
@@ -786,11 +879,12 @@ function Dashboard({ data, setActiveModule }) {
   const teachers = data.teachers || [];
   const finance = data.finance || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
+  const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
 
   const totalIncome = sumBy(finance.filter(f => f.type === "income"), f => f.amount);
   const totalExpense = sumBy(finance.filter(f => f.type === "expense"), f => f.amount);
   const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules));
-  const teacherDueTotal = sumBy(teachers, teacherDue);
+  const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
 
   const monthIncome = sumBy(finance.filter(f => f.type === "income" && withinRange(f.date, "monthly")), f => f.amount);
   const monthExpense = sumBy(finance.filter(f => f.type === "expense" && withinRange(f.date, "monthly")), f => f.amount);
@@ -927,13 +1021,13 @@ function StudentsModule({ data, save, remove, config }) {
       <div className="section-head">
         <div>
           <h2>Students</h2>
-          <p>Admissions, ID cards, invoices, admit cards, seat plans, and class-wise records.</p>
+          <p>Admissions, ID cards, invoices, admit cards, seat plans, and student records.</p>
         </div>
         <button className="btn btn-primary" onClick={openNew}><Icon.plus />New Admission</button>
       </div>
 
       <div className="tabs no-print">
-        <button className={`tab ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>Class-wise List</button>
+        <button className={`tab ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>All Students</button>
         <button className={`tab ${tab === "idcard" ? "active" : ""}`} onClick={() => setTab("idcard")}>ID Cards</button>
         <button className={`tab ${tab === "invoice" ? "active" : ""}`} onClick={() => setTab("invoice")}>Fee Invoice</button>
         <button className={`tab ${tab === "admit" ? "active" : ""}`} onClick={() => setTab("admit")}>Admit Card</button>
@@ -942,9 +1036,16 @@ function StudentsModule({ data, save, remove, config }) {
 
       {tab === "list" && (
         <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} />
+          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config} />
       )}
-      {tab === "idcard" && <StudentPicker students={students} label="Select student for ID Card (search by name, roll, or Student ID)" onPick={(s) => setDocTarget({ type: "id", student: s })} />}
+      {tab === "idcard" && (
+        <div className="card">
+          <EmptyState title="Student ID Cards" sub="Open the ID Card form to print a single student's card, or an entire class at once." />
+          <div style={{ textAlign: "center" }}>
+            <button className="btn btn-primary" onClick={() => setDocTarget({ type: "id" })}><Icon.idcard />Open ID Card Form</button>
+          </div>
+        </div>
+      )}
       {tab === "invoice" && (
         <div className="card">
           <EmptyState title="Fee Invoice" sub="Open the invoice form to search a student by ID or name, view their fee breakdown, and record payments." />
@@ -953,20 +1054,28 @@ function StudentsModule({ data, save, remove, config }) {
           </div>
         </div>
       )}
-      {tab === "admit" && <StudentPicker students={students} label="Select student for Admit Card (search by name, roll, or Student ID)" onPick={(s) => setDocTarget({ type: "admit", student: s })} />}
+      {tab === "admit" && (
+        <div className="card">
+          <EmptyState title="Admit Cards" sub="Open the Admit Card form to print a single student's card, or an entire class at once." />
+          <div style={{ textAlign: "center" }}>
+            <button className="btn btn-primary" onClick={() => setDocTarget({ type: "admit" })}><Icon.idcard />Open Admit Card Form</button>
+          </div>
+        </div>
+      )}
       {tab === "seat" && <SeatPlanTab data={data} save={save} />}
 
       {editing && (
         <StudentFormModal student={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
       )}
-      {docTarget && docTarget.type === "id" && <StudentIdCardModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "id" && <IdCardModal students={students} initialStudent={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
       {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal students={students} initialStudent={docTarget.student} config={config} feeRules={feeRules} onSave={handleSave} onClose={() => setDocTarget(null)} />}
-      {docTarget && docTarget.type === "admit" && <StudentAdmitCardModal student={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "admit" && <StudentAdmitCardModal students={students} initialStudent={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
     </div>
   );
 }
 
-function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc, feeRules }) {
+function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc, feeRules, config }) {
+  function handlePrint() { window.print(); }
   return (
     <div className="card card-flush">
       <div style={{ padding: "16px 18px 0" }}>
@@ -978,21 +1087,30 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
             <option value="">All Classes</option>
             {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          <button className="btn btn-sm no-print" onClick={handlePrint}><Icon.print />Print List</button>
         </div>
       </div>
       {students.length === 0 ? (
         <EmptyState title="No students found" sub="Try adjusting filters, or add a new admission." />
       ) : (
         <div className="table-wrap">
+          <div className="print-only" style={{ padding: "0 18px", marginBottom: 8 }}>
+            <h3 style={{ fontSize: 16 }}>{config && config.schoolName} — Student List{classFilter ? ` (${classFilter})` : ""}</h3>
+          </div>
           <table>
             <thead>
-              <tr><th>Student ID</th><th>Roll</th><th>Name</th><th>Class</th><th>Section</th><th>Guardian Phone</th><th>Fee Due</th><th>Status</th><th></th></tr>
+              <tr><th>Photo</th><th>Student ID</th><th>Roll</th><th>Name</th><th>Class</th><th>Section</th><th>Guardian Phone</th><th>Fee Due</th><th>Status</th><th className="no-print"></th></tr>
             </thead>
             <tbody>
               {students.map(s => {
                 const due = studentDueFromRules(s, feeRules);
                 return (
                   <tr key={s.id}>
+                    <td>
+                      <div style={{ width: 34, height: 34, borderRadius: 7, overflow: "hidden", background: "var(--paper)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {s.photoUrl ? <img src={s.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Icon.students width={14} height={14} style={{ opacity: 0.35 }} />}
+                      </div>
+                    </td>
                     <td className="mono">{s.studentId || "—"}</td>
                     <td className="mono">{s.roll || "—"}</td>
                     <td>{s.name}</td>
@@ -1001,7 +1119,7 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
                     <td>{s.guardianPhone || "—"}</td>
                     <td>{due > 0 ? <span className="badge badge-red">৳{money(due)}</span> : <span className="badge badge-green">Paid</span>}</td>
                     <td><span className={`badge ${s.status === "Active" ? "badge-green" : "badge-slate"}`}>{s.status || "Active"}</span></td>
-                    <td>
+                    <td className="no-print">
                       <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
                         <button className="btn btn-sm btn-icon" title="ID Card" onClick={() => onOpenDoc({ type: "id", student: s })}><Icon.idcard /></button>
@@ -1115,30 +1233,93 @@ function DocShell({ title, onClose, children, filename }) {
   );
 }
 
-function StudentIdCardModal({ student, config, onClose }) {
+function StudentIdCardPhysical({ student, config }) {
   return (
-    <DocShell title={`ID Card — ${student.name}`} onClose={onClose}>
-      <div style={{ display: "flex", justifyContent: "center", padding: "10px 0" }}>
-        <div className="id-card-preview">
-          <div className="id-card-head">
-            <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>{config.schoolName || "School Name"}</div>
-            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 15, marginTop: 2 }}>Student Identity Card</div>
-          </div>
-          <div className="id-card-photo">
-            {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={30} height={30} />}
-          </div>
-          <div style={{ textAlign: "center", padding: "0 16px 16px" }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{student.name}</div>
-            <div style={{ fontSize: 12, color: "var(--slate-soft)", marginBottom: 10 }}>Class {student.className} — Section {student.section}</div>
-            <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{student.studentId || "—"}</span></div>
-            <div className="kv-row"><span className="k">Roll</span><span className="v">{student.roll || "—"}</span></div>
-            <div className="kv-row"><span className="k">Blood Group</span><span className="v">{student.bloodGroup || "—"}</span></div>
-            <div className="kv-row"><span className="k">Guardian</span><span className="v">{student.guardianPhone || "—"}</span></div>
-            <div className="kv-row"><span className="k">DOB</span><span className="v">{fmtDate(student.dob)}</span></div>
-          </div>
-        </div>
+    <div className="id-card-physical">
+      <div className="icp-head">
+        <div className="icp-school">{config.schoolName || "School Name"}</div>
+        <div className="icp-doctype">Student ID Card</div>
       </div>
-    </DocShell>
+      <div className="icp-photo">
+        {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={22} height={22} />}
+      </div>
+      <div className="icp-name">{student.name}</div>
+      <div className="icp-sub">Class {student.className} — {student.section}</div>
+      <div className="icp-body">
+        <FieldRow name="ID" value={student.studentId || "—"} />
+        <FieldRow name="Roll" value={student.roll || "—"} />
+        <FieldRow name="Blood" value={student.bloodGroup || "—"} />
+        <FieldRow name="Guardian" value={student.guardianPhone || "—"} />
+      </div>
+      <div className="icp-footer">
+        {config.schoolName || "School Name"}
+        {config.schoolPhone && <span className="icp-phone">☎ {config.schoolPhone}</span>}
+      </div>
+    </div>
+  );
+}
+
+function IdCardModal({ students, initialStudent, config, onClose }) {
+  const [mode, setMode] = useState(initialStudent ? "single" : "single");
+  const [selected, setSelected] = useState(initialStudent || null);
+  const [query, setQuery] = useState("");
+  const [classFilter, setClassFilter] = useState(initialStudent ? initialStudent.className : "One");
+  const [sectionFilter, setSectionFilter] = useState("");
+
+  const matches = query.trim() ? students.filter(s =>
+    (s.name || "").toLowerCase().includes(query.toLowerCase())
+    || (s.roll || "").toLowerCase().includes(query.toLowerCase())
+    || (s.studentId || "").toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 20) : [];
+
+  const classList = students.filter(s => s.className === classFilter && (!sectionFilter || s.section === sectionFilter));
+
+  function handlePrint() { window.print(); }
+
+  return (
+    <Modal title="Student ID Cards" onClose={onClose} size="lg"
+      footer={<>
+        <button className="btn" onClick={onClose}>Close</button>
+        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button>
+      </>}>
+      <div className="tabs no-print" style={{ marginBottom: 16 }}>
+        <button className={`tab ${mode === "single" ? "active" : ""}`} onClick={() => setMode("single")}>Single Student</button>
+        <button className={`tab ${mode === "class" ? "active" : ""}`} onClick={() => setMode("class")}>Class-wise (All)</button>
+      </div>
+
+      {mode === "single" && (
+        <div className="no-print" style={{ marginBottom: 16 }}>
+          <Field label="Search Student" hint="by name, roll, or Student ID">
+            <input className="search-input" value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Type to search…" />
+          </Field>
+          {matches.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {matches.map(s => (
+                <button key={s.id} className={`chip ${selected && selected.id === s.id ? "active" : ""}`} onClick={() => { setSelected(s); setQuery(""); }}>{s.name} · {s.className}{s.section}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {mode === "class" && (
+        <div className="no-print search-row" style={{ marginBottom: 16 }}>
+          <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="filter-select" value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
+            <option value="">All Sections</option>
+            {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div className="id-card-grid" style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
+        {mode === "single" && selected && <StudentIdCardPhysical student={selected} config={config} />}
+        {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
+        {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
+        {mode === "class" && classList.map(s => <StudentIdCardPhysical key={s.id} student={s} config={config} />)}
+      </div>
+    </Modal>
   );
 }
 
@@ -1196,25 +1377,25 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
         <button className="btn" onClick={onClose}>Close</button>
       )}>
       {selected && showPrint ? (
-        <div className="doc-preview">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
+        <div className="doc-preview half-a4">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 10, marginBottom: 12 }}>
             <div>
-              <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
-              <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>Fee Invoice</div>
+              <h3 style={{ fontSize: 15 }}>{config.schoolName || "School Name"}</h3>
+              <div style={{ fontSize: 10.5, color: "var(--slate-soft)" }}>Fee Invoice</div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 12.5 }}>
+            <div style={{ textAlign: "right", fontSize: 10.5 }}>
               <div>Invoice No: <strong className="mono">{invNo}</strong></div>
               <div>Date: {fmtDate(new Date().toISOString())}</div>
             </div>
           </div>
-          <div className="grid grid-2" style={{ marginBottom: 18 }}>
-            <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{selected.studentId || "—"}</span></div>
-            <div className="kv-row"><span className="k">Student</span><span className="v">{selected.name}</span></div>
-            <div className="kv-row"><span className="k">Class / Section</span><span className="v">{selected.className} — {selected.section}</span></div>
-            <div className="kv-row"><span className="k">Roll</span><span className="v">{selected.roll || "—"}</span></div>
+          <div style={{ marginBottom: 10 }}>
+            <FieldRow name="Student ID" value={<span className="mono">{selected.studentId || "—"}</span>} />
+            <FieldRow name="Student" value={selected.name} />
+            <FieldRow name="Class / Section" value={`${selected.className} — ${selected.section}`} />
+            <FieldRow name="Roll" value={selected.roll || "—"} />
           </div>
-          <table style={{ width: "100%", marginBottom: 16 }}>
-            <thead><tr><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
+          <table style={{ width: "100%", marginBottom: 10, fontSize: 11 }}>
+            <thead><tr><th style={{ fontSize: 9.5 }}>Fee Head</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Charged</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Paid</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Due</th></tr></thead>
             <tbody>
               {breakdown.map(r => (
                 <tr key={r.head}>
@@ -1227,13 +1408,13 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
             </tbody>
           </table>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <div style={{ minWidth: 240 }}>
-              <div className="kv-row"><span className="k">Total Charged</span><span className="v mono">৳{money(totalCharged)}</span></div>
-              <div className="kv-row"><span className="k">Total Paid</span><span className="v mono">৳{money(totalPaid)}</span></div>
-              <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v">৳{money(totalDue)}</span></div>
+            <div style={{ minWidth: 200, fontSize: 11 }}>
+              <FieldRow name="Total Charged" value={"৳" + money(totalCharged)} />
+              <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
+              <FieldRow name="Balance Due" value={<strong>৳{money(totalDue)}</strong>} />
             </div>
           </div>
-          <div style={{ marginTop: 30, fontSize: 11, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
+          <div style={{ marginTop: 20, fontSize: 9.5, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
         </div>
       ) : !selected ? (
         <div>
@@ -1298,35 +1479,95 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
   );
 }
 
-function StudentAdmitCardModal({ student, config, onClose }) {
+function StudentAdmitCardSingle({ student, config }) {
   return (
-    <DocShell title={`Admit Card — ${student.name}`} onClose={onClose}>
-      <div className="doc-preview">
-        <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
-          <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
-          <div style={{ fontSize: 12, color: "var(--slate-soft)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>Examination Admit Card</div>
+    <div className="doc-preview" style={{ marginBottom: 20, breakAfter: "page" }}>
+      <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
+        <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
+        <div style={{ fontSize: 12, color: "var(--slate-soft)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>Examination Admit Card</div>
+      </div>
+      <div style={{ display: "flex", gap: 20 }}>
+        <div className="id-card-photo" style={{ margin: 0, flexShrink: 0 }}>
+          {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={30} height={30} />}
         </div>
-        <div style={{ display: "flex", gap: 20 }}>
-          <div className="id-card-photo" style={{ margin: 0, flexShrink: 0 }}>
-            {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={30} height={30} />}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{student.studentId || "—"}</span></div>
-            <div className="kv-row"><span className="k">Name</span><span className="v">{student.name}</span></div>
-            <div className="kv-row"><span className="k">Father's Name</span><span className="v">{student.fatherName || "—"}</span></div>
-            <div className="kv-row"><span className="k">Class / Section</span><span className="v">{student.className} — {student.section}</span></div>
-            <div className="kv-row"><span className="k">Roll No.</span><span className="v">{student.roll || "—"}</span></div>
-          </div>
-        </div>
-        <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>Valid only with school seal & signature.</div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 50 }}>
-          <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 150, textAlign: "center" }}>Class Teacher</div>
-          <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 150, textAlign: "center" }}>Head Teacher / Principal</div>
+        <div style={{ flex: 1 }}>
+          <FieldRow name="Student ID" value={<span className="mono">{student.studentId || "—"}</span>} />
+          <FieldRow name="Name" value={student.name} />
+          <FieldRow name="Father's Name" value={student.fatherName || "—"} />
+          <FieldRow name="Class / Section" value={`${student.className} — ${student.section}`} />
+          <FieldRow name="Roll No." value={student.roll || "—"} />
         </div>
       </div>
-    </DocShell>
+      <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>Valid only with school seal & signature.</div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 50 }}>
+        <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 150, textAlign: "center" }}>Class Teacher</div>
+        <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 150, textAlign: "center" }}>Head Teacher / Principal</div>
+      </div>
+    </div>
+  );
+}
+
+function StudentAdmitCardModal({ students, initialStudent, config, onClose }) {
+  const [mode, setMode] = useState("single");
+  const [selected, setSelected] = useState(initialStudent || null);
+  const [query, setQuery] = useState("");
+  const [classFilter, setClassFilter] = useState(initialStudent ? initialStudent.className : "One");
+  const [sectionFilter, setSectionFilter] = useState("");
+
+  const matches = query.trim() ? students.filter(s =>
+    (s.name || "").toLowerCase().includes(query.toLowerCase())
+    || (s.roll || "").toLowerCase().includes(query.toLowerCase())
+    || (s.studentId || "").toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 20) : [];
+
+  const classList = students.filter(s => s.className === classFilter && (!sectionFilter || s.section === sectionFilter));
+
+  function handlePrint() { window.print(); }
+
+  return (
+    <Modal title="Admit Cards" onClose={onClose} size="lg"
+      footer={<>
+        <button className="btn" onClick={onClose}>Close</button>
+        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button>
+      </>}>
+      <div className="tabs no-print" style={{ marginBottom: 16 }}>
+        <button className={`tab ${mode === "single" ? "active" : ""}`} onClick={() => setMode("single")}>Single Student</button>
+        <button className={`tab ${mode === "class" ? "active" : ""}`} onClick={() => setMode("class")}>Class-wise (All)</button>
+      </div>
+
+      {mode === "single" && (
+        <div className="no-print" style={{ marginBottom: 16 }}>
+          <Field label="Search Student" hint="by name, roll, or Student ID">
+            <input className="search-input" value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Type to search…" />
+          </Field>
+          {matches.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {matches.map(s => (
+                <button key={s.id} className={`chip ${selected && selected.id === s.id ? "active" : ""}`} onClick={() => { setSelected(s); setQuery(""); }}>{s.name} · {s.className}{s.section}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {mode === "class" && (
+        <div className="no-print search-row" style={{ marginBottom: 16 }}>
+          <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="filter-select" value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
+            <option value="">All Sections</option>
+            {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      )}
+
+      {mode === "single" && selected && <StudentAdmitCardSingle student={selected} config={config} />}
+      {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
+      {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
+      {mode === "class" && classList.map(s => <StudentAdmitCardSingle key={s.id} student={s} config={config} />)}
+    </Modal>
   );
 }
 
@@ -1375,7 +1616,7 @@ function SeatPlanTab({ data, save }) {
 const emptyTeacher = () => ({
   id: null, name: "", designation: "Assistant Teacher", subject: "", joinDate: new Date().toISOString().slice(0,10),
   phone: "", email: "", address: "", nid: "", photoUrl: "",
-  basicSalary: "", allowance: "", paidAmount: "", status: "Active", resignDate: "",
+  basicSalary: "", allowance: "", paidAmount: "", status: "Active", resignDate: "", payments: [],
 });
 
 function TeachersModule({ data, save, remove, config }) {
@@ -1539,20 +1780,24 @@ function TeacherIdCardModal({ teacher, config, onClose }) {
   return (
     <DocShell title={`ID Card — ${teacher.name}`} onClose={onClose}>
       <div style={{ display: "flex", justifyContent: "center", padding: "10px 0" }}>
-        <div className="id-card-preview">
-          <div className="id-card-head">
-            <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>{config.schoolName || "School Name"}</div>
-            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 15, marginTop: 2 }}>Staff Identity Card</div>
+        <div className="id-card-physical">
+          <div className="icp-head">
+            <div className="icp-school">{config.schoolName || "School Name"}</div>
+            <div className="icp-doctype">Staff ID Card</div>
           </div>
-          <div className="id-card-photo">
-            {teacher.photoUrl ? <img src={teacher.photoUrl} alt="" /> : <Icon.teachers style={{ opacity: 0.3 }} width={30} height={30} />}
+          <div className="icp-photo">
+            {teacher.photoUrl ? <img src={teacher.photoUrl} alt="" /> : <Icon.teachers style={{ opacity: 0.3 }} width={22} height={22} />}
           </div>
-          <div style={{ textAlign: "center", padding: "0 16px 16px" }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{teacher.name}</div>
-            <div style={{ fontSize: 12, color: "var(--slate-soft)", marginBottom: 10 }}>{teacher.designation}</div>
-            <div className="kv-row"><span className="k">Subject</span><span className="v">{teacher.subject || "—"}</span></div>
-            <div className="kv-row"><span className="k">Phone</span><span className="v">{teacher.phone || "—"}</span></div>
-            <div className="kv-row"><span className="k">Join Date</span><span className="v">{fmtDate(teacher.joinDate)}</span></div>
+          <div className="icp-name">{teacher.name}</div>
+          <div className="icp-sub">{teacher.designation}</div>
+          <div className="icp-body">
+            <FieldRow name="Subject" value={teacher.subject || "—"} />
+            <FieldRow name="Phone" value={teacher.phone || "—"} />
+            <FieldRow name="Joined" value={fmtDate(teacher.joinDate)} />
+          </div>
+          <div className="icp-footer">
+            {config.schoolName || "School Name"}
+            {config.schoolPhone && <span className="icp-phone">☎ {config.schoolPhone}</span>}
           </div>
         </div>
       </div>
@@ -1573,8 +1818,8 @@ function TeacherSalaryInvoiceModal({ teacher, config, onClose }) {
           </div>
           <div style={{ textAlign: "right", fontSize: 12.5 }}>Date: {fmtDate(new Date().toISOString())}</div>
         </div>
-        <div className="kv-row"><span className="k">Staff Name</span><span className="v">{teacher.name}</span></div>
-        <div className="kv-row"><span className="k">Designation</span><span className="v">{teacher.designation}</span></div>
+        <FieldRow name="Staff Name" value={teacher.name} />
+        <FieldRow name="Designation" value={teacher.designation} />
         <table style={{ width: "100%", margin: "16px 0" }}>
           <thead><tr><th>Component</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
           <tbody>
@@ -1585,7 +1830,9 @@ function TeacherSalaryInvoiceModal({ teacher, config, onClose }) {
           </tbody>
         </table>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div className="kv-row" style={{ fontSize: 15, minWidth: 220 }}><span className="k">Balance Due</span><span className="v" style={{ color: due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(due)}</span></div>
+          <div style={{ minWidth: 220 }}>
+            <FieldRow name="Balance Due" value={<strong style={{ color: due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(due)}</strong>} />
+          </div>
         </div>
       </div>
     </DocShell>
@@ -1693,13 +1940,15 @@ function FinanceDocModal({ record, config, onClose }) {
           </div>
           <div style={{ textAlign: "right", fontSize: 12.5 }}>Date: {fmtDate(record.date)}</div>
         </div>
-        <div className="kv-row"><span className="k">Head</span><span className="v">{record.head}</span></div>
-        <div className="kv-row"><span className="k">{isIncome ? "Received From" : "Paid To"}</span><span className="v">{isIncome ? record.receivedFrom : record.paidTo || "—"}</span></div>
-        <div className="kv-row"><span className="k">Payment Method</span><span className="v">{record.method}</span></div>
-        <div className="kv-row"><span className="k">Reference</span><span className="v">{record.reference || "—"}</span></div>
-        <div className="kv-row"><span className="k">Description</span><span className="v">{record.description || "—"}</span></div>
+        <FieldRow name="Head" value={record.head} />
+        <FieldRow name={isIncome ? "Received From" : "Paid To"} value={isIncome ? record.receivedFrom : record.paidTo || "—"} />
+        <FieldRow name="Payment Method" value={record.method} />
+        <FieldRow name="Reference" value={record.reference || "—"} />
+        <FieldRow name="Description" value={record.description || "—"} />
         <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
-          <div className="kv-row" style={{ fontSize: 16, minWidth: 220 }}><span className="k">Amount</span><span className="v">৳{money(record.amount)}</span></div>
+          <div style={{ minWidth: 220 }}>
+            <FieldRow name="Amount" value={<strong>৳{money(record.amount)}</strong>} />
+          </div>
         </div>
       </div>
     </DocShell>
@@ -1713,20 +1962,20 @@ function DueModule({ data }) {
   const [tab, setTab] = useState("students");
   const students = data.students || [];
   const teachers = data.teachers || [];
-  const finance = data.finance || [];
-  const feeRules = (data.fees || []).filter(f => f.kind === "class");
+  const classFeeRules = (data.fees || []).filter(f => f.kind === "class");
+  const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
+  const [classFilter, setClassFilter] = useState("");
 
-  const studentDues = students
-    .map(s => ({ ...s, breakdown: studentFeeBreakdown(s, feeRules), due: studentDueFromRules(s, feeRules) }))
-    .filter(s => s.due > 0);
-  const teacherDues = teachers.map(t => ({ ...t, due: teacherDue(t) })).filter(t => t.due > 0);
+  const classStudents = students.filter(s => !classFilter || s.className === classFilter);
+  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules), due: studentDueFromRules(s, classFeeRules) }));
+  // union of all fee heads that appear for the selected class (as of today — i.e. current Master Fee setup)
+  const allHeadsInView = [...new Set(studentRows.flatMap(s => s.breakdown.map(r => r.head)))];
 
-  const bySection = {};
-  studentDues.forEach(s => {
-    const key = `${s.className} — ${s.section}`;
-    bySection[key] = bySection[key] || [];
-    bySection[key].push(s);
-  });
+  const teacherDues = teachers
+    .map(t => ({ ...t, breakdown: teacherFeeBreakdown(t, teacherFeeRules), due: teacherDueFromRules(t, teacherFeeRules) }))
+    .filter(t => t.due > 0);
+
+  function handlePrint() { window.print(); }
 
   return (
     <div>
@@ -1738,36 +1987,85 @@ function DueModule({ data }) {
       </div>
 
       {tab === "students" && (
-        studentDues.length === 0 ? <EmptyState title="No outstanding student dues" sub="All student fees are cleared." /> : (
-          Object.entries(bySection).map(([sec, list]) => (
-            <div className="card" key={sec} style={{ marginBottom: 14 }}>
-              <h3 style={{ fontSize: 14.5, marginBottom: 10 }}>{sec} <span style={{ color: "var(--slate-soft)", fontWeight: 400 }}>({list.length} students)</span></h3>
+        <div className="card card-flush">
+          <div style={{ padding: "16px 18px 0" }} className="search-row no-print">
+            <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+              <option value="">Select a Class</option>
+              {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {classFilter && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+          </div>
+          <div style={{ padding: "12px 18px 0" }}>
+            <div className="print-only" style={{ marginBottom: 8 }}>
+              <h3 style={{ fontSize: 16 }}>Student Dues — {classFilter || "All Classes"} <span style={{ fontWeight: 400, fontSize: 12 }}>as of {fmtDate(new Date().toISOString())}</span></h3>
+            </div>
+          </div>
+          {!classFilter ? (
+            <EmptyState title="Select a class" sub="Choose a class above to see every student's fee-head-wise dues, one row per student." />
+          ) : studentRows.length === 0 ? (
+            <EmptyState title="No students in this class" sub="Try a different class." />
+          ) : allHeadsInView.length === 0 ? (
+            <EmptyState title="No fee rules set for this class" sub="Add fee heads for this class in Master Fee first." />
+          ) : (
+            <div className="table-wrap">
               <table>
-                <thead><tr><th>Student ID</th><th>Roll</th><th>Name</th><th>Due Heads</th><th>Total Due</th></tr></thead>
-                <tbody>{list.map(s => (
-                  <tr key={s.id}>
-                    <td className="mono">{s.studentId || "—"}</td>
-                    <td className="mono">{s.roll || "—"}</td>
-                    <td>{s.name}</td>
-                    <td style={{ fontSize: 12 }}>{s.breakdown.filter(r => r.due > 0).map(r => r.head).join(", ")}</td>
-                    <td className="mono" style={{ color: "var(--red)" }}>৳{money(s.due)}</td>
+                <thead>
+                  <tr>
+                    <th>Student ID</th><th>Roll</th><th>Name</th><th>Section</th>
+                    {allHeadsInView.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
+                    <th style={{ textAlign: "right" }}>Total Due</th>
                   </tr>
-                ))}</tbody>
+                </thead>
+                <tbody>
+                  {studentRows.map(s => (
+                    <tr key={s.id}>
+                      <td className="mono">{s.studentId || "—"}</td>
+                      <td className="mono">{s.roll || "—"}</td>
+                      <td>{s.name}</td>
+                      <td>{s.section}</td>
+                      {allHeadsInView.map(h => {
+                        const r = s.breakdown.find(b => b.head === h);
+                        const due = r ? r.due : 0;
+                        return <td key={h} style={{ textAlign: "right" }} className="mono">{due > 0 ? <span style={{ color: "var(--red)" }}>৳{money(due)}</span> : "—"}</td>;
+                      })}
+                      <td style={{ textAlign: "right" }} className="mono"><strong style={{ color: s.due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(s.due)}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
-          ))
-        )
+          )}
+        </div>
       )}
 
       {tab === "teachers" && (
-        <div className="card">
+        <div className="card card-flush">
+          <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
+            {teacherDues.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+          </div>
+          <div style={{ padding: "12px 18px 0" }}>
+            <div className="print-only" style={{ marginBottom: 8 }}>
+              <h3 style={{ fontSize: 16 }}>Teacher Dues <span style={{ fontWeight: 400, fontSize: 12 }}>as of {fmtDate(new Date().toISOString())}</span></h3>
+            </div>
+          </div>
           {teacherDues.length === 0 ? <EmptyState title="No outstanding teacher dues" sub="All salaries are cleared." /> : (
-            <table>
-              <thead><tr><th>Name</th><th>Designation</th><th>Total Payable</th><th>Paid</th><th>Due</th></tr></thead>
-              <tbody>{teacherDues.map(t => (
-                <tr key={t.id}><td>{t.name}</td><td>{t.designation}</td><td className="mono">৳{money((Number(t.basicSalary)||0)+(Number(t.allowance)||0))}</td><td className="mono">৳{money(t.paidAmount)}</td><td className="mono" style={{ color: "var(--red)" }}>৳{money(t.due)}</td></tr>
-              ))}</tbody>
-            </table>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Name</th><th>Designation</th><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
+                <tbody>
+                  {teacherDues.flatMap(t => t.breakdown.filter(r => r.due > 0).map((r, i) => (
+                    <tr key={t.id + r.head}>
+                      {i === 0 ? <td rowSpan={t.breakdown.filter(x => x.due > 0).length}>{t.name}</td> : null}
+                      {i === 0 ? <td rowSpan={t.breakdown.filter(x => x.due > 0).length}>{t.designation}</td> : null}
+                      <td>{r.head}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                      <td style={{ textAlign: "right", color: "var(--red)" }} className="mono">৳{money(r.due)}</td>
+                    </tr>
+                  )))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
@@ -2071,6 +2369,7 @@ function ReportsModule({ data }) {
   const students = data.students || [];
   const teachers = data.teachers || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
+  const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
 
   const filtered = finance.filter(f => withinRange(f.date, range));
   const income = sumBy(filtered.filter(f => f.type === "income"), f => f.amount);
@@ -2078,7 +2377,7 @@ function ReportsModule({ data }) {
   const net = income - expense;
 
   const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules));
-  const teacherDueTotal = sumBy(teachers, teacherDue);
+  const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
 
   const headBreakdown = {};
   filtered.forEach(f => {
@@ -2162,6 +2461,7 @@ function SettingsModule({ config, setConfig }) {
           <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 14 }}>Appears on ID cards, invoices, and letters.</p>
           <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
             <Field label="School Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
+            <Field label="School Mobile / Phone" hint="shown on ID cards"><input type="tel" value={form.schoolPhone || ""} onChange={set("schoolPhone")} placeholder="e.g. 01XXXXXXXXX" /></Field>
           </div>
         </div>
 
