@@ -300,13 +300,17 @@ tbody tr:last-child td{border-bottom:none;}
   .print-only{display:block;}
   @page{size:A4;margin:14mm;}
   body{background:#fff;}
-  /* Hide the entire app content behind the modal — only the open document should print.
-     Scoped to when a modal is actually open, so non-modal print actions (e.g. Reports) still work. */
-  body.modal-open .content{display:none !important;}
+  /* The modal is rendered via a React portal directly under <body>, as a sibling of #root.
+     When printing a modal's document, hide #root entirely (not just .content) — otherwise
+     its reserved min-height:100vh flex container leaves one blank page before the modal prints. */
+  body.modal-open #root{display:none !important;}
   .modal-overlay{position:static;padding:0;background:none;display:block;}
   .modal{box-shadow:none;max-width:100%;border-radius:0;width:auto;}
   .modal-head,.modal-foot{display:none;}
   .modal-body{padding:0;max-height:none;overflow:visible;position:relative;}
+  /* Landscape A4 page for wide tabular data (Due List, Master Fee grid) */
+  @page landscape-a4{size:A4 landscape;margin:12mm;}
+  .print-landscape{page:landscape-a4;}
 }
 .doc-preview{
   background:#fff;border:1px solid var(--line);border-radius:var(--radius);
@@ -432,14 +436,22 @@ const { useState, useEffect, useCallback, useMemo, useRef, createContext, useCon
    CONFIG / SETTINGS STORAGE (localStorage — client config only,
    never used for school records, per storage rules)
    ========================================================= */
-// ↓↓↓ EDIT THESE TWO LINES WITH YOUR OWN VALUES ↓↓↓
+// ↓↓↓ EDIT THESE LINES WITH YOUR OWN VALUES ↓↓↓
 const DEFAULT_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyzJFfLWt1MhBP0vkK_xpBH5X5XIuCirxRUr3cqD8XGFh_iTEh5AbVf04eRjk11C7D3/exec";
 const DEFAULT_SCHOOL_NAME = "Your School Name";
-const DEFAULT_SCHOOL_PHONE = "";
 // ↑↑↑ EDIT THESE LINES WITH YOUR OWN VALUES ↑↑↑
 
 const CONFIG_KEY = "sms_config_v1";
 function loadConfig() {
+  const defaults = {
+    sheetsUrl: DEFAULT_SHEETS_URL.startsWith("PASTE_") ? "" : DEFAULT_SHEETS_URL,
+    schoolName: DEFAULT_SCHOOL_NAME,
+    schoolAddress: "",
+    schoolPhones: ["", "", ""],
+    schoolLogo: "",
+    facebookUrl: "",
+    youtubeUrl: "",
+  };
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (raw) {
@@ -448,15 +460,12 @@ function loadConfig() {
       if (!saved.sheetsUrl && DEFAULT_SHEETS_URL && !DEFAULT_SHEETS_URL.startsWith("PASTE_")) {
         saved.sheetsUrl = DEFAULT_SHEETS_URL;
       }
-      if (!saved.schoolPhone) saved.schoolPhone = DEFAULT_SCHOOL_PHONE;
-      return saved;
+      // migrate legacy single-phone field
+      if (!saved.schoolPhones && saved.schoolPhone) saved.schoolPhones = [saved.schoolPhone, "", ""];
+      return { ...defaults, ...saved, schoolPhones: saved.schoolPhones || defaults.schoolPhones };
     }
   } catch (e) {}
-  return {
-    sheetsUrl: DEFAULT_SHEETS_URL.startsWith("PASTE_") ? "" : DEFAULT_SHEETS_URL,
-    schoolName: DEFAULT_SCHOOL_NAME,
-    schoolPhone: DEFAULT_SCHOOL_PHONE,
-  };
+  return defaults;
 }
 function saveConfig(cfg) {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
@@ -1012,9 +1021,19 @@ function StudentsModule({ data, save, remove, config }) {
   function openNew() { setEditing(emptyStudent(students)); }
   function openEdit(s) { setEditing({ ...s }); }
   async function handleSave(record) {
-    await save("students", record);
+    const saved = await save("students", record);
     setEditing(null);
+    return saved;
   }
+
+  const TAB_ACTION = {
+    list: { label: "New Admission", icon: "plus", onClick: openNew },
+    idcard: { label: "Open ID Card Form", icon: "idcard", onClick: () => setDocTarget({ type: "id" }) },
+    invoice: { label: "Open Fee Invoice Form", icon: "fee", onClick: () => setDocTarget({ type: "invoice" }) },
+    admit: { label: "Open Admit Card Form", icon: "idcard", onClick: () => setDocTarget({ type: "admit" }) },
+    seat: { label: "Open Seat Plan Form", icon: "plus", onClick: () => setDocTarget({ type: "seatform" }) },
+  };
+  const action = TAB_ACTION[tab];
 
   return (
     <div>
@@ -1023,7 +1042,7 @@ function StudentsModule({ data, save, remove, config }) {
           <h2>Students</h2>
           <p>Admissions, ID cards, invoices, admit cards, seat plans, and student records.</p>
         </div>
-        <button className="btn btn-primary" onClick={openNew}><Icon.plus />New Admission</button>
+        <button className="btn btn-primary no-print" onClick={action.onClick}><IconWrap name={action.icon} />{action.label}</button>
       </div>
 
       <div className="tabs no-print">
@@ -1039,30 +1058,21 @@ function StudentsModule({ data, save, remove, config }) {
           onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config} />
       )}
       {tab === "idcard" && (
-        <div className="card">
-          <EmptyState title="Student ID Cards" sub="Open the ID Card form to print a single student's card, or an entire class at once." />
-          <div style={{ textAlign: "center" }}>
-            <button className="btn btn-primary" onClick={() => setDocTarget({ type: "id" })}><Icon.idcard />Open ID Card Form</button>
-          </div>
-        </div>
+        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
+          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config}
+          rowAction={{ label: "ID Card", icon: "idcard", onClick: (s) => setDocTarget({ type: "id", student: s }) }} />
       )}
       {tab === "invoice" && (
-        <div className="card">
-          <EmptyState title="Fee Invoice" sub="Open the invoice form to search a student by ID or name, view their fee breakdown, and record payments." />
-          <div style={{ textAlign: "center" }}>
-            <button className="btn btn-primary" onClick={() => setDocTarget({ type: "invoice" })}><Icon.fee />Open Fee Invoice Form</button>
-          </div>
-        </div>
+        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
+          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config}
+          rowAction={{ label: "Invoice", icon: "fee", onClick: (s) => setDocTarget({ type: "invoice", student: s }) }} />
       )}
       {tab === "admit" && (
-        <div className="card">
-          <EmptyState title="Admit Cards" sub="Open the Admit Card form to print a single student's card, or an entire class at once." />
-          <div style={{ textAlign: "center" }}>
-            <button className="btn btn-primary" onClick={() => setDocTarget({ type: "admit" })}><Icon.idcard />Open Admit Card Form</button>
-          </div>
-        </div>
+        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
+          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config}
+          rowAction={{ label: "Admit Card", icon: "idcard", onClick: (s) => setDocTarget({ type: "admit", student: s }) }} />
       )}
-      {tab === "seat" && <SeatPlanTab data={data} save={save} />}
+      {tab === "seat" && <SeatPlanTab data={data} save={save} formOpen={docTarget && docTarget.type === "seatform"} onCloseForm={() => setDocTarget(null)} />}
 
       {editing && (
         <StudentFormModal student={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
@@ -1074,7 +1084,7 @@ function StudentsModule({ data, save, remove, config }) {
   );
 }
 
-function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc, feeRules, config }) {
+function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc, feeRules, config, rowAction }) {
   function handlePrint() { window.print(); }
   return (
     <div className="card card-flush">
@@ -1121,10 +1131,16 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
                     <td><span className={`badge ${s.status === "Active" ? "badge-green" : "badge-slate"}`}>{s.status || "Active"}</span></td>
                     <td className="no-print">
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
-                        <button className="btn btn-sm btn-icon" title="ID Card" onClick={() => onOpenDoc({ type: "id", student: s })}><Icon.idcard /></button>
-                        <button className="btn btn-sm btn-icon" title="Invoice" onClick={() => onOpenDoc({ type: "invoice", student: s })}><Icon.fee /></button>
-                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}?`)) onDelete(s.id); }}><Icon.trash /></button>
+                        {rowAction ? (
+                          <button className="btn btn-sm btn-primary" onClick={() => rowAction.onClick(s)}><IconWrap name={rowAction.icon} />{rowAction.label}</button>
+                        ) : (
+                          <>
+                            <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
+                            <button className="btn btn-sm btn-icon" title="ID Card" onClick={() => onOpenDoc({ type: "id", student: s })}><Icon.idcard /></button>
+                            <button className="btn btn-sm btn-icon" title="Invoice" onClick={() => onOpenDoc({ type: "invoice", student: s })}><Icon.fee /></button>
+                            <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}?`)) onDelete(s.id); }}><Icon.trash /></button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1253,7 +1269,7 @@ function StudentIdCardPhysical({ student, config }) {
       </div>
       <div className="icp-footer">
         {config.schoolName || "School Name"}
-        {config.schoolPhone && <span className="icp-phone">☎ {config.schoolPhone}</span>}
+        {(config.schoolPhones && config.schoolPhones.filter(Boolean).length > 0) && <span className="icp-phone">☎ {config.schoolPhones.filter(Boolean).join(", ")}</span>}
       </div>
     </div>
   );
@@ -1571,16 +1587,53 @@ function StudentAdmitCardModal({ students, initialStudent, config, onClose }) {
   );
 }
 
-function SeatPlanTab({ data, save }) {
+function SeatPlanTab({ data, save, formOpen, onCloseForm }) {
   const [form, setForm] = useState({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const plans = data.seatplans || [];
 
+  function handlePrint() { window.print(); }
+  async function handleSaveForm() {
+    await save("seatplans", form);
+    setForm({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" });
+    onCloseForm();
+  }
+
   return (
     <div>
-      <div className="grid grid-2" style={{ alignItems: "start" }}>
-        <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 14 }}>Create Seat Plan</h3>
+      <div className="card card-flush">
+        <div style={{ padding: "16px 18px", display: "flex", justifyContent: "flex-end" }} className="no-print">
+          {plans.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+        </div>
+        <div className="print-only" style={{ padding: "0 18px 8px" }}>
+          <h3 style={{ fontSize: 16 }}>Seat Plans</h3>
+        </div>
+        {plans.length === 0 ? (
+          <EmptyState title="No seat plans yet" sub={`Use "Open Seat Plan Form" above to create one.`} />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Exam Name</th><th>Room</th><th>Class</th><th>Section</th><th>Roll Range</th><th>Capacity</th></tr></thead>
+              <tbody>
+                {plans.map(p => (
+                  <tr key={p.id}>
+                    <td>{p.examName}</td>
+                    <td>{p.room}</td>
+                    <td>{p.className || "—"}</td>
+                    <td>{p.section || "—"}</td>
+                    <td>{p.rangeFrom}–{p.rangeTo}</td>
+                    <td>{p.capacity}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {formOpen && (
+        <Modal title="Create Seat Plan" onClose={onCloseForm}
+          footer={<><button className="btn" onClick={onCloseForm}>Cancel</button><button className="btn btn-primary" onClick={handleSaveForm}>Save Seat Plan</button></>}>
           <div className="form-grid">
             <Field label="Exam Name" span2><input type="text" value={form.examName} onChange={set("examName")} placeholder="e.g. Half-Yearly Exam 2026" /></Field>
             <Field label="Room / Hall No."><input type="text" value={form.room} onChange={set("room")} /></Field>
@@ -1590,22 +1643,8 @@ function SeatPlanTab({ data, save }) {
             <Field label="Roll Range From"><input type="text" value={form.rangeFrom} onChange={set("rangeFrom")} /></Field>
             <Field label="Roll Range To"><input type="text" value={form.rangeTo} onChange={set("rangeTo")} /></Field>
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={async () => { await save("seatplans", form); setForm({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" }); }}>Save Seat Plan</button>
-        </div>
-        <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 14 }}>Saved Seat Plans</h3>
-          {plans.length === 0 ? <EmptyState title="No seat plans yet" sub="Create one on the left." /> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {plans.map(p => (
-                <div key={p.id} className="kv-row" style={{ display: "block" }}>
-                  <strong>{p.examName}</strong> — Room {p.room}
-                  <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>{p.className} {p.section} · Roll {p.rangeFrom}–{p.rangeTo} · Capacity {p.capacity}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -1625,10 +1664,12 @@ function TeachersModule({ data, save, remove, config }) {
   const [query, setQuery] = useState("");
   const [docTarget, setDocTarget] = useState(null);
   const teachers = data.teachers || [];
+  const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
   const filtered = teachers.filter(t => !query || (t.name || "").toLowerCase().includes(query.toLowerCase()));
 
   function openNew() { setEditing(emptyTeacher()); }
-  async function handleSave(record) { await save("teachers", record); setEditing(null); }
+  async function handleSave(record) { const saved = await save("teachers", record); setEditing(null); return saved; }
+  function handlePrint() { window.print(); }
 
   return (
     <div>
@@ -1637,7 +1678,7 @@ function TeachersModule({ data, save, remove, config }) {
           <h2>Teachers & Staff</h2>
           <p>Manage staff records, letters, ID cards, salary invoices, and dues.</p>
         </div>
-        <button className="btn btn-primary" onClick={openNew}><Icon.plus />Add Staff</button>
+        <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />Add Staff</button>
       </div>
 
       <div className="tabs no-print">
@@ -1652,15 +1693,16 @@ function TeachersModule({ data, save, remove, config }) {
           <div style={{ padding: "16px 18px 0" }}>
             <div className="search-row">
               <input className="search-input" placeholder="Search staff…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <button className="btn btn-sm no-print" onClick={handlePrint}><Icon.print />Print List</button>
             </div>
           </div>
           {filtered.length === 0 ? <EmptyState title="No staff records" sub="Add your first staff member." /> : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Name</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th className="no-print"></th></tr></thead>
                 <tbody>
                   {filtered.map(t => {
-                    const due = teacherDue(t);
+                    const due = teacherDueFromRules(t, teacherFeeRules);
                     return (
                       <tr key={t.id}>
                         <td>{t.name}</td>
@@ -1669,7 +1711,7 @@ function TeachersModule({ data, save, remove, config }) {
                         <td>{t.phone || "—"}</td>
                         <td>{due > 0 ? <span className="badge badge-red">৳{money(due)}</span> : <span className="badge badge-green">Cleared</span>}</td>
                         <td><span className={`badge ${t.status === "Active" ? "badge-green" : "badge-slate"}`}>{t.status}</span></td>
-                        <td>
+                        <td className="no-print">
                           <div style={{ display: "flex", gap: 6 }}>
                             <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...t })}><Icon.edit /></button>
                             <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${t.name}?`)) remove("teachers", t.id); }}><Icon.trash /></button>
@@ -1688,10 +1730,10 @@ function TeachersModule({ data, save, remove, config }) {
       {tab === "idcard" && <TeacherPicker teachers={teachers} label="Select staff for ID Card" onPick={(t) => setDocTarget({ type: "id", teacher: t })} />}
       {tab === "salary" && <TeacherPicker teachers={teachers} label="Select staff for Salary Invoice" onPick={(t) => setDocTarget({ type: "salary", teacher: t })} />}
 
-      {editing && <TeacherFormModal teacher={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} />}
+      {editing && <TeacherFormModal teacher={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} teacherFeeRules={teacherFeeRules} />}
       {docTarget && docTarget.type === "letter" && <TeacherLetterModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
       {docTarget && docTarget.type === "id" && <TeacherIdCardModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
-      {docTarget && docTarget.type === "salary" && <TeacherSalaryInvoiceModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "salary" && <TeacherSalaryInvoiceModal teacher={docTarget.teacher} config={config} teacherFeeRules={teacherFeeRules} onSave={handleSave} onClose={() => setDocTarget(null)} />}
     </div>
   );
 }
@@ -1710,9 +1752,11 @@ function TeacherPicker({ teachers, label, onPick }) {
   );
 }
 
-function TeacherFormModal({ teacher, onClose, onSave, config }) {
+function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules }) {
   const [form, setForm] = useState(teacher);
   const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
+  const scaleRows = (teacherFeeRules || []).filter(r => r.designation === form.designation);
+  const scaleTotal = sumBy(scaleRows, r => r.amount);
   return (
     <Modal title={teacher.id ? "Edit Staff" : "Add Staff"} onClose={onClose} size="lg"
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
@@ -1727,10 +1771,18 @@ function TeacherFormModal({ teacher, onClose, onSave, config }) {
         <Field label="Email"><input type="email" value={form.email} onChange={set("email")} /></Field>
         <Field label="NID Number"><input type="text" value={form.nid} onChange={set("nid")} /></Field>
         <Field label="Address" span2><textarea value={form.address} onChange={set("address")} /></Field>
-        <Field label="Basic Salary"><input type="number" value={form.basicSalary} onChange={set("basicSalary")} /></Field>
-        <Field label="Allowance"><input type="number" value={form.allowance} onChange={set("allowance")} /></Field>
-        <Field label="Paid Amount (this cycle)"><input type="number" value={form.paidAmount} onChange={set("paidAmount")} /></Field>
         <PhotoBox label="Staff Photo" existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+      </div>
+      <div className="card" style={{ marginTop: 16, background: "var(--paper)" }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", marginBottom: 8 }}>Salary (auto from Teacher Fee Scale — {form.designation})</div>
+        {scaleRows.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--slate-soft)" }}>No fee scale set for this designation yet. Add one in Master Fee → Teacher Fee Scale to auto-calculate salary.</div>
+        ) : (
+          <>
+            {scaleRows.map(r => <FieldRow key={r.id} name={r.feeType} value={"৳" + money(r.amount)} />)}
+            <FieldRow name="Total Payable" value={<strong>৳{money(scaleTotal)}</strong>} />
+          </>
+        )}
       </div>
     </Modal>
   );
@@ -1797,7 +1849,7 @@ function TeacherIdCardModal({ teacher, config, onClose }) {
           </div>
           <div className="icp-footer">
             {config.schoolName || "School Name"}
-            {config.schoolPhone && <span className="icp-phone">☎ {config.schoolPhone}</span>}
+            {(config.schoolPhones && config.schoolPhones.filter(Boolean).length > 0) && <span className="icp-phone">☎ {config.schoolPhones.filter(Boolean).join(", ")}</span>}
           </div>
         </div>
       </div>
@@ -1805,37 +1857,112 @@ function TeacherIdCardModal({ teacher, config, onClose }) {
   );
 }
 
-function TeacherSalaryInvoiceModal({ teacher, config, onClose }) {
-  const total = (Number(teacher.basicSalary) || 0) + (Number(teacher.allowance) || 0);
-  const due = teacherDue(teacher);
+function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, onClose }) {
+  const [payAmounts, setPayAmounts] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
+  const toast = useToast();
+  const breakdown = teacherFeeBreakdown(teacher, teacherFeeRules);
+  const totalCharged = sumBy(breakdown, r => r.charged);
+  const totalPaid = sumBy(breakdown, r => r.paid);
+  const totalDue = sumBy(breakdown, r => r.due);
+
+  async function submitPayments() {
+    const entries = Object.entries(payAmounts).filter(([head, amt]) => Number(amt) > 0);
+    if (entries.length === 0) { toast && toast("Enter at least one payment amount", "error"); return; }
+    setSaving(true);
+    const newPayments = entries.map(([head, amt]) => ({ head, amount: Number(amt), date: new Date().toISOString().slice(0,10) }));
+    const updated = { ...teacher, payments: [...(teacher.payments || []), ...newPayments] };
+    await onSave(updated);
+    setPayAmounts({});
+    setSaving(false);
+    toast && toast("Payments submitted", "success");
+  }
+
   return (
-    <DocShell title={`Salary Invoice — ${teacher.name}`} onClose={onClose}>
-      <div className="doc-preview">
-        <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
-          <div>
-            <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
-            <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>Salary & Allowance Invoice</div>
+    <Modal title={`Salary Invoice — ${teacher.name}`} onClose={onClose} size="lg"
+      footer={showPrint ? (
+        <>
+          <button className="btn" onClick={() => setShowPrint(false)}>← Back</button>
+          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
+        </>
+      ) : (
+        <>
+          <button className="btn" onClick={onClose}>Close</button>
+          <button className="btn" onClick={() => setShowPrint(true)}><Icon.print />Print Invoice</button>
+          <button className="btn btn-primary" disabled={saving} onClick={submitPayments}>Submit Payments</button>
+        </>
+      )}>
+      {showPrint ? (
+        <div className="doc-preview">
+          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
+            <div>
+              <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
+              <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>Salary & Allowance Invoice</div>
+            </div>
+            <div style={{ textAlign: "right", fontSize: 12.5 }}>Date: {fmtDate(new Date().toISOString())}</div>
           </div>
-          <div style={{ textAlign: "right", fontSize: 12.5 }}>Date: {fmtDate(new Date().toISOString())}</div>
-        </div>
-        <FieldRow name="Staff Name" value={teacher.name} />
-        <FieldRow name="Designation" value={teacher.designation} />
-        <table style={{ width: "100%", margin: "16px 0" }}>
-          <thead><tr><th>Component</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
-          <tbody>
-            <tr><td>Basic Salary</td><td style={{ textAlign: "right" }} className="mono">৳{money(teacher.basicSalary)}</td></tr>
-            <tr><td>Allowance</td><td style={{ textAlign: "right" }} className="mono">৳{money(teacher.allowance)}</td></tr>
-            <tr><td><strong>Total Payable</strong></td><td style={{ textAlign: "right" }} className="mono"><strong>৳{money(total)}</strong></td></tr>
-            <tr><td>Paid</td><td style={{ textAlign: "right" }} className="mono">৳{money(teacher.paidAmount)}</td></tr>
-          </tbody>
-        </table>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ minWidth: 220 }}>
-            <FieldRow name="Balance Due" value={<strong style={{ color: due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(due)}</strong>} />
+          <FieldRow name="Staff Name" value={teacher.name} />
+          <FieldRow name="Designation" value={teacher.designation} />
+          <table style={{ width: "100%", margin: "16px 0" }}>
+            <thead><tr><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
+            <tbody>
+              {breakdown.map(r => (
+                <tr key={r.head}>
+                  <td>{r.head}</td>
+                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ minWidth: 220 }}>
+              <FieldRow name="Total Payable" value={"৳" + money(totalCharged)} />
+              <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
+              <FieldRow name="Balance Due" value={<strong>৳{money(totalDue)}</strong>} />
+            </div>
           </div>
         </div>
-      </div>
-    </DocShell>
+      ) : (
+        <div>
+          <FieldRow name="Staff Name" value={teacher.name} />
+          <FieldRow name="Designation" value={teacher.designation} />
+          {breakdown.length === 0 ? (
+            <EmptyState title="No fee scale set for this designation" sub={`Add salary components for ${teacher.designation} in Master Fee → Teacher Fee Scale.`} />
+          ) : (
+            <div className="table-wrap" style={{ marginTop: 14 }}>
+              <table style={{ width: "100%" }}>
+                <thead><tr><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th>Pay Amount</th></tr></thead>
+                <tbody>
+                  {breakdown.map(r => (
+                    <tr key={r.head}>
+                      <td>{r.head}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                      <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
+                      <td>
+                        {r.due > 0 ? (
+                          <input type="number" placeholder="0" value={payAmounts[r.head] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 100, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                        ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+            <div style={{ minWidth: 220 }}>
+              <FieldRow name="Total Payable" value={"৳" + money(totalCharged)} />
+              <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
+              <FieldRow name="Balance Due" value={<strong style={{ color: totalDue > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(totalDue)}</strong>} />
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -1987,7 +2114,7 @@ function DueModule({ data }) {
       </div>
 
       {tab === "students" && (
-        <div className="card card-flush">
+        <div className="card card-flush print-landscape">
           <div style={{ padding: "16px 18px 0" }} className="search-row no-print">
             <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
               <option value="">Select a Class</option>
@@ -2039,7 +2166,7 @@ function DueModule({ data }) {
       )}
 
       {tab === "teachers" && (
-        <div className="card card-flush">
+        <div className="card card-flush print-landscape">
           <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
             {teacherDues.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
@@ -2152,11 +2279,16 @@ function MasterFeeModule({ data, save, remove }) {
     setEditingGroup(null);
   }
 
+  function handlePrint() { window.print(); }
+
+  const allClassHeads = [...new Set(classFees.map(f => f.feeType))];
+  const allTeacherHeads = [...new Set(teacherFees.map(f => f.feeType))];
+
   return (
     <div>
       <div className="section-head">
         <div><h2>Master Fee Setup</h2><p>Determine class-wise (sector-based) fees and teacher-based salary scales — add multiple fee heads at once per class or designation.</p></div>
-        <button className="btn btn-primary" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
+        <button className="btn btn-primary no-print" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
       </div>
       <div className="tabs no-print">
         <button className={`tab ${tab === "class" ? "active" : ""}`} onClick={() => setTab("class")}>Class Fee Rules</button>
@@ -2164,54 +2296,93 @@ function MasterFeeModule({ data, save, remove }) {
       </div>
 
       {tab === "class" && (
-        Object.keys(classGroups).length === 0 ? (
-          <div className="card"><EmptyState title="No class fee rules yet" sub="Add a fee group with multiple heads (Tuition, Exam, etc.) per class." /></div>
-        ) : (
-          <div className="grid grid-2">
-            {Object.values(classGroups).map(group => (
-              <div className="card" key={group.className + group.section}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <h3 style={{ fontSize: 15 }}>{group.className} <span style={{ color: "var(--slate-soft)", fontWeight: 400 }}>— {group.section || "All Sections"}</span></h3>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="btn btn-sm btn-icon" onClick={() => editGroup(group, "class")}><Icon.edit /></button>
-                    <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(group.rows)}><Icon.trash /></button>
-                  </div>
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  {group.rows.map(r => (
-                    <div className="kv-row" key={r.id}><span className="k">{r.feeType}</span><span className="v">৳{money(r.amount)}</span></div>
-                  ))}
-                  <div className="kv-row" style={{ fontWeight: 700 }}><span className="k">Total</span><span className="v">৳{money(sumBy(group.rows, r => r.amount))}</span></div>
-                </div>
-              </div>
-            ))}
+        <div className="card card-flush print-landscape">
+          <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
+            {Object.keys(classGroups).length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
-        )
+          <div className="print-only" style={{ padding: "12px 18px 8px" }}>
+            <h3 style={{ fontSize: 16 }}>Class-wise Fee Structure</h3>
+          </div>
+          {Object.keys(classGroups).length === 0 ? (
+            <EmptyState title="No class fee rules yet" sub="Add a fee group with multiple heads (Tuition, Exam, etc.) per class." />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Class</th><th>Section</th>
+                    {allClassHeads.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
+                    <th style={{ textAlign: "right" }}>Total</th>
+                    <th className="no-print"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.values(classGroups).map(group => (
+                    <tr key={group.className + group.section}>
+                      <td>{group.className}</td>
+                      <td>{group.section || "All"}</td>
+                      {allClassHeads.map(h => {
+                        const row = group.rows.find(r => r.feeType === h);
+                        return <td key={h} style={{ textAlign: "right" }} className="mono">{row ? "৳" + money(row.amount) : "—"}</td>;
+                      })}
+                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(group.rows, r => r.amount))}</strong></td>
+                      <td className="no-print">
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button className="btn btn-sm btn-icon" onClick={() => editGroup(group, "class")}><Icon.edit /></button>
+                          <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(group.rows)}><Icon.trash /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
       {tab === "teacher" && (
-        Object.keys(teacherGroups).length === 0 ? (
-          <div className="card"><EmptyState title="No teacher fee scales yet" sub="Add a fee group with multiple components (Basic, Allowance, etc.) per designation." /></div>
-        ) : (
-          <div className="grid grid-2">
-            {Object.values(teacherGroups).map(group => (
-              <div className="card" key={group.designation}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <h3 style={{ fontSize: 15 }}>{group.designation}</h3>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="btn btn-sm btn-icon" onClick={() => editGroup(group, "teacher")}><Icon.edit /></button>
-                    <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(group.rows)}><Icon.trash /></button>
-                  </div>
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  {group.rows.map(r => (
-                    <div className="kv-row" key={r.id}><span className="k">{r.feeType}</span><span className="v">৳{money(r.amount)}</span></div>
-                  ))}
-                  <div className="kv-row" style={{ fontWeight: 700 }}><span className="k">Total</span><span className="v">৳{money(sumBy(group.rows, r => r.amount))}</span></div>
-                </div>
-              </div>
-            ))}
+        <div className="card card-flush print-landscape">
+          <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
+            {Object.keys(teacherGroups).length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
-        )
+          <div className="print-only" style={{ padding: "12px 18px 8px" }}>
+            <h3 style={{ fontSize: 16 }}>Designation-wise Salary Scale</h3>
+          </div>
+          {Object.keys(teacherGroups).length === 0 ? (
+            <EmptyState title="No teacher fee scales yet" sub="Add a fee group with multiple components (Basic, Allowance, etc.) per designation." />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Designation</th>
+                    {allTeacherHeads.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
+                    <th style={{ textAlign: "right" }}>Total</th>
+                    <th className="no-print"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.values(teacherGroups).map(group => (
+                    <tr key={group.designation}>
+                      <td>{group.designation}</td>
+                      {allTeacherHeads.map(h => {
+                        const row = group.rows.find(r => r.feeType === h);
+                        return <td key={h} style={{ textAlign: "right" }} className="mono">{row ? "৳" + money(row.amount) : "—"}</td>;
+                      })}
+                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(group.rows, r => r.amount))}</strong></td>
+                      <td className="no-print">
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button className="btn btn-sm btn-icon" onClick={() => editGroup(group, "teacher")}><Icon.edit /></button>
+                          <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(group.rows)}><Icon.trash /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {editingGroup && <FeeGroupModal group={editingGroup} onClose={() => setEditingGroup(null)} onSave={saveGroup} />}
@@ -2429,10 +2600,15 @@ function ReportsModule({ data }) {
    SETTINGS MODULE
    ========================================================= */
 function SettingsModule({ config, setConfig }) {
-  const [form, setForm] = useState(config);
-  const [testing, setTesting] = useState(false);
+  const [form, setForm] = useState({ ...config, schoolPhones: config.schoolPhones && config.schoolPhones.length ? config.schoolPhones : ["", "", ""] });
   const toast = useToast();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  function setPhone(i, val) {
+    const phones = [...form.schoolPhones];
+    phones[i] = val;
+    setForm({ ...form, schoolPhones: phones });
+  }
 
   function handleSave() {
     setConfig(form);
@@ -2440,66 +2616,22 @@ function SettingsModule({ config, setConfig }) {
     toast("Settings saved");
   }
 
-  async function testConnection() {
-    setTesting(true);
-    try {
-      await SheetsAPI.list(form, "Students");
-      toast("Connected to Google Sheets successfully", "success");
-    } catch (err) {
-      toast("Connection failed: " + err.message, "error");
-    }
-    setTesting(false);
-  }
-
   return (
     <div>
-      <div className="section-head"><div><h2>Settings</h2><p>Connect your Google Sheets backend and GitHub file storage.</p></div></div>
+      <div className="section-head"><div><h2>Settings</h2><p>Institution profile shown on ID cards, invoices, and documents.</p></div></div>
 
-      <div className="grid grid-2" style={{ alignItems: "start" }}>
-        <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>School Profile</h3>
-          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 14 }}>Appears on ID cards, invoices, and letters.</p>
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-            <Field label="School Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
-            <Field label="School Mobile / Phone" hint="shown on ID cards"><input type="tel" value={form.schoolPhone || ""} onChange={set("schoolPhone")} placeholder="e.g. 01XXXXXXXXX" /></Field>
-          </div>
+      <div className="card" style={{ maxWidth: 560 }}>
+        <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+          <Field label="Institution Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
+          <Field label="Address"><textarea value={form.schoolAddress || ""} onChange={set("schoolAddress")} placeholder="Full address" /></Field>
+          <Field label="Mobile Number 1"><input type="tel" value={form.schoolPhones[0] || ""} onChange={(e) => setPhone(0, e.target.value)} placeholder="e.g. 01XXXXXXXXX" /></Field>
+          <Field label="Mobile Number 2" hint="optional"><input type="tel" value={form.schoolPhones[1] || ""} onChange={(e) => setPhone(1, e.target.value)} /></Field>
+          <Field label="Mobile Number 3" hint="optional"><input type="tel" value={form.schoolPhones[2] || ""} onChange={(e) => setPhone(2, e.target.value)} /></Field>
+          <PhotoBox label="Logo" existingUrl={form.schoolLogo} onUploaded={(url) => setForm(f => ({ ...f, schoolLogo: url }))} />
+          <Field label="Facebook Page URL"><input type="text" value={form.facebookUrl || ""} onChange={set("facebookUrl")} placeholder="https://facebook.com/…" /></Field>
+          <Field label="YouTube Channel URL"><input type="text" value={form.youtubeUrl || ""} onChange={set("youtubeUrl")} placeholder="https://youtube.com/…" /></Field>
         </div>
-
-        <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Google Sheets (Database)</h3>
-          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 14 }}>
-            Paste the Web App URL from your deployed Apps Script (see AppsScript-Code.gs).
-          </p>
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-            <Field label="Apps Script Web App URL"><input type="text" value={form.sheetsUrl} onChange={set("sheetsUrl")} placeholder="https://script.google.com/macros/s/.../exec" /></Field>
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <button className="btn btn-sm" onClick={testConnection} disabled={testing || !form.sheetsUrl}>{testing ? "Testing…" : "Test Connection"}</button>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Photos & Documents</h3>
-          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 14, lineHeight: 1.7 }}>
-            No token needed. Upload a photo/file to your GitHub repo yourself (drag & drop on github.com),
-            then paste the resulting link into the Photo field on each form. Or use "Embed a file" to attach it directly — no GitHub required at all.
-          </p>
-        </div>
-
-        <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 10 }}>Setup Guide</h3>
-          <ol style={{ paddingLeft: 18, fontSize: 13, lineHeight: 1.9, color: "var(--slate)" }}>
-            <li>Open <span className="mono">script.google.com</span> → New Project</li>
-            <li>Paste in the contents of <span className="mono">AppsScript-Code.gs</span></li>
-            <li>Deploy → New deployment → Web app → Execute as "Me", Access "Anyone"</li>
-            <li>Copy the <span className="mono">/exec</span> URL into the field on the left (or paste it directly at the top of the code)</li>
-            <li>To attach photos: upload the file to a GitHub repo on github.com, open it, click "Raw", and paste that link into any Photo field — or just use "Embed a file" instead</li>
-          </ol>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 18 }}>
-        <button className="btn btn-primary" onClick={handleSave}>Save Settings</button>
+        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleSave}>Save Settings</button>
       </div>
     </div>
   );
