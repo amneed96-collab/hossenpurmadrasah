@@ -87,6 +87,9 @@ input,select,textarea{font-family:inherit;}
   font-family:'Fraunces',serif;font-weight:700;font-size:16px;color:var(--moss-deep);
   flex-shrink:0;
 }
+.menubar-brand-logo{
+  width:32px;height:32px;border-radius:9px;object-fit:cover;flex-shrink:0;background:#fff;
+}
 .menubar-brand-text{font-family:'Fraunces',serif;font-size:16px;font-weight:600;line-height:1.1;}
 .menubar-brand-sub{font-size:10px;color:#a9c2b2;text-transform:uppercase;letter-spacing:0.08em;margin-top:1px;}
 
@@ -311,6 +314,8 @@ tbody tr:last-child td{border-bottom:none;}
   /* Landscape A4 page for wide tabular data (Due List, Master Fee grid) */
   @page landscape-a4{size:A4 landscape;margin:12mm;}
   .print-landscape{page:landscape-a4;}
+  /* On-screen page titles/descriptions are redundant with PrintDocHead's institution header */
+  .section-head{display:none !important;}
 }
 .doc-preview{
   background:#fff;border:1px solid var(--line);border-radius:var(--radius);
@@ -320,6 +325,31 @@ tbody tr:last-child td{border-bottom:none;}
 @media print{
   .doc-preview.half-a4{width:100%;min-height:0;box-shadow:none;border:none;}
 }
+
+/* Professional Admission Form layout */
+.admission-form-print{max-width:100%;}
+@media print{ .admission-form-print{box-shadow:none;border:none;padding:0;} }
+.adm-header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+  border-bottom:2px solid var(--moss-deep);padding-bottom:14px;margin-bottom:16px;
+}
+.adm-header-logo,.adm-header-photo{
+  width:72px;height:86px;flex-shrink:0;border:1px solid var(--line);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);
+}
+.adm-header-logo img,.adm-header-photo img{width:100%;height:100%;object-fit:cover;}
+.adm-header-center{flex:1;text-align:center;}
+.adm-school-name{font-family:'Fraunces',serif;font-size:21px;font-weight:700;}
+.adm-school-address{font-size:11.5px;color:var(--slate-soft);margin-top:2px;}
+.adm-school-phone{font-size:11.5px;color:var(--slate-soft);}
+.adm-form-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);}
+.adm-form-no{font-size:11px;color:var(--slate-soft);margin-top:2px;}
+.adm-fields{margin-bottom:20px;}
+.adm-signatures{display:flex;justify-content:space-between;margin-top:50px;padding:0 10px;}
+.adm-sig{border-top:1px solid var(--ink);padding-top:6px;font-size:10.5px;text-align:center;width:180px;line-height:1.5;}
+.adm-footer{margin-top:36px;text-align:center;border-top:1px dashed var(--line);padding-top:10px;}
+.adm-slogan{font-size:11px;font-style:italic;color:var(--slate-soft);}
+.adm-credit{font-size:10px;color:var(--slate-soft);margin-top:4px;}
 
 .id-card-grid{display:flex;flex-wrap:wrap;gap:0.14in;justify-content:flex-start;}
 @media print{
@@ -698,6 +728,37 @@ function FieldRow({ name, value }) {
   );
 }
 
+// Shared print-only header for list/table printouts: institution name, address, then a data headline.
+// Never shown on screen — only appears when printing (via .print-only), keeping list/table print
+// output limited to institution identity + headline + table, with no buttons/search/filters.
+function PrintDocHead({ config, headline }) {
+  return (
+    <div className="print-only" style={{ padding: "0 18px 10px", textAlign: "center", borderBottom: "2px solid var(--moss-deep)", marginBottom: 10 }}>
+      {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 44, marginBottom: 6 }} />}
+      <div style={{ fontFamily: "'Fraunces',serif", fontSize: 18, fontWeight: 600 }}>{(config && config.schoolName) || "School Name"}</div>
+      {config && config.schoolAddress && <div style={{ fontSize: 11.5, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
+      {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{headline}</div>}
+    </div>
+  );
+}
+
+// Quick single-record printable slip (name/value fields) for a per-row "Print" icon action.
+function SingleRecordPrintModal({ title, config, fields, onClose }) {
+  return (
+    <Modal title={title} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button></>}>
+      <div className="doc-preview">
+        <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 12, marginBottom: 14 }}>
+          {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 40, marginBottom: 6 }} />}
+          <div style={{ fontFamily: "'Fraunces',serif", fontSize: 17, fontWeight: 600 }}>{(config && config.schoolName) || "School Name"}</div>
+          {config && config.schoolAddress && <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>{config.schoolAddress}</div>}
+        </div>
+        {fields.map(f => <FieldRow key={f.name} name={f.name} value={f.value} />)}
+      </div>
+    </Modal>
+  );
+}
+
 function EmptyState({ title, sub, action }) {
   return (
     <div className="empty-state">
@@ -722,29 +783,76 @@ function fmtDate(d) {
   } catch (e) { return d; }
 }
 
-function PhotoBox({ label, onUploaded, existingUrl }) {
+// Resizes an image client-side (max dimension) before upload, to keep Drive uploads fast
+// and avoid huge base64 payloads over the wire.
+function resizeImageFile(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => {
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        resolve({ base64: dataUrl.split(",")[1], mimeType: "image/jpeg", dataUrl });
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function PhotoBox({ label, folder, config, onUploaded, existingUrl }) {
   const toast = useToast();
   const [preview, setPreview] = useState(existingUrl || "");
+  const [busy, setBusy] = useState(false);
   const inputRef = useRef();
 
   async function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
+    setBusy(true);
     try {
-      const base64 = await fileToBase64(file);
-      const dataUrl = `data:${file.type};base64,${base64}`;
-      setPreview(dataUrl);
-      onUploaded(dataUrl);
+      const { base64, mimeType, dataUrl } = await resizeImageFile(file, 500);
+      setPreview(dataUrl); // instant local preview while uploading
+      if (config && config.sheetsUrl) {
+        const filename = `${Date.now()}.jpg`;
+        const res = await sheetsCall(config, { action: "uploadImage", folder: folder || "misc", filename, base64, mimeType });
+        if (res && res.url) {
+          setPreview(res.url);
+          onUploaded(res.url);
+        } else {
+          throw new Error((res && res.error) || "Upload failed");
+        }
+      } else {
+        // Offline mode — no backend configured, keep the (small, resized) data URL locally only.
+        onUploaded(dataUrl);
+        toast && toast("No Google Sheets connection — photo kept locally only", "error");
+      }
     } catch (err) {
-      toast && toast("Couldn't read file: " + err.message, "error");
+      console.error(err);
+      toast && toast("Photo upload failed: " + err.message, "error");
     }
+    setBusy(false);
   }
 
   return (
     <div className="form-field">
       <label>{label}</label>
-      <div className="photo-box" onClick={() => inputRef.current.click()}>
-        {preview ? <img src={preview} alt="" /> : (
+      <div className="photo-box" onClick={() => !busy && inputRef.current.click()}>
+        {busy ? (
+          <div className="photo-box-placeholder"><div className="spinner" style={{ width: 20, height: 20 }} /></div>
+        ) : preview ? <img src={preview} alt="" /> : (
           <div className="photo-box-placeholder">
             <Icon.students width={26} height={26} />
             <span>Click to select photo</span>
@@ -790,17 +898,22 @@ function ConnectionBanner({ config, onOpenSettings }) {
    DERIVED / COMPUTED HELPERS (dues, totals)
    ========================================================= */
 
-// Returns the applicable fee heads/amounts for a student's class,
-// based on Master Fee class rules (section-specific rules override "All Sections" rules).
+// Fixed metadata keys on a fee-scale row — every OTHER key on the row is a fee head/column.
+const FEE_META_KEYS = ["id", "kind", "className", "section", "designation", "note", "createdAt", "updatedAt"];
+function feeHeadsOf(row) {
+  return Object.keys(row).filter(k => !FEE_META_KEYS.includes(k) && row[k] !== "" && row[k] !== null && row[k] !== undefined);
+}
+
+// Returns [{feeType, amount}] for a student's class, one row per class holds all heads as columns.
+// A section-specific row overrides the "All Sections" row for the same class.
 function applicableFeeHeads(student, feeRules) {
   const rulesForClass = (feeRules || []).filter(f => f.className === student.className);
-  const bySpecificSection = rulesForClass.filter(f => f.section === student.section);
-  const byAllSections = rulesForClass.filter(f => !f.section);
-  // prefer a section-specific rule for a given feeType, else fall back to the "all sections" rule
+  const allSectionsRow = rulesForClass.find(f => !f.section);
+  const specificRow = rulesForClass.find(f => f.section === student.section);
   const map = {};
-  byAllSections.forEach(f => { map[f.feeType] = f; });
-  bySpecificSection.forEach(f => { map[f.feeType] = f; });
-  return Object.values(map);
+  if (allSectionsRow) feeHeadsOf(allSectionsRow).forEach(h => { map[h] = Number(allSectionsRow[h]) || 0; });
+  if (specificRow) feeHeadsOf(specificRow).forEach(h => { map[h] = Number(specificRow[h]) || 0; });
+  return Object.entries(map).map(([feeType, amount]) => ({ feeType, amount }));
 }
 
 // Per-head breakdown: [{ head, charged, paid, due }]
@@ -831,18 +944,21 @@ function teacherDue(teacher) {
 }
 
 // Per-head breakdown for a teacher's payable amounts.
-// Uses Master Fee "Teacher Fee Scale" rules matching their designation when available;
+// Uses the Master Fee "Teacher Fee Scale" row matching their designation (heads as columns) when available;
 // otherwise falls back to the two legacy components (Basic Salary, Allowance).
 function teacherFeeBreakdown(teacher, teacherFeeRules) {
-  const rules = (teacherFeeRules || []).filter(f => f.designation === teacher.designation);
+  const row = (teacherFeeRules || []).find(f => f.designation === teacher.designation);
   const payments = teacher.payments || [];
 
-  if (rules.length > 0) {
-    return rules.map(r => {
-      const paid = sumBy(payments.filter(p => p.head === r.feeType), p => p.amount);
-      const charged = Number(r.amount) || 0;
-      return { head: r.feeType, charged, paid, due: Math.max(0, charged - paid) };
-    });
+  if (row) {
+    const heads = feeHeadsOf(row);
+    if (heads.length > 0) {
+      return heads.map(h => {
+        const paid = sumBy(payments.filter(p => p.head === h), p => p.amount);
+        const charged = Number(row[h]) || 0;
+        return { head: h, charged, paid, due: Math.max(0, charged - paid) };
+      });
+    }
   }
 
   // Fallback: legacy basicSalary/allowance/paidAmount fields, paidAmount applied to Basic first.
@@ -989,10 +1105,29 @@ function generateStudentId(existingStudents) {
   return `STU-${year}-${String(next).padStart(4, "0")}`;
 }
 
+function generateFormNo(existingStudents) {
+  const year = new Date().getFullYear();
+  const nums = (existingStudents || [])
+    .map(s => s.admissionFormNo || "")
+    .filter(id => id.startsWith(`ADM-${year}-`))
+    .map(id => parseInt(id.split("-")[2], 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `ADM-${year}-${String(next).padStart(4, "0")}`;
+}
+
+function nextRollForClass(students, className, excludeId) {
+  const rolls = (students || [])
+    .filter(s => s.className === className && s.id !== excludeId)
+    .map(s => parseInt(s.roll, 10))
+    .filter(n => !isNaN(n));
+  return rolls.length ? Math.max(...rolls) + 1 : 1;
+}
+
 const emptyStudent = (existingStudents) => ({
-  id: null, studentId: generateStudentId(existingStudents),
+  id: null, studentId: generateStudentId(existingStudents), admissionFormNo: generateFormNo(existingStudents),
   name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
-  className: "One", section: "A", roll: "", admissionDate: new Date().toISOString().slice(0,10),
+  className: "One", section: "A", roll: String(nextRollForClass(existingStudents, "One")), admissionDate: new Date().toISOString().slice(0,10),
   bloodGroup: "", phone: "", guardianPhone: "",
   presentAddress: "", permanentAddress: "", sameAsPresent: false,
   photoUrl: "", status: "Active", payments: [],
@@ -1072,10 +1207,10 @@ function StudentsModule({ data, save, remove, config }) {
           onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config}
           rowAction={{ label: "Admit Card", icon: "idcard", onClick: (s) => setDocTarget({ type: "admit", student: s }) }} />
       )}
-      {tab === "seat" && <SeatPlanTab data={data} save={save} formOpen={docTarget && docTarget.type === "seatform"} onCloseForm={() => setDocTarget(null)} />}
+      {tab === "seat" && <SeatPlanTab data={data} save={save} formOpen={docTarget && docTarget.type === "seatform"} onCloseForm={() => setDocTarget(null)} config={config} />}
 
       {editing && (
-        <StudentFormModal student={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
+        <StudentFormModal student={editing} students={students} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
       )}
       {docTarget && docTarget.type === "id" && <IdCardModal students={students} initialStudent={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
       {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal students={students} initialStudent={docTarget.student} config={config} feeRules={feeRules} onSave={handleSave} onClose={() => setDocTarget(null)} />}
@@ -1085,10 +1220,11 @@ function StudentsModule({ data, save, remove, config }) {
 }
 
 function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc, feeRules, config, rowAction }) {
+  const [printRow, setPrintRow] = useState(null);
   function handlePrint() { window.print(); }
   return (
     <div className="card card-flush">
-      <div style={{ padding: "16px 18px 0" }}>
+      <div className="no-print" style={{ padding: "16px 18px 0" }}>
         <div className="search-row">
           <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
             <input className="search-input" placeholder="Search by name, roll, or Student ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -1097,16 +1233,14 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
             <option value="">All Classes</option>
             {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <button className="btn btn-sm no-print" onClick={handlePrint}><Icon.print />Print List</button>
+          <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print List</button>
         </div>
       </div>
       {students.length === 0 ? (
         <EmptyState title="No students found" sub="Try adjusting filters, or add a new admission." />
       ) : (
         <div className="table-wrap">
-          <div className="print-only" style={{ padding: "0 18px", marginBottom: 8 }}>
-            <h3 style={{ fontSize: 16 }}>{config && config.schoolName} — Student List{classFilter ? ` (${classFilter})` : ""}</h3>
-          </div>
+          <PrintDocHead config={config} headline={`Student List${classFilter ? ` — ${classFilter}` : ""}`} />
           <table>
             <thead>
               <tr><th>Photo</th><th>Student ID</th><th>Roll</th><th>Name</th><th>Class</th><th>Section</th><th>Guardian Phone</th><th>Fee Due</th><th>Status</th><th className="no-print"></th></tr>
@@ -1141,6 +1275,7 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
                             <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}?`)) onDelete(s.id); }}><Icon.trash /></button>
                           </>
                         )}
+                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintRow(s)}><Icon.print /></button>
                       </div>
                     </td>
                   </tr>
@@ -1149,6 +1284,18 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
             </tbody>
           </table>
         </div>
+      )}
+      {printRow && (
+        <SingleRecordPrintModal title={`Student — ${printRow.name}`} config={config} onClose={() => setPrintRow(null)} fields={[
+          { name: "Student ID", value: printRow.studentId || "—" },
+          { name: "Name", value: printRow.name },
+          { name: "Class / Section", value: `${printRow.className} — ${printRow.section}` },
+          { name: "Roll", value: printRow.roll || "—" },
+          { name: "Father's Name", value: printRow.fatherName || "—" },
+          { name: "Guardian Phone", value: printRow.guardianPhone || "—" },
+          { name: "Fee Due", value: "৳" + money(studentDueFromRules(printRow, feeRules)) },
+          { name: "Status", value: printRow.status || "Active" },
+        ]} />
       )}
     </div>
   );
@@ -1177,9 +1324,21 @@ function StudentPicker({ students, label, onPick }) {
   );
 }
 
-function StudentFormModal({ student, onClose, onSave, config }) {
+function StudentFormModal({ student, students, onClose, onSave, config }) {
   const [form, setForm] = useState(student);
+  const [showPrint, setShowPrint] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
+
+  function handleClassChange(e) {
+    const className = e.target.value;
+    setForm(f => {
+      const next = { ...f, className };
+      // Auto-fill next roll for the newly selected class — only for brand-new admissions,
+      // so editing an existing student's class never silently overwrites their roll.
+      if (!f.id) next.roll = String(nextRollForClass(students, className, f.id));
+      return next;
+    });
+  }
 
   function handlePresentChange(e) {
     const val = e.target.value;
@@ -1190,41 +1349,102 @@ function StudentFormModal({ student, onClose, onSave, config }) {
     setForm(f => ({ ...f, sameAsPresent: checked, permanentAddress: checked ? f.presentAddress : f.permanentAddress }));
   }
 
-  function handlePrint() { window.print(); }
+  async function handleSaveAndPreview() {
+    const saved = await onSave(form);
+    if (saved) setForm(saved);
+    setShowPrint(true);
+  }
+
+  const phones = (config.schoolPhones || []).filter(Boolean);
 
   return (
     <Modal title={student.id ? "Edit Student" : "New Admission"} onClose={onClose} size="lg"
-      footer={<>
-        <button className="btn" onClick={onClose}>Cancel</button>
-        {student.id && <button className="btn" onClick={handlePrint}><Icon.print />Print Admission Form (A4)</button>}
-        <button className="btn btn-primary" onClick={() => onSave(form)}>Save Student</button>
-      </>}>
-      <div id="doc-capture-area">
-        <div className="form-grid">
-          <Field label="Student ID" hint="auto-generated"><input type="text" value={form.studentId} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
-          <Field label="Full Name"><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
-          <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
-          <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
-          <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
-          <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
-          <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-          <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-          <Field label="Roll Number"><input type="text" value={form.roll} onChange={set("roll")} /></Field>
-          <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
-          <Field label="Blood Group"><select value={form.bloodGroup} onChange={set("bloodGroup")}><option value="">—</option>{BLOOD_GROUPS.map(b => <option key={b}>{b}</option>)}</select></Field>
-          <Field label="Student Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
-          <Field label="Guardian Phone"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
-          <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option><option>Graduated</option></select></Field>
-          <Field label="Present Address" span2><textarea value={form.presentAddress} onChange={handlePresentChange} /></Field>
-          <Field label="Permanent Address" span2
-            hint={<label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 400, cursor: "pointer" }}>
-              <input type="checkbox" checked={!!form.sameAsPresent} onChange={toggleSameAddress} /> Same as present address
-            </label>}>
-            <textarea value={form.permanentAddress} onChange={set("permanentAddress")} disabled={form.sameAsPresent} />
-          </Field>
-          <PhotoBox label="Student Photo" existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+      footer={showPrint ? (
+        <>
+          <button className="btn" onClick={() => setShowPrint(false)}>← Back to Form</button>
+          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Admission Form (A4)</button>
+        </>
+      ) : (
+        <>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={() => onSave(form)}>Save</button>
+          <button className="btn btn-primary" onClick={handleSaveAndPreview}>Save &amp; Preview / Print</button>
+        </>
+      )}>
+      {showPrint ? (
+        <div className="doc-preview admission-form-print">
+          <div className="adm-header">
+            <div className="adm-header-logo">
+              {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
+            </div>
+            <div className="adm-header-center">
+              <div className="adm-school-name">{config.schoolName || "School Name"}</div>
+              {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+              {phones[0] && <div className="adm-school-phone">☎ {phones[0]}</div>}
+              <div className="adm-form-title">শিক্ষার্থী ভর্তি ফরম</div>
+              <div className="adm-form-no">ফরম নং: <span className="mono">{form.admissionFormNo || "—"}</span></div>
+            </div>
+            <div className="adm-header-photo">
+              {form.photoUrl ? <img src={form.photoUrl} alt="" /> : null}
+            </div>
+          </div>
+
+          <div className="adm-fields">
+            <FieldRow name="Student ID" value={<span className="mono">{form.studentId}</span>} />
+            <FieldRow name="শিক্ষার্থীর নাম / Name" value={form.name || "—"} />
+            <FieldRow name="পিতার নাম / Father's Name" value={form.fatherName || "—"} />
+            <FieldRow name="মাতার নাম / Mother's Name" value={form.motherName || "—"} />
+            <FieldRow name="জন্ম তারিখ / Date of Birth" value={fmtDate(form.dob)} />
+            <FieldRow name="লিঙ্গ / Gender" value={form.gender} />
+            <FieldRow name="শ্রেণি / Class" value={form.className} />
+            <FieldRow name="শাখা / Section" value={form.section} />
+            <FieldRow name="রোল / Roll" value={form.roll || "—"} />
+            <FieldRow name="ভর্তির তারিখ / Admission Date" value={fmtDate(form.admissionDate)} />
+            <FieldRow name="রক্তের গ্রুপ / Blood Group" value={form.bloodGroup || "—"} />
+            <FieldRow name="শিক্ষার্থীর ফোন / Student Phone" value={form.phone || "—"} />
+            <FieldRow name="অভিভাবকের ফোন / Guardian Phone" value={form.guardianPhone || "—"} />
+            <FieldRow name="বর্তমান ঠিকানা / Present Address" value={form.presentAddress || "—"} />
+            <FieldRow name="স্থায়ী ঠিকানা / Permanent Address" value={form.permanentAddress || "—"} />
+            <FieldRow name="অবস্থা / Status" value={form.status} />
+          </div>
+
+          <div className="adm-signatures">
+            <div className="adm-sig">অভিভাবকের স্বাক্ষর<br/>Guardian's Signature</div>
+            <div className="adm-sig">অধ্যক্ষ / প্রধান শিক্ষক<br/>Principal / Head Teacher</div>
+          </div>
+
+          <div className="adm-footer">
+            <div className="adm-slogan">শিক্ষাই জাতির মেরুদণ্ড — আলোকিত মানুষ গড়ার প্রত্যয়ে</div>
+            <div className="adm-credit">@Powered by: AM Shahed- 01605721296</div>
+          </div>
         </div>
+      ) : (
+      <div className="form-grid">
+        <Field label="Student ID" hint="auto-generated"><input type="text" value={form.studentId} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
+        <Field label="Form No." hint="auto-generated"><input type="text" value={form.admissionFormNo || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
+        <Field label="Full Name"><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
+        <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
+        <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
+        <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
+        <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
+        <Field label="Class"><select value={form.className} onChange={handleClassChange}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Roll Number" hint={!form.id ? "auto-filled from class" : ""}><input type="text" value={form.roll} onChange={set("roll")} /></Field>
+        <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
+        <Field label="Blood Group"><select value={form.bloodGroup} onChange={set("bloodGroup")}><option value="">—</option>{BLOOD_GROUPS.map(b => <option key={b}>{b}</option>)}</select></Field>
+        <Field label="Student Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
+        <Field label="Guardian Phone"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
+        <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option><option>Graduated</option></select></Field>
+        <Field label="Present Address" span2><textarea value={form.presentAddress} onChange={handlePresentChange} /></Field>
+        <Field label="Permanent Address" span2
+          hint={<label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 400, cursor: "pointer" }}>
+            <input type="checkbox" checked={!!form.sameAsPresent} onChange={toggleSameAddress} /> Same as present address
+          </label>}>
+          <textarea value={form.permanentAddress} onChange={set("permanentAddress")} disabled={form.sameAsPresent} />
+        </Field>
+        <PhotoBox label="Student Photo" folder="students" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
       </div>
+      )}
     </Modal>
   );
 }
@@ -1587,10 +1807,11 @@ function StudentAdmitCardModal({ students, initialStudent, config, onClose }) {
   );
 }
 
-function SeatPlanTab({ data, save, formOpen, onCloseForm }) {
+function SeatPlanTab({ data, save, formOpen, onCloseForm, config }) {
   const [form, setForm] = useState({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const plans = data.seatplans || [];
+  const [printRow, setPrintRow] = useState(null);
 
   function handlePrint() { window.print(); }
   async function handleSaveForm() {
@@ -1605,15 +1826,13 @@ function SeatPlanTab({ data, save, formOpen, onCloseForm }) {
         <div style={{ padding: "16px 18px", display: "flex", justifyContent: "flex-end" }} className="no-print">
           {plans.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
         </div>
-        <div className="print-only" style={{ padding: "0 18px 8px" }}>
-          <h3 style={{ fontSize: 16 }}>Seat Plans</h3>
-        </div>
+        <PrintDocHead config={config} headline="Seat Plans" />
         {plans.length === 0 ? (
           <EmptyState title="No seat plans yet" sub={`Use "Open Seat Plan Form" above to create one.`} />
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Exam Name</th><th>Room</th><th>Class</th><th>Section</th><th>Roll Range</th><th>Capacity</th></tr></thead>
+              <thead><tr><th>Exam Name</th><th>Room</th><th>Class</th><th>Section</th><th>Roll Range</th><th>Capacity</th><th className="no-print"></th></tr></thead>
               <tbody>
                 {plans.map(p => (
                   <tr key={p.id}>
@@ -1623,6 +1842,7 @@ function SeatPlanTab({ data, save, formOpen, onCloseForm }) {
                     <td>{p.section || "—"}</td>
                     <td>{p.rangeFrom}–{p.rangeTo}</td>
                     <td>{p.capacity}</td>
+                    <td className="no-print"><button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintRow(p)}><Icon.print /></button></td>
                   </tr>
                 ))}
               </tbody>
@@ -1644,6 +1864,16 @@ function SeatPlanTab({ data, save, formOpen, onCloseForm }) {
             <Field label="Roll Range To"><input type="text" value={form.rangeTo} onChange={set("rangeTo")} /></Field>
           </div>
         </Modal>
+      )}
+      {printRow && (
+        <SingleRecordPrintModal title={`Seat Plan — ${printRow.examName}`} config={config} onClose={() => setPrintRow(null)} fields={[
+          { name: "Exam Name", value: printRow.examName },
+          { name: "Room", value: printRow.room },
+          { name: "Class", value: printRow.className || "—" },
+          { name: "Section", value: printRow.section || "—" },
+          { name: "Roll Range", value: `${printRow.rangeFrom}–${printRow.rangeTo}` },
+          { name: "Capacity", value: printRow.capacity },
+        ]} />
       )}
     </div>
   );
@@ -1771,7 +2001,7 @@ function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules })
         <Field label="Email"><input type="email" value={form.email} onChange={set("email")} /></Field>
         <Field label="NID Number"><input type="text" value={form.nid} onChange={set("nid")} /></Field>
         <Field label="Address" span2><textarea value={form.address} onChange={set("address")} /></Field>
-        <PhotoBox label="Staff Photo" existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+        <PhotoBox label="Staff Photo" folder="teachers" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
       </div>
       <div className="card" style={{ marginTop: 16, background: "var(--paper)" }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", marginBottom: 8 }}>Salary (auto from Teacher Fee Scale — {form.designation})</div>
@@ -2085,7 +2315,7 @@ function FinanceDocModal({ record, config, onClose }) {
 /* =========================================================
    DUE MODULE
    ========================================================= */
-function DueModule({ data }) {
+function DueModule({ data, config }) {
   const [tab, setTab] = useState("students");
   const students = data.students || [];
   const teachers = data.teachers || [];
@@ -2123,9 +2353,7 @@ function DueModule({ data }) {
             {classFilter && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
           <div style={{ padding: "12px 18px 0" }}>
-            <div className="print-only" style={{ marginBottom: 8 }}>
-              <h3 style={{ fontSize: 16 }}>Student Dues — {classFilter || "All Classes"} <span style={{ fontWeight: 400, fontSize: 12 }}>as of {fmtDate(new Date().toISOString())}</span></h3>
-            </div>
+            <PrintDocHead config={config} headline={`Student Dues — ${classFilter || "All Classes"} (as of ${fmtDate(new Date().toISOString())})`} />
           </div>
           {!classFilter ? (
             <EmptyState title="Select a class" sub="Choose a class above to see every student's fee-head-wise dues, one row per student." />
@@ -2171,9 +2399,7 @@ function DueModule({ data }) {
             {teacherDues.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
           <div style={{ padding: "12px 18px 0" }}>
-            <div className="print-only" style={{ marginBottom: 8 }}>
-              <h3 style={{ fontSize: 16 }}>Teacher Dues <span style={{ fontWeight: 400, fontSize: 12 }}>as of {fmtDate(new Date().toISOString())}</span></h3>
-            </div>
+            <PrintDocHead config={config} headline={`Teacher Dues (as of ${fmtDate(new Date().toISOString())})`} />
           </div>
           {teacherDues.length === 0 ? <EmptyState title="No outstanding teacher dues" sub="All salaries are cleared." /> : (
             <div className="table-wrap">
@@ -2215,74 +2441,56 @@ const emptyFeeRuleGroup = (kind) => ({
   note: "",
 });
 
-function MasterFeeModule({ data, save, remove }) {
+function MasterFeeModule({ data, save, remove, config }) {
   const [tab, setTab] = useState("class");
-  const [editingGroup, setEditingGroup] = useState(null); // { kind, className, section, designation, items:[{id,feeType,amount}], note }
+  const [editingGroup, setEditingGroup] = useState(null); // { id, kind, className, section, designation, items:[{feeType,amount}], note }
   const fees = data.fees || [];
-  const classFees = fees.filter(f => f.kind === "class");
-  const teacherFees = fees.filter(f => f.kind === "teacher");
+  const classRows = fees.filter(f => f.kind === "class");
+  const teacherRows = fees.filter(f => f.kind === "teacher");
 
-  // group class fee rows by className+section
-  const classGroups = {};
-  classFees.forEach(f => {
-    const key = `${f.className}||${f.section || ""}`;
-    if (!classGroups[key]) classGroups[key] = { className: f.className, section: f.section, rows: [] };
-    classGroups[key].rows.push(f);
-  });
-  // group teacher fee rows by designation
-  const teacherGroups = {};
-  teacherFees.forEach(f => {
-    const key = f.designation;
-    if (!teacherGroups[key]) teacherGroups[key] = { designation: f.designation, rows: [] };
-    teacherGroups[key].rows.push(f);
-  });
-
-  function openNewGroup() { setEditingGroup(emptyFeeRuleGroup(tab)); }
-
-  function editGroup(group, kind) {
-    if (kind === "class") {
-      setEditingGroup({
-        kind: "class", className: group.className, section: group.section,
-        items: group.rows.map(r => ({ id: r.id, feeType: r.feeType, amount: r.amount })),
-        note: group.rows[0]?.note || "",
-      });
-    } else {
-      setEditingGroup({
-        kind: "teacher", designation: group.designation,
-        items: group.rows.map(r => ({ id: r.id, feeType: r.feeType, amount: r.amount })),
-        note: group.rows[0]?.note || "",
-      });
-    }
+  function openNewGroup() {
+    setEditingGroup({
+      id: null, kind: tab,
+      className: "One", section: "", designation: "Assistant Teacher",
+      items: [{ feeType: tab === "class" ? INCOME_HEADS[0] : "Basic Salary", amount: "" }],
+      note: "",
+    });
   }
 
-  async function deleteGroup(rows) {
-    if (!confirm("Delete this entire fee group?")) return;
-    for (const r of rows) { await remove("fees", r.id); }
+  function editGroup(row) {
+    const heads = feeHeadsOf(row);
+    setEditingGroup({
+      id: row.id, kind: row.kind, className: row.className || "One", section: row.section || "", designation: row.designation || "Assistant Teacher",
+      items: heads.length > 0 ? heads.map(h => ({ feeType: h, amount: row[h] })) : [{ feeType: row.kind === "class" ? INCOME_HEADS[0] : "Basic Salary", amount: "" }],
+      note: row.note || "",
+    });
+  }
+
+  async function deleteGroup(row) {
+    if (!confirm("Delete this entire fee row?")) return;
+    await remove("fees", row.id);
   }
 
   async function saveGroup(group) {
-    // upsert each item row; delete removed ones is out of scope for simplicity (items rarely removed after save)
-    for (const item of group.items) {
-      if (!item.feeType || item.amount === "") continue;
-      const row = {
-        id: item.id || undefined,
-        kind: group.kind,
-        className: group.kind === "class" ? group.className : undefined,
-        section: group.kind === "class" ? group.section : undefined,
-        designation: group.kind === "teacher" ? group.designation : undefined,
-        feeType: item.feeType,
-        amount: item.amount,
-        note: group.note,
-      };
-      await save("fees", row);
-    }
+    const row = {
+      id: group.id || undefined,
+      kind: group.kind,
+      className: group.kind === "class" ? group.className : undefined,
+      section: group.kind === "class" ? group.section : undefined,
+      designation: group.kind === "teacher" ? group.designation : undefined,
+      note: group.note,
+    };
+    group.items.forEach(item => {
+      if (item.feeType && item.amount !== "") row[item.feeType] = item.amount;
+    });
+    await save("fees", row);
     setEditingGroup(null);
   }
 
   function handlePrint() { window.print(); }
 
-  const allClassHeads = [...new Set(classFees.map(f => f.feeType))];
-  const allTeacherHeads = [...new Set(teacherFees.map(f => f.feeType))];
+  const allClassHeads = [...new Set(classRows.flatMap(feeHeadsOf))];
+  const allTeacherHeads = [...new Set(teacherRows.flatMap(feeHeadsOf))];
 
   return (
     <div>
@@ -2298,12 +2506,10 @@ function MasterFeeModule({ data, save, remove }) {
       {tab === "class" && (
         <div className="card card-flush print-landscape">
           <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
-            {Object.keys(classGroups).length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+            {classRows.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
-          <div className="print-only" style={{ padding: "12px 18px 8px" }}>
-            <h3 style={{ fontSize: 16 }}>Class-wise Fee Structure</h3>
-          </div>
-          {Object.keys(classGroups).length === 0 ? (
+          <PrintDocHead config={config} headline="Class-wise Fee Structure" />
+          {classRows.length === 0 ? (
             <EmptyState title="No class fee rules yet" sub="Add a fee group with multiple heads (Tuition, Exam, etc.) per class." />
           ) : (
             <div className="table-wrap">
@@ -2317,19 +2523,18 @@ function MasterFeeModule({ data, save, remove }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.values(classGroups).map(group => (
-                    <tr key={group.className + group.section}>
-                      <td>{group.className}</td>
-                      <td>{group.section || "All"}</td>
-                      {allClassHeads.map(h => {
-                        const row = group.rows.find(r => r.feeType === h);
-                        return <td key={h} style={{ textAlign: "right" }} className="mono">{row ? "৳" + money(row.amount) : "—"}</td>;
-                      })}
-                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(group.rows, r => r.amount))}</strong></td>
+                  {classRows.map(row => (
+                    <tr key={row.id}>
+                      <td>{row.className}</td>
+                      <td>{row.section || "All"}</td>
+                      {allClassHeads.map(h => (
+                        <td key={h} style={{ textAlign: "right" }} className="mono">{row[h] ? "৳" + money(row[h]) : "—"}</td>
+                      ))}
+                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(feeHeadsOf(row), h => row[h]))}</strong></td>
                       <td className="no-print">
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn btn-sm btn-icon" onClick={() => editGroup(group, "class")}><Icon.edit /></button>
-                          <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(group.rows)}><Icon.trash /></button>
+                          <button className="btn btn-sm btn-icon" onClick={() => editGroup(row)}><Icon.edit /></button>
+                          <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(row)}><Icon.trash /></button>
                         </div>
                       </td>
                     </tr>
@@ -2343,12 +2548,10 @@ function MasterFeeModule({ data, save, remove }) {
       {tab === "teacher" && (
         <div className="card card-flush print-landscape">
           <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
-            {Object.keys(teacherGroups).length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+            {teacherRows.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
-          <div className="print-only" style={{ padding: "12px 18px 8px" }}>
-            <h3 style={{ fontSize: 16 }}>Designation-wise Salary Scale</h3>
-          </div>
-          {Object.keys(teacherGroups).length === 0 ? (
+          <PrintDocHead config={config} headline="Designation-wise Salary Scale" />
+          {teacherRows.length === 0 ? (
             <EmptyState title="No teacher fee scales yet" sub="Add a fee group with multiple components (Basic, Allowance, etc.) per designation." />
           ) : (
             <div className="table-wrap">
@@ -2362,18 +2565,17 @@ function MasterFeeModule({ data, save, remove }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.values(teacherGroups).map(group => (
-                    <tr key={group.designation}>
-                      <td>{group.designation}</td>
-                      {allTeacherHeads.map(h => {
-                        const row = group.rows.find(r => r.feeType === h);
-                        return <td key={h} style={{ textAlign: "right" }} className="mono">{row ? "৳" + money(row.amount) : "—"}</td>;
-                      })}
-                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(group.rows, r => r.amount))}</strong></td>
+                  {teacherRows.map(row => (
+                    <tr key={row.id}>
+                      <td>{row.designation}</td>
+                      {allTeacherHeads.map(h => (
+                        <td key={h} style={{ textAlign: "right" }} className="mono">{row[h] ? "৳" + money(row[h]) : "—"}</td>
+                      ))}
+                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(feeHeadsOf(row), h => row[h]))}</strong></td>
                       <td className="no-print">
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn btn-sm btn-icon" onClick={() => editGroup(group, "teacher")}><Icon.edit /></button>
-                          <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(group.rows)}><Icon.trash /></button>
+                          <button className="btn btn-sm btn-icon" onClick={() => editGroup(row)}><Icon.edit /></button>
+                          <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(row)}><Icon.trash /></button>
                         </div>
                       </td>
                     </tr>
@@ -2627,7 +2829,7 @@ function SettingsModule({ config, setConfig }) {
           <Field label="Mobile Number 1"><input type="tel" value={form.schoolPhones[0] || ""} onChange={(e) => setPhone(0, e.target.value)} placeholder="e.g. 01XXXXXXXXX" /></Field>
           <Field label="Mobile Number 2" hint="optional"><input type="tel" value={form.schoolPhones[1] || ""} onChange={(e) => setPhone(1, e.target.value)} /></Field>
           <Field label="Mobile Number 3" hint="optional"><input type="tel" value={form.schoolPhones[2] || ""} onChange={(e) => setPhone(2, e.target.value)} /></Field>
-          <PhotoBox label="Logo" existingUrl={form.schoolLogo} onUploaded={(url) => setForm(f => ({ ...f, schoolLogo: url }))} />
+          <PhotoBox label="Logo" folder="logo" config={form} existingUrl={form.schoolLogo} onUploaded={(url) => setForm(f => ({ ...f, schoolLogo: url }))} />
           <Field label="Facebook Page URL"><input type="text" value={form.facebookUrl || ""} onChange={set("facebookUrl")} placeholder="https://facebook.com/…" /></Field>
           <Field label="YouTube Channel URL"><input type="text" value={form.youtubeUrl || ""} onChange={set("youtubeUrl")} placeholder="https://youtube.com/…" /></Field>
         </div>
@@ -2676,7 +2878,11 @@ function MenuBar({ active, setActive, config, store }) {
     <div className="menubar no-print">
       <div className="menubar-row">
         <div className="menubar-brand">
-          <div className="menubar-brand-mark">V</div>
+          {config.schoolLogo ? (
+            <img src={config.schoolLogo} alt="" className="menubar-brand-logo" />
+          ) : (
+            <div className="menubar-brand-mark">V</div>
+          )}
           <div>
             <div className="menubar-brand-text">Vidyalaya</div>
             <div className="menubar-brand-sub">{config.schoolName || "School Manager"}</div>
@@ -2721,6 +2927,22 @@ function AppShell() {
 
   function setConfig(c) { setConfigState(c); }
 
+  // Update favicon and document title when the logo/school name changes
+  useEffect(() => {
+    if (config.schoolLogo) {
+      let link = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "icon";
+        document.head.appendChild(link);
+      }
+      link.href = config.schoolLogo;
+    }
+    if (config.schoolName) {
+      document.title = config.schoolName + " — Vidyalaya";
+    }
+  }, [config.schoolLogo, config.schoolName]);
+
   return (
     <div className="app-shell">
       <MenuBar active={active} setActive={setActive} config={config} store={store} />
@@ -2742,8 +2964,8 @@ function AppShell() {
           {active === "students" && <StudentsModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "teachers" && <TeachersModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "finance" && <FinanceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
-          {active === "due" && <DueModule data={store.data} />}
-          {active === "fees" && <MasterFeeModule data={store.data} save={store.save} remove={store.remove} />}
+          {active === "due" && <DueModule data={store.data} config={config} />}
+          {active === "fees" && <MasterFeeModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "committee" && <CommitteeModule data={store.data} save={store.save} remove={store.remove} />}
           {active === "reports" && <ReportsModule data={store.data} />}
           {active === "settings" && <SettingsModule config={config} setConfig={setConfig} />}

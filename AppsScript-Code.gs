@@ -48,6 +48,9 @@ function handle(e) {
       case "bulkGet":
         result = bulkGet(params.sheets);
         break;
+      case "uploadImage":
+        result = uploadImage(params.folder, params.filename, params.base64, params.mimeType);
+        break;
       default:
         result = { error: "Unknown action: " + action };
     }
@@ -55,6 +58,30 @@ function handle(e) {
   } catch (err) {
     return respond({ error: err.toString() });
   }
+}
+
+// Saves an uploaded image to Google Drive (in a folder inside "School App Uploads")
+// and returns a direct, publicly-viewable URL. Sheets cells cannot hold large
+// base64 image data (50,000 char/cell limit), so images must live in Drive —
+// only the short URL is ever stored in a sheet cell.
+function uploadImage(folder, filename, base64, mimeType) {
+  const rootName = "School App Uploads";
+  const folders = DriveApp.getFoldersByName(rootName);
+  const root = folders.hasNext() ? folders.next() : DriveApp.createFolder(rootName);
+
+  const subName = folder || "misc";
+  const subFolders = root.getFoldersByName(subName);
+  const sub = subFolders.hasNext() ? subFolders.next() : root.createFolder(subName);
+
+  const bytes = Utilities.base64Decode(base64);
+  const blob = Utilities.newBlob(bytes, mimeType || "image/jpeg", filename || ("upload_" + Date.now()));
+  const file = sub.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  const id = file.getId();
+  // Direct-embeddable image URL (works in <img src="...">)
+  const url = "https://lh3.googleusercontent.com/d/" + id;
+  return { success: true, url: url, fileId: id };
 }
 
 function respond(obj) {
@@ -101,8 +128,11 @@ function ensureColumns(sheet, row) {
 // (name, class, roll, phone, etc.) still gets its own column.
 function cellValue(val) {
   if (val === undefined || val === null) return "";
-  if (typeof val === "object") return JSON.stringify(val);
-  return val;
+  let out = typeof val === "object" ? JSON.stringify(val) : String(val);
+  // Google Sheets hard limit is 50,000 characters per cell — guard against
+  // accidentally pasting raw base64 data here (images must go through uploadImage instead).
+  if (out.length > 45000) out = out.slice(0, 45000) + "…[TRUNCATED:TOO_LARGE]";
+  return out;
 }
 
 function parseCell(val) {
