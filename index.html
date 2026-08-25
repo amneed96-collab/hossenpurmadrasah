@@ -599,14 +599,14 @@ function IconWrap({ name, ...rest }) {
    DATA STORE — central hook wrapping Google Sheets as DB
    Collections: students, teachers, finance, fees, committee, seatplans
    ========================================================= */
-const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans"];
+const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices"];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 function useDataStore(config) {
-  const [data, setData] = useState({ students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [] });
+  const [data, setData] = useState({ students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [] });
   const [status, setStatus] = useState("idle"); // idle | loading | ready | error | offline
   const toast = useToast();
 
@@ -670,6 +670,7 @@ const SHEET_MAP = {
   fees: "MasterFees",
   committee: "Committee",
   seatplans: "SeatPlans",
+  invoices: "Invoices",
 };
 
 /* =========================================================
@@ -769,6 +770,11 @@ function EmptyState({ title, sub, action }) {
   );
 }
 
+// Google Sheets returns numeric-looking cell values (roll numbers, phone numbers, etc.)
+// as JS numbers, not strings — calling .toLowerCase() on those crashes the whole render.
+// Always coerce through this before any string method.
+function str(v) { return v === null || v === undefined ? "" : String(v); }
+
 function money(n) {
   const num = Number(n) || 0;
   return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -827,12 +833,22 @@ function PhotoBox({ label, folder, config, onUploaded, existingUrl }) {
       setPreview(dataUrl); // instant local preview while uploading
       if (config && config.sheetsUrl) {
         const filename = `${Date.now()}.jpg`;
-        const res = await sheetsCall(config, { action: "uploadImage", folder: folder || "misc", filename, base64, mimeType });
-        if (res && res.url) {
-          setPreview(res.url);
-          onUploaded(res.url);
-        } else {
-          throw new Error((res && res.error) || "Upload failed");
+        try {
+          const res = await sheetsCall(config, { action: "uploadImage", folder: folder || "misc", filename, base64, mimeType });
+          if (res && res.url) {
+            setPreview(res.url);
+            onUploaded(res.url);
+          } else {
+            throw new Error((res && res.error) || "Upload failed");
+          }
+        } catch (uploadErr) {
+          // Drive upload failed (e.g. permission not yet granted on the Apps Script) —
+          // fall back to a smaller embedded thumbnail so the photo still saves and shows,
+          // rather than losing the photo entirely.
+          console.error("Drive upload failed, using embedded fallback:", uploadErr);
+          const small = await resizeImageFile(file, 160);
+          onUploaded(small.dataUrl);
+          toast && toast("Couldn't upload to Drive (check Apps Script permissions) — saved a small embedded copy instead", "error");
         }
       } else {
         // Offline mode — no backend configured, keep the (small, resized) data URL locally only.
@@ -920,10 +936,12 @@ function applicableFeeHeads(student, feeRules) {
 function studentFeeBreakdown(student, feeRules) {
   const heads = applicableFeeHeads(student, feeRules);
   const payments = student.payments || [];
+  const waivers = student.waivers || [];
   return heads.map(h => {
     const paid = sumBy(payments.filter(p => p.head === h.feeType), p => p.amount);
+    const waived = sumBy(waivers.filter(w => w.head === h.feeType), w => w.amount);
     const charged = Number(h.amount) || 0;
-    return { head: h.feeType, charged, paid, due: Math.max(0, charged - paid) };
+    return { head: h.feeType, charged, paid, waived, due: Math.max(0, charged - paid - waived) };
   });
 }
 
@@ -1139,19 +1157,29 @@ function StudentsModule({ data, save, remove, config }) {
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
   const [docTarget, setDocTarget] = useState(null); // { type: 'id'|'invoice'|'admit'|'seat', student }
+  const [printInvoice, setPrintInvoice] = useState(null);
   const toast = useToast();
 
   const students = data.students || [];
+  const invoices = data.invoices || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filtered = students.filter(s => {
     const matchQ = !query
-      || (s.name || "").toLowerCase().includes(query.toLowerCase())
-      || (s.roll || "").toLowerCase().includes(query.toLowerCase())
-      || (s.studentId || "").toLowerCase().includes(query.toLowerCase());
+      || str(s.name).toLowerCase().includes(query.toLowerCase())
+      || str(s.roll).toLowerCase().includes(query.toLowerCase())
+      || str(s.studentId).toLowerCase().includes(query.toLowerCase());
     const matchC = !classFilter || s.className === classFilter;
     return matchQ && matchC;
   });
+
+  const filteredInvoices = invoices.filter(inv =>
+    !query
+    || str(inv.studentName).toLowerCase().includes(query.toLowerCase())
+    || str(inv.roll).toLowerCase().includes(query.toLowerCase())
+    || str(inv.studentDisplayId).toLowerCase().includes(query.toLowerCase())
+    || str(inv.invoiceNo).toLowerCase().includes(query.toLowerCase())
+  );
 
   function openNew() { setEditing(emptyStudent(students)); }
   function openEdit(s) { setEditing({ ...s }); }
@@ -1159,6 +1187,9 @@ function StudentsModule({ data, save, remove, config }) {
     const saved = await save("students", record);
     setEditing(null);
     return saved;
+  }
+  async function handleSaveInvoice(record) {
+    return save("invoices", record);
   }
 
   const TAB_ACTION = {
@@ -1169,6 +1200,7 @@ function StudentsModule({ data, save, remove, config }) {
     seat: { label: "Open Seat Plan Form", icon: "plus", onClick: () => setDocTarget({ type: "seatform" }) },
   };
   const action = TAB_ACTION[tab];
+  function handlePrintList() { window.print(); }
 
   return (
     <div>
@@ -1198,23 +1230,74 @@ function StudentsModule({ data, save, remove, config }) {
           rowAction={{ label: "ID Card", icon: "idcard", onClick: (s) => setDocTarget({ type: "id", student: s }) }} />
       )}
       {tab === "invoice" && (
-        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config}
-          rowAction={{ label: "Invoice", icon: "fee", onClick: (s) => setDocTarget({ type: "invoice", student: s }) }} />
+        <div className="card card-flush">
+          <div className="no-print" style={{ padding: "16px 18px 0" }}>
+            <div className="search-row">
+              <input className="search-input" placeholder="Search by student name, roll, ID, or invoice no…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <button className="btn btn-sm" onClick={handlePrintList}><Icon.print />Print List</button>
+            </div>
+          </div>
+          {filteredInvoices.length === 0 ? (
+            <EmptyState title="No saved invoices yet" sub={`Use "Open Fee Invoice Form" above to create and submit one.`} />
+          ) : (
+            <div className="table-wrap">
+              <PrintDocHead config={config} headline="All Invoices" />
+              <table>
+                <thead>
+                  <tr><th>Invoice No</th><th>Student</th><th>Class</th><th>Date</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Due</th><th className="no-print"></th></tr>
+                </thead>
+                <tbody>
+                  {filteredInvoices.map(inv => (
+                    <tr key={inv.id}>
+                      <td className="mono">{inv.invoiceNo}</td>
+                      <td>{inv.studentName}</td>
+                      <td>{inv.className} — {inv.section}</td>
+                      <td>{fmtDate(inv.date)}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalCharged)}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalPaid)}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalWaived)}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalDue)}</td>
+                      <td className="no-print">
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button className="btn btn-sm btn-icon" title="Open / Edit" onClick={() => { const s = students.find(x => x.id === inv.studentId); if (s) setDocTarget({ type: "invoice", student: s }); else toast && toast("Original student record not found", "error"); }}><Icon.edit /></button>
+                          <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintInvoice(inv)}><Icon.print /></button>
+                          <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this invoice record?")) remove("invoices", inv.id); }}><Icon.trash /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
       {tab === "admit" && (
         <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
           onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config}
           rowAction={{ label: "Admit Card", icon: "idcard", onClick: (s) => setDocTarget({ type: "admit", student: s }) }} />
       )}
-      {tab === "seat" && <SeatPlanTab data={data} save={save} formOpen={docTarget && docTarget.type === "seatform"} onCloseForm={() => setDocTarget(null)} config={config} />}
+      {tab === "seat" && <SeatPlanTab data={data} save={save} remove={remove} formOpen={docTarget && docTarget.type === "seatform"} onCloseForm={() => setDocTarget(null)} config={config} />}
 
       {editing && (
         <StudentFormModal student={editing} students={students} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
       )}
       {docTarget && docTarget.type === "id" && <IdCardModal students={students} initialStudent={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
-      {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal students={students} initialStudent={docTarget.student} config={config} feeRules={feeRules} onSave={handleSave} onClose={() => setDocTarget(null)} />}
+      {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal students={students} initialStudent={docTarget.student} config={config} feeRules={feeRules} onSave={handleSave} saveInvoice={handleSaveInvoice} onClose={() => setDocTarget(null)} />}
       {docTarget && docTarget.type === "admit" && <StudentAdmitCardModal students={students} initialStudent={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
+      {printInvoice && (
+        <SingleRecordPrintModal title={`Invoice — ${printInvoice.studentName}`} config={config} onClose={() => setPrintInvoice(null)} fields={[
+          { name: "Invoice No", value: printInvoice.invoiceNo },
+          { name: "Student", value: printInvoice.studentName },
+          { name: "Class / Section", value: `${printInvoice.className} — ${printInvoice.section}` },
+          { name: "Roll", value: printInvoice.roll || "—" },
+          { name: "Date", value: fmtDate(printInvoice.date) },
+          { name: "Total Charged", value: "৳" + money(printInvoice.totalCharged) },
+          { name: "Total Paid", value: "৳" + money(printInvoice.totalPaid) },
+          { name: "Total Waiver", value: "৳" + money(printInvoice.totalWaived) },
+          { name: "Balance Due", value: <strong>৳{money(printInvoice.totalDue)}</strong> },
+        ]} />
+      )}
     </div>
   );
 }
@@ -1305,9 +1388,9 @@ function StudentPicker({ students, label, onPick }) {
   const [q, setQ] = useState("");
   const filtered = students.filter(s =>
     !q
-    || (s.name || "").toLowerCase().includes(q.toLowerCase())
-    || (s.roll || "").toLowerCase().includes(q.toLowerCase())
-    || (s.studentId || "").toLowerCase().includes(q.toLowerCase())
+    || str(s.name).toLowerCase().includes(q.toLowerCase())
+    || str(s.roll).toLowerCase().includes(q.toLowerCase())
+    || str(s.studentId).toLowerCase().includes(q.toLowerCase())
   );
   return (
     <div className="card">
@@ -1503,9 +1586,9 @@ function IdCardModal({ students, initialStudent, config, onClose }) {
   const [sectionFilter, setSectionFilter] = useState("");
 
   const matches = query.trim() ? students.filter(s =>
-    (s.name || "").toLowerCase().includes(query.toLowerCase())
-    || (s.roll || "").toLowerCase().includes(query.toLowerCase())
-    || (s.studentId || "").toLowerCase().includes(query.toLowerCase())
+    str(s.name).toLowerCase().includes(query.toLowerCase())
+    || str(s.roll).toLowerCase().includes(query.toLowerCase())
+    || str(s.studentId).toLowerCase().includes(query.toLowerCase())
   ).slice(0, 20) : [];
 
   const classList = students.filter(s => s.className === classFilter && (!sectionFilter || s.section === sectionFilter));
@@ -1559,37 +1642,72 @@ function IdCardModal({ students, initialStudent, config, onClose }) {
   );
 }
 
-function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSave, onClose }) {
+function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSave, saveInvoice, onClose }) {
   const [selected, setSelected] = useState(initialStudent || null);
   const [query, setQuery] = useState("");
   const [payAmounts, setPayAmounts] = useState({}); // { head: amountString }
+  const [waiverAmounts, setWaiverAmounts] = useState({}); // { head: amountString }
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const toast = useToast();
 
   const matches = query.trim() ? students.filter(s =>
-    (s.name || "").toLowerCase().includes(query.toLowerCase())
-    || (s.roll || "").toLowerCase().includes(query.toLowerCase())
-    || (s.studentId || "").toLowerCase().includes(query.toLowerCase())
+    str(s.name).toLowerCase().includes(query.toLowerCase())
+    || str(s.roll).toLowerCase().includes(query.toLowerCase())
+    || str(s.studentId).toLowerCase().includes(query.toLowerCase())
   ).slice(0, 20) : [];
 
   const breakdown = selected ? studentFeeBreakdown(selected, feeRules) : [];
   const totalCharged = sumBy(breakdown, r => r.charged);
   const totalPaid = sumBy(breakdown, r => r.paid);
+  const totalWaived = sumBy(breakdown, r => r.waived);
   const totalDue = sumBy(breakdown, r => r.due);
-  const invNo = selected ? "INV-" + (selected.studentId || selected.roll || selected.id.slice(0,6)).toUpperCase() : "";
+  const invNo = selected ? "INV-" + str(selected.studentId || selected.roll || selected.id.slice(0,6)).toUpperCase() : "";
 
   async function submitPayments() {
-    const entries = Object.entries(payAmounts).filter(([head, amt]) => Number(amt) > 0);
-    if (entries.length === 0) { toast && toast("Enter at least one payment amount", "error"); return; }
+    const payEntries = Object.entries(payAmounts).filter(([head, amt]) => Number(amt) > 0);
+    const waiverEntries = Object.entries(waiverAmounts).filter(([head, amt]) => Number(amt) > 0);
+    if (payEntries.length === 0 && waiverEntries.length === 0) { toast && toast("Enter a payment or waiver amount", "error"); return; }
     setSaving(true);
-    const newPayments = entries.map(([head, amt]) => ({ head, amount: Number(amt), date: new Date().toISOString().slice(0,10) }));
-    const updated = { ...selected, payments: [...(selected.payments || []), ...newPayments] };
+    const today = new Date().toISOString().slice(0,10);
+    const newPayments = payEntries.map(([head, amt]) => ({ head, amount: Number(amt), date: today }));
+    const newWaivers = waiverEntries.map(([head, amt]) => ({ head, amount: Number(amt), date: today }));
+    const updated = {
+      ...selected,
+      payments: [...(selected.payments || []), ...newPayments],
+      waivers: [...(selected.waivers || []), ...newWaivers],
+    };
     const saved = await onSave(updated);
-    setSelected(saved || updated);
+    const finalStudent = saved || updated;
+    setSelected(finalStudent);
+
+    // Persist this invoice submission as its own record, so it shows up under
+    // Fee Invoice → "All Invoice" as a saved, editable, printable, deletable entry.
+    if (saveInvoice) {
+      const newBreakdown = studentFeeBreakdown(finalStudent, feeRules);
+      await saveInvoice({
+        id: null,
+        invoiceNo: "INV-" + str(finalStudent.studentId || finalStudent.roll || finalStudent.id.slice(0,6)).toUpperCase() + "-" + Date.now().toString(36).toUpperCase().slice(-4),
+        studentId: finalStudent.id,
+        studentDisplayId: finalStudent.studentId,
+        studentName: finalStudent.name,
+        className: finalStudent.className,
+        section: finalStudent.section,
+        roll: finalStudent.roll,
+        date: today,
+        totalCharged: sumBy(newBreakdown, r => r.charged),
+        totalPaid: sumBy(newBreakdown, r => r.paid),
+        totalWaived: sumBy(newBreakdown, r => r.waived),
+        totalDue: sumBy(newBreakdown, r => r.due),
+        paidThisTime: sumBy(newPayments, p => p.amount),
+        waivedThisTime: sumBy(newWaivers, w => w.amount),
+      });
+    }
+
     setPayAmounts({});
+    setWaiverAmounts({});
     setSaving(false);
-    toast && toast("Payments submitted", "success");
+    toast && toast("Invoice saved", "success");
   }
 
   function handlePrintInvoice() {
@@ -1600,9 +1718,9 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
     <Modal title="Fee Invoice" onClose={onClose} size="lg"
       footer={selected && !showPrint ? (
         <>
-          <button className="btn" onClick={() => { setSelected(null); setPayAmounts({}); }}>← Search Another Student</button>
+          <button className="btn" onClick={() => { setSelected(null); setPayAmounts({}); setWaiverAmounts({}); }}>← Search Another Student</button>
           <button className="btn" onClick={handlePrintInvoice}><Icon.print />Print Invoice</button>
-          <button className="btn btn-primary" disabled={saving} onClick={submitPayments}>Submit Payments</button>
+          <button className="btn btn-primary" disabled={saving} onClick={submitPayments}>Submit</button>
         </>
       ) : showPrint ? (
         <>
@@ -1631,13 +1749,14 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
             <FieldRow name="Roll" value={selected.roll || "—"} />
           </div>
           <table style={{ width: "100%", marginBottom: 10, fontSize: 11 }}>
-            <thead><tr><th style={{ fontSize: 9.5 }}>Fee Head</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Charged</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Paid</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Due</th></tr></thead>
+            <thead><tr><th style={{ fontSize: 9.5 }}>Fee Head</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Charged</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Paid</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Waiver</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Due</th></tr></thead>
             <tbody>
               {breakdown.map(r => (
                 <tr key={r.head}>
                   <td>{r.head}</td>
                   <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
                   <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.waived)}</td>
                   <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
                 </tr>
               ))}
@@ -1647,6 +1766,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
             <div style={{ minWidth: 200, fontSize: 11 }}>
               <FieldRow name="Total Charged" value={"৳" + money(totalCharged)} />
               <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
+              <FieldRow name="Total Waiver" value={"৳" + money(totalWaived)} />
               <FieldRow name="Balance Due" value={<strong>৳{money(totalDue)}</strong>} />
             </div>
           </div>
@@ -1682,17 +1802,23 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
           ) : (
             <div className="table-wrap">
               <table style={{ width: "100%", marginBottom: 16 }}>
-                <thead><tr><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th>Pay Amount</th></tr></thead>
+                <thead><tr><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Due</th><th>Waiver Amount</th><th>Pay Amount</th></tr></thead>
                 <tbody>
                   {breakdown.map(r => (
                     <tr key={r.head}>
                       <td>{r.head}</td>
                       <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
                       <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.waived)}</td>
                       <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
                       <td>
                         {r.due > 0 ? (
-                          <input type="number" placeholder="0" value={payAmounts[r.head] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 100, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                          <input type="number" placeholder="0" value={waiverAmounts[r.head] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                        ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
+                      </td>
+                      <td>
+                        {r.due > 0 ? (
+                          <input type="number" placeholder="0" value={payAmounts[r.head] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
                         ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
                       </td>
                     </tr>
@@ -1706,6 +1832,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
             <div style={{ minWidth: 240 }}>
               <div className="kv-row"><span className="k">Total Charged</span><span className="v mono">৳{money(totalCharged)}</span></div>
               <div className="kv-row"><span className="k">Total Paid</span><span className="v mono">৳{money(totalPaid)}</span></div>
+              <div className="kv-row"><span className="k">Total Waiver</span><span className="v mono">৳{money(totalWaived)}</span></div>
               <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v" style={{ color: totalDue > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(totalDue)}</span></div>
             </div>
           </div>
@@ -1753,9 +1880,9 @@ function StudentAdmitCardModal({ students, initialStudent, config, onClose }) {
   const [sectionFilter, setSectionFilter] = useState("");
 
   const matches = query.trim() ? students.filter(s =>
-    (s.name || "").toLowerCase().includes(query.toLowerCase())
-    || (s.roll || "").toLowerCase().includes(query.toLowerCase())
-    || (s.studentId || "").toLowerCase().includes(query.toLowerCase())
+    str(s.name).toLowerCase().includes(query.toLowerCase())
+    || str(s.roll).toLowerCase().includes(query.toLowerCase())
+    || str(s.studentId).toLowerCase().includes(query.toLowerCase())
   ).slice(0, 20) : [];
 
   const classList = students.filter(s => s.className === classFilter && (!sectionFilter || s.section === sectionFilter));
@@ -1807,8 +1934,9 @@ function StudentAdmitCardModal({ students, initialStudent, config, onClose }) {
   );
 }
 
-function SeatPlanTab({ data, save, formOpen, onCloseForm, config }) {
+function SeatPlanTab({ data, save, remove, formOpen, onCloseForm, config }) {
   const [form, setForm] = useState({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" });
+  const [editingRow, setEditingRow] = useState(null);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const plans = data.seatplans || [];
   const [printRow, setPrintRow] = useState(null);
@@ -1818,6 +1946,11 @@ function SeatPlanTab({ data, save, formOpen, onCloseForm, config }) {
     await save("seatplans", form);
     setForm({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" });
     onCloseForm();
+  }
+  function openEdit(p) { setEditingRow({ ...p }); }
+  async function handleSaveEdit() {
+    await save("seatplans", editingRow);
+    setEditingRow(null);
   }
 
   return (
@@ -1842,7 +1975,13 @@ function SeatPlanTab({ data, save, formOpen, onCloseForm, config }) {
                     <td>{p.section || "—"}</td>
                     <td>{p.rangeFrom}–{p.rangeTo}</td>
                     <td>{p.capacity}</td>
-                    <td className="no-print"><button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintRow(p)}><Icon.print /></button></td>
+                    <td className="no-print">
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => openEdit(p)}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintRow(p)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this seat plan?")) remove("seatplans", p.id); }}><Icon.trash /></button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1875,6 +2014,20 @@ function SeatPlanTab({ data, save, formOpen, onCloseForm, config }) {
           { name: "Capacity", value: printRow.capacity },
         ]} />
       )}
+      {editingRow && (
+        <Modal title="Edit Seat Plan" onClose={() => setEditingRow(null)}
+          footer={<><button className="btn" onClick={() => setEditingRow(null)}>Cancel</button><button className="btn btn-primary" onClick={handleSaveEdit}>Save Changes</button></>}>
+          <div className="form-grid">
+            <Field label="Exam Name" span2><input type="text" value={editingRow.examName} onChange={(e) => setEditingRow({ ...editingRow, examName: e.target.value })} /></Field>
+            <Field label="Room / Hall No."><input type="text" value={editingRow.room} onChange={(e) => setEditingRow({ ...editingRow, room: e.target.value })} /></Field>
+            <Field label="Capacity"><input type="number" value={editingRow.capacity} onChange={(e) => setEditingRow({ ...editingRow, capacity: e.target.value })} /></Field>
+            <Field label="Class"><select value={editingRow.className} onChange={(e) => setEditingRow({ ...editingRow, className: e.target.value })}><option value="">—</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+            <Field label="Section"><select value={editingRow.section} onChange={(e) => setEditingRow({ ...editingRow, section: e.target.value })}><option value="">—</option>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+            <Field label="Roll Range From"><input type="text" value={editingRow.rangeFrom} onChange={(e) => setEditingRow({ ...editingRow, rangeFrom: e.target.value })} /></Field>
+            <Field label="Roll Range To"><input type="text" value={editingRow.rangeTo} onChange={(e) => setEditingRow({ ...editingRow, rangeTo: e.target.value })} /></Field>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -1895,7 +2048,7 @@ function TeachersModule({ data, save, remove, config }) {
   const [docTarget, setDocTarget] = useState(null);
   const teachers = data.teachers || [];
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
-  const filtered = teachers.filter(t => !query || (t.name || "").toLowerCase().includes(query.toLowerCase()));
+  const filtered = teachers.filter(t => !query || str(t.name).toLowerCase().includes(query.toLowerCase()));
 
   function openNew() { setEditing(emptyTeacher()); }
   async function handleSave(record) { const saved = await save("teachers", record); setEditing(null); return saved; }
@@ -1970,7 +2123,7 @@ function TeachersModule({ data, save, remove, config }) {
 
 function TeacherPicker({ teachers, label, onPick }) {
   const [q, setQ] = useState("");
-  const filtered = teachers.filter(t => !q || (t.name || "").toLowerCase().includes(q.toLowerCase()));
+  const filtered = teachers.filter(t => !q || str(t.name).toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="card">
       <Field label={label}><input className="search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type staff name…" /></Field>
@@ -2803,6 +2956,7 @@ function ReportsModule({ data }) {
    ========================================================= */
 function SettingsModule({ config, setConfig }) {
   const [form, setForm] = useState({ ...config, schoolPhones: config.schoolPhones && config.schoolPhones.length ? config.schoolPhones : ["", "", ""] });
+  const [saving, setSaving] = useState(false);
   const toast = useToast();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -2812,10 +2966,21 @@ function SettingsModule({ config, setConfig }) {
     setForm({ ...form, schoolPhones: phones });
   }
 
-  function handleSave() {
+  async function handleSave() {
     setConfig(form);
-    saveConfig(form);
-    toast("Settings saved");
+    saveConfig(form); // local cache for instant reload
+    if (form.sheetsUrl) {
+      setSaving(true);
+      try {
+        await SheetsAPI.upsert(form, "Settings", { id: "main", ...form });
+        toast("Settings saved and synced to Google Sheet", "success");
+      } catch (err) {
+        toast("Saved locally, but sheet sync failed: " + err.message, "error");
+      }
+      setSaving(false);
+    } else {
+      toast("Settings saved locally (connect Google Sheets to sync across devices)");
+    }
   }
 
   return (
@@ -2833,7 +2998,7 @@ function SettingsModule({ config, setConfig }) {
           <Field label="Facebook Page URL"><input type="text" value={form.facebookUrl || ""} onChange={set("facebookUrl")} placeholder="https://facebook.com/…" /></Field>
           <Field label="YouTube Channel URL"><input type="text" value={form.youtubeUrl || ""} onChange={set("youtubeUrl")} placeholder="https://youtube.com/…" /></Field>
         </div>
-        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleSave}>Save Settings</button>
+        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Settings"}</button>
       </div>
     </div>
   );
@@ -2926,6 +3091,27 @@ function AppShell() {
   const store = useDataStore(config);
 
   function setConfig(c) { setConfigState(c); }
+
+  // On startup (and whenever the Sheets URL changes), pull Settings from the shared
+  // Google Sheet so the institution profile stays in sync across browsers/devices —
+  // this is the source of truth once connected; localStorage is just an offline cache.
+  useEffect(() => {
+    if (!config.sheetsUrl) return;
+    (async () => {
+      try {
+        const res = await SheetsAPI.list(config, "Settings");
+        const row = (res.rows || []).find(r => r.id === "main");
+        if (row) {
+          const merged = { ...config, ...row };
+          setConfigState(merged);
+          saveConfig(merged);
+        }
+      } catch (err) {
+        console.error("Settings fetch failed:", err);
+      }
+    })();
+    // eslint-disable-next-line
+  }, [config.sheetsUrl]);
 
   // Update favicon and document title when the logo/school name changes
   useEffect(() => {
