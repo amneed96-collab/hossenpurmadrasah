@@ -965,34 +965,60 @@ function ConnectionBanner({ config, onOpenSettings }) {
    ========================================================= */
 
 // Fixed metadata keys on a fee-scale row — every OTHER key on the row is a fee head/column.
-const FEE_META_KEYS = ["id", "kind", "className", "section", "designation", "note", "createdAt", "updatedAt"];
+const FEE_META_KEYS = ["id", "kind", "year", "className", "section", "designation", "note", "createdAt", "updatedAt"];
 function feeHeadsOf(row) {
   return Object.keys(row).filter(k => !FEE_META_KEYS.includes(k) && row[k] !== "" && row[k] !== null && row[k] !== undefined);
 }
 
-// Returns [{feeType, amount}] for a student's class, one row per class holds all heads as columns.
-// A section-specific row overrides the "All Sections" row for the same class.
-function applicableFeeHeads(student, feeRules) {
-  const rulesForClass = (feeRules || []).filter(f => f.className === student.className);
-  const allSectionsRow = rulesForClass.find(f => !f.section);
-  const specificRow = rulesForClass.find(f => f.section === student.section);
+// A student's year-by-year class history drives which year's Master Fee rules apply.
+// Falls back to a single entry (their current class, dated to admission year) for
+// records created before class history existed, so nothing silently loses its fee link.
+function getClassHistory(student) {
+  if (Array.isArray(student.classHistory) && student.classHistory.length > 0) {
+    return student.classHistory;
+  }
+  const fallbackYear = student.admissionDate ? new Date(student.admissionDate).getFullYear() : CURRENT_YEAR;
+  return [{ year: String(fallbackYear || CURRENT_YEAR), className: student.className, section: student.section }];
+}
+
+// Returns [{feeType, amount}] for one class-history entry (a specific year + class),
+// using that year's Master Fee row — a section-specific row overrides "All Sections" for the same year+class.
+function applicableFeeHeadsForEntry(entry, feeRules) {
+  const rulesForYearClass = (feeRules || []).filter(f => String(f.year) === String(entry.year) && f.className === entry.className);
+  const allSectionsRow = rulesForYearClass.find(f => !f.section);
+  const specificRow = rulesForYearClass.find(f => f.section === entry.section);
   const map = {};
   if (allSectionsRow) feeHeadsOf(allSectionsRow).forEach(h => { map[h] = Number(allSectionsRow[h]) || 0; });
   if (specificRow) feeHeadsOf(specificRow).forEach(h => { map[h] = Number(specificRow[h]) || 0; });
   return Object.entries(map).map(([feeType, amount]) => ({ feeType, amount }));
 }
 
-// Per-head breakdown: [{ head, charged, paid, due }]
+// Per-year-per-class-per-head breakdown: [{ year, className, section, head, charged, paid, waived, due }].
+// A student who changed class year to year gets one line group per (year, class) — each priced by
+// that year's Master Fee rules. Repeating the same class across two years produces two separate lines.
 function studentFeeBreakdown(student, feeRules) {
-  const heads = applicableFeeHeads(student, feeRules);
+  const history = getClassHistory(student);
   const payments = student.payments || [];
   const waivers = student.waivers || [];
-  return heads.map(h => {
-    const paid = sumBy(payments.filter(p => p.head === h.feeType), p => p.amount);
-    const waived = sumBy(waivers.filter(w => w.head === h.feeType), w => w.amount);
-    const charged = Number(h.amount) || 0;
-    return { head: h.feeType, charged, paid, waived, due: Math.max(0, charged - paid - waived) };
+  const lines = [];
+  history.forEach(entry => {
+    const isCurrentEntry = entry.className === student.className && entry.section === student.section;
+    const heads = applicableFeeHeadsForEntry(entry, feeRules);
+    heads.forEach(h => {
+      // Payments/waivers tagged with a year+class match that specific line;
+      // older, untagged records (from before class history existed) apply to the student's current class only.
+      const matchPayments = payments.filter(p => p.head === h.feeType && (p.year ? (String(p.year) === String(entry.year) && p.className === entry.className) : isCurrentEntry));
+      const matchWaivers = waivers.filter(w => w.head === h.feeType && (w.year ? (String(w.year) === String(entry.year) && w.className === entry.className) : isCurrentEntry));
+      const paid = sumBy(matchPayments, p => p.amount);
+      const waived = sumBy(matchWaivers, w => w.amount);
+      const charged = Number(h.amount) || 0;
+      lines.push({
+        year: entry.year, className: entry.className, section: entry.section,
+        head: h.feeType, charged, paid, waived, due: Math.max(0, charged - paid - waived),
+      });
+    });
   });
+  return lines;
 }
 
 function studentDueFromRules(student, feeRules) {
@@ -1015,16 +1041,19 @@ function teacherDue(teacher) {
 // Uses the Master Fee "Teacher Fee Scale" row matching their designation (heads as columns) when available;
 // otherwise falls back to the two legacy components (Basic Salary, Allowance).
 function teacherFeeBreakdown(teacher, teacherFeeRules) {
-  const row = (teacherFeeRules || []).find(f => f.designation === teacher.designation);
+  const rowsForDesignation = (teacherFeeRules || []).filter(f => f.designation === teacher.designation);
+  // Prefer the current year's salary scale; fall back to the most recent year available for this designation.
+  const row = rowsForDesignation.find(f => String(f.year) === String(CURRENT_YEAR))
+    || [...rowsForDesignation].sort((a, b) => Number(b.year || 0) - Number(a.year || 0))[0];
   const payments = teacher.payments || [];
 
   if (row) {
     const heads = feeHeadsOf(row);
     if (heads.length > 0) {
       return heads.map(h => {
-        const paid = sumBy(payments.filter(p => p.head === h), p => p.amount);
+        const paid = sumBy(payments.filter(p => p.head === h && (p.year ? String(p.year) === String(row.year) : true)), p => p.amount);
         const charged = Number(row[h]) || 0;
-        return { head: h, charged, paid, due: Math.max(0, charged - paid) };
+        return { head: h, year: row.year, charged, paid, due: Math.max(0, charged - paid) };
       });
     }
   }
@@ -1200,6 +1229,7 @@ const emptyStudent = (existingStudents) => ({
   bloodGroup: "", phone: "", guardianPhone: "",
   presentAddress: "", permanentAddress: "", sameAsPresent: false,
   photoUrl: "", status: "Active", payments: [], waivers: [],
+  classHistory: [{ year: String(CURRENT_YEAR), className: "One", section: "A" }],
 });
 
 function StudentsModule({ data, save, remove, config }) {
@@ -1450,15 +1480,20 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
   const totalWaived = sumBy(breakdown, r => r.waived);
   const totalDue = sumBy(breakdown, r => r.due);
   const invNo = selected ? "INV-" + str(selected.studentId || selected.roll || selected.id.slice(0,6)).toUpperCase() : "";
+  const lineKey = (r) => `${r.year}::${r.className}::${r.head}`;
 
   async function submitPayments() {
-    const payEntries = Object.entries(payAmounts).filter(([head, amt]) => Number(amt) > 0);
-    const waiverEntries = Object.entries(waiverAmounts).filter(([head, amt]) => Number(amt) > 0);
+    const payEntries = Object.entries(payAmounts).filter(([key, amt]) => Number(amt) > 0);
+    const waiverEntries = Object.entries(waiverAmounts).filter(([key, amt]) => Number(amt) > 0);
     if (payEntries.length === 0 && waiverEntries.length === 0) { toast && toast("Enter a payment or waiver amount", "error"); return; }
     setSaving(true);
     const today = new Date().toISOString().slice(0,10);
-    const newPayments = payEntries.map(([head, amt]) => ({ head, amount: Number(amt), date: today }));
-    const newWaivers = waiverEntries.map(([head, amt]) => ({ head, amount: Number(amt), date: today }));
+    function unpack(key, amt) {
+      const [year, className, head] = key.split("::");
+      return { head, year, className, amount: Number(amt), date: today };
+    }
+    const newPayments = payEntries.map(([key, amt]) => unpack(key, amt));
+    const newWaivers = waiverEntries.map(([key, amt]) => unpack(key, amt));
     const updated = {
       ...selected,
       payments: [...(selected.payments || []), ...newPayments],
@@ -1536,10 +1571,12 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
             <FieldRow name="Roll" value={selected.roll || "—"} />
           </div>
           <table style={{ width: "100%", marginBottom: 10, fontSize: 11 }}>
-            <thead><tr><th style={{ fontSize: 9.5 }}>Fee Head</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Charged</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Paid</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Waiver</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Due</th></tr></thead>
+            <thead><tr><th style={{ fontSize: 9.5 }}>Year</th><th style={{ fontSize: 9.5 }}>Class</th><th style={{ fontSize: 9.5 }}>Fee Head</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Charged</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Paid</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Waiver</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Due</th></tr></thead>
             <tbody>
               {breakdown.map(r => (
-                <tr key={r.head}>
+                <tr key={lineKey(r)}>
+                  <td>{r.year}</td>
+                  <td>{r.className}</td>
                   <td>{r.head}</td>
                   <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
                   <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
@@ -1589,10 +1626,12 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
           ) : (
             <div className="table-wrap">
               <table style={{ width: "100%", marginBottom: 16 }}>
-                <thead><tr><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Due</th><th>Waiver Amount</th><th>Pay Amount</th></tr></thead>
+                <thead><tr><th>Year</th><th>Class</th><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Due</th><th>Waiver Amount</th><th>Pay Amount</th></tr></thead>
                 <tbody>
                   {breakdown.map(r => (
-                    <tr key={r.head}>
+                    <tr key={lineKey(r)}>
+                      <td>{r.year}</td>
+                      <td>{r.className}</td>
                       <td>{r.head}</td>
                       <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
                       <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
@@ -1600,12 +1639,12 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
                       <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
                       <td>
                         {r.due > 0 ? (
-                          <input type="number" placeholder="0" value={waiverAmounts[r.head] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                          <input type="number" placeholder="0" value={waiverAmounts[lineKey(r)] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [lineKey(r)]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
                         ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
                       </td>
                       <td>
                         {r.due > 0 ? (
-                          <input type="number" placeholder="0" value={payAmounts[r.head] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [r.head]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                          <input type="number" placeholder="0" value={payAmounts[lineKey(r)] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [lineKey(r)]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
                         ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
                       </td>
                     </tr>
@@ -1736,6 +1775,13 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
       // Auto-fill next roll for the newly selected class — only for brand-new admissions,
       // so editing an existing student's class never silently overwrites their roll.
       if (!f.id) next.roll = String(nextRollForClass(students, className, f.id));
+      // Keep this year's class-history entry in sync with the "current class" dropdown,
+      // so fee calculation automatically uses the right year+class without extra steps.
+      const history = Array.isArray(f.classHistory) ? [...f.classHistory] : [];
+      const idx = history.findIndex(h => String(h.year) === String(CURRENT_YEAR));
+      if (idx > -1) history[idx] = { ...history[idx], className, section: f.section };
+      else history.push({ year: String(CURRENT_YEAR), className, section: f.section });
+      next.classHistory = history;
       return next;
     });
   }
@@ -1755,6 +1801,21 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
     setShowPrint(true);
   }
 
+  const history = Array.isArray(form.classHistory) && form.classHistory.length > 0
+    ? form.classHistory
+    : [{ year: String(CURRENT_YEAR), className: form.className, section: form.section }];
+
+  function updateHistoryRow(i, key, val) {
+    const next = history.map((h, idx) => idx === i ? { ...h, [key]: val } : h);
+    setForm(f => ({ ...f, classHistory: next }));
+  }
+  function addHistoryRow() {
+    setForm(f => ({ ...f, classHistory: [...history, { year: String(CURRENT_YEAR), className: "One", section: "A" }] }));
+  }
+  function removeHistoryRow(i) {
+    setForm(f => ({ ...f, classHistory: history.filter((_, idx) => idx !== i) }));
+  }
+
   return (
     <Modal title={student.id ? "Edit Student" : "New Admission"} onClose={onClose} size="lg"
       footer={showPrint ? (
@@ -1772,6 +1833,7 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
       {showPrint ? (
         <AdmissionFormPrint student={form} config={config} />
       ) : (
+      <div>
       <div className="form-grid">
         <Field label="Student ID" hint="auto-generated"><input type="text" value={form.studentId} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
         <Field label="Form No." hint="auto-generated"><input type="text" value={form.admissionFormNo || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
@@ -1780,7 +1842,7 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
         <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
         <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
         <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
-        <Field label="Class"><select value={form.className} onChange={handleClassChange}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Class" hint="current class"><select value={form.className} onChange={handleClassChange}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
         <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
         <Field label="Roll Number" hint={!form.id ? "auto-filled from class" : ""}><input type="text" value={form.roll} onChange={set("roll")} /></Field>
         <Field label="Session" hint="e.g. 2025-2026"><input type="text" value={form.session || ""} onChange={set("session")} /></Field>
@@ -1797,6 +1859,27 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
           <textarea value={form.permanentAddress} onChange={set("permanentAddress")} disabled={form.sameAsPresent} />
         </Field>
         <PhotoBox label="Student Photo" folder="students" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+      </div>
+
+      <div className="card" style={{ marginTop: 16, background: "var(--paper)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)" }}>Class History (Year-wise)</div>
+            <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>Which class this student was in each year — fees are calculated per year using this history.</div>
+          </div>
+          <button className="link-btn" onClick={addHistoryRow}>+ Add year</button>
+        </div>
+        {history.map((h, i) => (
+          <div key={i} className="form-grid cols-3" style={{ marginBottom: 8, alignItems: "end" }}>
+            <Field label="Year"><input type="number" value={h.year} onChange={(e) => updateHistoryRow(i, "year", e.target.value)} /></Field>
+            <Field label="Class"><select value={h.className} onChange={(e) => updateHistoryRow(i, "className", e.target.value)}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Field label="Section"><select value={h.section} onChange={(e) => updateHistoryRow(i, "section", e.target.value)}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+              <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeHistoryRow(i)}><Icon.trash /></button>
+            </div>
+          </div>
+        ))}
+      </div>
       </div>
       )}
     </Modal>
@@ -2149,8 +2232,9 @@ function TeacherPicker({ teachers, label, onPick }) {
 function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules }) {
   const [form, setForm] = useState(teacher);
   const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
-  const scaleRows = (teacherFeeRules || []).filter(r => r.designation === form.designation);
-  const scaleTotal = sumBy(scaleRows, r => r.amount);
+  const scaleBreakdown = teacherFeeBreakdown(form, teacherFeeRules);
+  const scaleTotal = sumBy(scaleBreakdown, r => r.charged);
+  const scaleYear = scaleBreakdown[0] && scaleBreakdown[0].year;
   return (
     <Modal title={teacher.id ? "Edit Staff" : "Add Staff"} onClose={onClose} size="lg"
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
@@ -2168,12 +2252,12 @@ function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules })
         <PhotoBox label="Staff Photo" folder="teachers" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
       </div>
       <div className="card" style={{ marginTop: 16, background: "var(--paper)" }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", marginBottom: 8 }}>Salary (auto from Teacher Fee Scale — {form.designation})</div>
-        {scaleRows.length === 0 ? (
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", marginBottom: 8 }}>Salary (auto from Teacher Fee Scale — {form.designation}{scaleYear ? `, ${scaleYear}` : ""})</div>
+        {scaleBreakdown.length === 0 ? (
           <div style={{ fontSize: 12.5, color: "var(--slate-soft)" }}>No fee scale set for this designation yet. Add one in Master Fee → Teacher Fee Scale to auto-calculate salary.</div>
         ) : (
           <>
-            {scaleRows.map(r => <FieldRow key={r.id} name={r.feeType} value={"৳" + money(r.amount)} />)}
+            {scaleBreakdown.map(r => <FieldRow key={r.head} name={r.head} value={"৳" + money(r.charged)} />)}
             <FieldRow name="Total Payable" value={<strong>৳{money(scaleTotal)}</strong>} />
           </>
         )}
@@ -2543,8 +2627,7 @@ function DueModule({ data, config }) {
                       <td>{s.name}</td>
                       <td>{s.section}</td>
                       {allHeadsInView.map(h => {
-                        const r = s.breakdown.find(b => b.head === h);
-                        const due = r ? r.due : 0;
+                        const due = sumBy(s.breakdown.filter(b => b.head === h), b => b.due);
                         return <td key={h} style={{ textAlign: "right" }} className="mono">{due > 0 ? <span style={{ color: "var(--red)" }}>৳{money(due)}</span> : "—"}</td>;
                       })}
                       <td style={{ textAlign: "right" }} className="mono"><strong style={{ color: s.due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(s.due)}</strong></td>
@@ -2597,24 +2680,27 @@ function DueModule({ data, config }) {
 }
 
 /* =========================================================
-   MASTER FEE MODULE
+   MASTER FEE MODULE — year-wise (each fee row belongs to a specific year,
+   since fee amounts can differ year to year even for the same class/designation)
    ========================================================= */
-const emptyFeeRuleGroup = (kind) => ({
-  kind, className: "One", section: "", designation: "Assistant Teacher",
-  items: [{ feeType: kind === "class" ? INCOME_HEADS[0] : "Base Salary", amount: "" }],
-  note: "",
-});
+const CURRENT_YEAR = new Date().getFullYear();
+function feeYearOptions(existingRows) {
+  const years = new Set([CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1]);
+  (existingRows || []).forEach(r => { if (r.year) years.add(Number(r.year)); });
+  return [...years].sort((a, b) => b - a);
+}
 
 function MasterFeeModule({ data, save, remove, config }) {
   const [tab, setTab] = useState("class");
-  const [editingGroup, setEditingGroup] = useState(null); // { id, kind, className, section, designation, items:[{feeType,amount}], note }
+  const [editingGroup, setEditingGroup] = useState(null); // { id, kind, year, className, section, designation, items:[{feeType,amount}], note }
   const fees = data.fees || [];
   const classRows = fees.filter(f => f.kind === "class");
   const teacherRows = fees.filter(f => f.kind === "teacher");
+  const [yearFilter, setYearFilter] = useState("");
 
   function openNewGroup() {
     setEditingGroup({
-      id: null, kind: tab,
+      id: null, kind: tab, year: String(CURRENT_YEAR),
       className: "One", section: "", designation: "Assistant Teacher",
       items: [{ feeType: tab === "class" ? INCOME_HEADS[0] : "Basic Salary", amount: "" }],
       note: "",
@@ -2624,7 +2710,8 @@ function MasterFeeModule({ data, save, remove, config }) {
   function editGroup(row) {
     const heads = feeHeadsOf(row);
     setEditingGroup({
-      id: row.id, kind: row.kind, className: row.className || "One", section: row.section || "", designation: row.designation || "Assistant Teacher",
+      id: row.id, kind: row.kind, year: String(row.year || CURRENT_YEAR),
+      className: row.className || "One", section: row.section || "", designation: row.designation || "Assistant Teacher",
       items: heads.length > 0 ? heads.map(h => ({ feeType: h, amount: row[h] })) : [{ feeType: row.kind === "class" ? INCOME_HEADS[0] : "Basic Salary", amount: "" }],
       note: row.note || "",
     });
@@ -2639,6 +2726,7 @@ function MasterFeeModule({ data, save, remove, config }) {
     const row = {
       id: group.id || undefined,
       kind: group.kind,
+      year: group.year,
       className: group.kind === "class" ? group.className : undefined,
       section: group.kind === "class" ? group.section : undefined,
       designation: group.kind === "teacher" ? group.designation : undefined,
@@ -2653,101 +2741,124 @@ function MasterFeeModule({ data, save, remove, config }) {
 
   function handlePrint() { window.print(); }
 
-  const allClassHeads = [...new Set(classRows.flatMap(feeHeadsOf))];
-  const allTeacherHeads = [...new Set(teacherRows.flatMap(feeHeadsOf))];
+  const classRowsFiltered = yearFilter ? classRows.filter(r => String(r.year) === yearFilter) : classRows;
+  const teacherRowsFiltered = yearFilter ? teacherRows.filter(r => String(r.year) === yearFilter) : teacherRows;
+  const allClassHeads = [...new Set(classRowsFiltered.flatMap(feeHeadsOf))];
+  const allTeacherHeads = [...new Set(teacherRowsFiltered.flatMap(feeHeadsOf))];
+  const availableYears = feeYearOptions(fees);
+
+  // Group rows by year for clear year-wise sections
+  const classByYear = {};
+  classRowsFiltered.forEach(r => { const y = r.year || "—"; (classByYear[y] = classByYear[y] || []).push(r); });
+  const teacherByYear = {};
+  teacherRowsFiltered.forEach(r => { const y = r.year || "—"; (teacherByYear[y] = teacherByYear[y] || []).push(r); });
+  const sortedClassYears = Object.keys(classByYear).sort((a, b) => b - a);
+  const sortedTeacherYears = Object.keys(teacherByYear).sort((a, b) => b - a);
 
   return (
     <div>
       <div className="section-head">
-        <div><h2>Master Fee Setup</h2><p>Determine class-wise (sector-based) fees and teacher-based salary scales — add multiple fee heads at once per class or designation.</p></div>
+        <div><h2>Master Fee Setup</h2><p>Year-wise class fees and salary scales — each year can have its own amounts, since fees change year to year.</p></div>
         <button className="btn btn-primary no-print" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
       </div>
       <div className="tabs no-print">
         <button className={`tab ${tab === "class" ? "active" : ""}`} onClick={() => setTab("class")}>Class Fee Rules</button>
         <button className={`tab ${tab === "teacher" ? "active" : ""}`} onClick={() => setTab("teacher")}>Teacher Fee Scale</button>
       </div>
+      <div className="no-print" style={{ marginBottom: 14 }}>
+        <select className="filter-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+          <option value="">All Years</option>
+          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
 
       {tab === "class" && (
-        <div className="card card-flush print-landscape">
-          <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
-            {classRows.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+        <div className="print-landscape">
+          <div className="no-print" style={{ textAlign: "right", marginBottom: 10 }}>
+            {classRowsFiltered.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
           <PrintDocHead config={config} headline="Class-wise Fee Structure" />
-          {classRows.length === 0 ? (
-            <EmptyState title="No class fee rules yet" sub="Add a fee group with multiple heads (Tuition, Exam, etc.) per class." />
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Class</th><th>Section</th>
-                    {allClassHeads.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
-                    <th style={{ textAlign: "right" }}>Total</th>
-                    <th className="no-print"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classRows.map(row => (
-                    <tr key={row.id}>
-                      <td>{row.className}</td>
-                      <td>{row.section || "All"}</td>
-                      {allClassHeads.map(h => (
-                        <td key={h} style={{ textAlign: "right" }} className="mono">{row[h] ? "৳" + money(row[h]) : "—"}</td>
-                      ))}
-                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(feeHeadsOf(row), h => row[h]))}</strong></td>
-                      <td className="no-print">
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn btn-sm btn-icon" onClick={() => editGroup(row)}><Icon.edit /></button>
-                          <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(row)}><Icon.trash /></button>
-                        </div>
-                      </td>
+          {classRowsFiltered.length === 0 ? (
+            <div className="card"><EmptyState title="No class fee rules yet" sub="Add a fee group with multiple heads (Tuition, Exam, etc.) per class and year." /></div>
+          ) : sortedClassYears.map(year => (
+            <div className="card card-flush" key={year} style={{ marginBottom: 14 }}>
+              <h3 style={{ fontSize: 14.5, padding: "14px 18px 0" }}>Year {year}</h3>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Class</th><th>Section</th>
+                      {allClassHeads.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
+                      <th style={{ textAlign: "right" }}>Total</th>
+                      <th className="no-print"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {classByYear[year].map(row => (
+                      <tr key={row.id}>
+                        <td>{row.className}</td>
+                        <td>{row.section || "All"}</td>
+                        {allClassHeads.map(h => (
+                          <td key={h} style={{ textAlign: "right" }} className="mono">{row[h] ? "৳" + money(row[h]) : "—"}</td>
+                        ))}
+                        <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(feeHeadsOf(row), h => row[h]))}</strong></td>
+                        <td className="no-print">
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button className="btn btn-sm btn-icon" onClick={() => editGroup(row)}><Icon.edit /></button>
+                            <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(row)}><Icon.trash /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          ))}
         </div>
       )}
       {tab === "teacher" && (
-        <div className="card card-flush print-landscape">
-          <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
-            {teacherRows.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+        <div className="print-landscape">
+          <div className="no-print" style={{ textAlign: "right", marginBottom: 10 }}>
+            {teacherRowsFiltered.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
           <PrintDocHead config={config} headline="Designation-wise Salary Scale" />
-          {teacherRows.length === 0 ? (
-            <EmptyState title="No teacher fee scales yet" sub="Add a fee group with multiple components (Basic, Allowance, etc.) per designation." />
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Designation</th>
-                    {allTeacherHeads.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
-                    <th style={{ textAlign: "right" }}>Total</th>
-                    <th className="no-print"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teacherRows.map(row => (
-                    <tr key={row.id}>
-                      <td>{row.designation}</td>
-                      {allTeacherHeads.map(h => (
-                        <td key={h} style={{ textAlign: "right" }} className="mono">{row[h] ? "৳" + money(row[h]) : "—"}</td>
-                      ))}
-                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(feeHeadsOf(row), h => row[h]))}</strong></td>
-                      <td className="no-print">
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn btn-sm btn-icon" onClick={() => editGroup(row)}><Icon.edit /></button>
-                          <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(row)}><Icon.trash /></button>
-                        </div>
-                      </td>
+          {teacherRowsFiltered.length === 0 ? (
+            <div className="card"><EmptyState title="No teacher fee scales yet" sub="Add a fee group with multiple components (Basic, Allowance, etc.) per designation and year." /></div>
+          ) : sortedTeacherYears.map(year => (
+            <div className="card card-flush" key={year} style={{ marginBottom: 14 }}>
+              <h3 style={{ fontSize: 14.5, padding: "14px 18px 0" }}>Year {year}</h3>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Designation</th>
+                      {allTeacherHeads.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
+                      <th style={{ textAlign: "right" }}>Total</th>
+                      <th className="no-print"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {teacherByYear[year].map(row => (
+                      <tr key={row.id}>
+                        <td>{row.designation}</td>
+                        {allTeacherHeads.map(h => (
+                          <td key={h} style={{ textAlign: "right" }} className="mono">{row[h] ? "৳" + money(row[h]) : "—"}</td>
+                        ))}
+                        <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(feeHeadsOf(row), h => row[h]))}</strong></td>
+                        <td className="no-print">
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button className="btn btn-sm btn-icon" onClick={() => editGroup(row)}><Icon.edit /></button>
+                            <button className="btn btn-sm btn-icon" onClick={() => deleteGroup(row)}><Icon.trash /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -2776,6 +2887,7 @@ function FeeGroupModal({ group, onClose, onSave }) {
     <Modal title={form.kind === "class" ? "Class Fee Group" : "Teacher Fee Scale Group"} onClose={onClose} size="lg"
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save All</button></>}>
       <div className="form-grid" style={{ marginBottom: 16 }}>
+        <Field label="Year" hint="fees can differ year to year"><input type="number" value={form.year} onChange={set("year")} placeholder={String(CURRENT_YEAR)} /></Field>
         {form.kind === "class" ? (
           <>
             <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
@@ -2826,11 +2938,10 @@ function CommitteeModule({ data, save, remove }) {
   return (
     <div>
       <div className="section-head">
-        <div><h2>Committee</h2><p>Form and manage school committees with member details.</p></div>
-        <button className="btn btn-primary" onClick={() => setEditing(emptyCommittee())}><Icon.plus />New Committee</button>
+        <div><h2>Committee</h2><p>School committees and member details. Add new committees from Settings.</p></div>
       </div>
       {committees.length === 0 ? (
-        <div className="card"><EmptyState title="No committees formed yet" sub="Create your first committee." /></div>
+        <div className="card"><EmptyState title="No committees formed yet" sub={`Go to Settings → Committee to create one.`} /></div>
       ) : (
         <div className="grid grid-2">
           {committees.map(c => (
@@ -2965,11 +3076,13 @@ function ReportsModule({ data }) {
 /* =========================================================
    SETTINGS MODULE
    ========================================================= */
-function SettingsModule({ config, setConfig }) {
+function SettingsModule({ config, setConfig, data, save, remove }) {
   const [form, setForm] = useState({ ...config, schoolPhones: config.schoolPhones && config.schoolPhones.length ? config.schoolPhones : ["", "", ""] });
   const [saving, setSaving] = useState(false);
+  const [committeeEditing, setCommitteeEditing] = useState(null);
   const toast = useToast();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const committees = (data && data.committee) || [];
 
   function setPhone(i, val) {
     const phones = [...form.schoolPhones];
@@ -2998,7 +3111,7 @@ function SettingsModule({ config, setConfig }) {
     <div>
       <div className="section-head"><div><h2>Settings</h2><p>Institution profile shown on ID cards, invoices, and documents.</p></div></div>
 
-      <div className="card" style={{ maxWidth: 560 }}>
+      <div className="card" style={{ maxWidth: 560, marginBottom: 20 }}>
         <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
           <Field label="Institution Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
           <Field label="Address"><textarea value={form.schoolAddress || ""} onChange={set("schoolAddress")} placeholder="Full address" /></Field>
@@ -3011,6 +3124,34 @@ function SettingsModule({ config, setConfig }) {
         </div>
         <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Settings"}</button>
       </div>
+
+      <div className="card" style={{ maxWidth: 560 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h3 style={{ fontSize: 15 }}>Committee</h3>
+          <button className="btn btn-sm btn-primary" onClick={() => setCommitteeEditing(emptyCommittee())}><Icon.plus />New Committee</button>
+        </div>
+        <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 12 }}>Committees created here appear on the Committee menu.</p>
+        {committees.length === 0 ? (
+          <EmptyState title="No committees yet" sub="Create your first committee above." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {committees.map(c => (
+              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px dashed var(--line)" }}>
+                <div>
+                  <strong style={{ fontSize: 13 }}>{c.committeeName}</strong>
+                  <div style={{ fontSize: 11.5, color: "var(--slate-soft)" }}>{(c.members || []).length} members</div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button className="btn btn-sm btn-icon" onClick={() => setCommitteeEditing({ ...c })}><Icon.edit /></button>
+                  <button className="btn btn-sm btn-icon" onClick={() => remove("committee", c.id)}><Icon.trash /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {committeeEditing && <CommitteeFormModal committee={committeeEditing} onClose={() => setCommitteeEditing(null)} onSave={async (r) => { await save("committee", r); setCommitteeEditing(null); }} />}
     </div>
   );
 }
@@ -3172,7 +3313,7 @@ function AppShell() {
           {active === "fees" && <MasterFeeModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "committee" && <CommitteeModule data={store.data} save={store.save} remove={store.remove} />}
           {active === "reports" && <ReportsModule data={store.data} />}
-          {active === "settings" && <SettingsModule config={config} setConfig={setConfig} />}
+          {active === "settings" && <SettingsModule config={config} setConfig={setConfig} data={store.data} save={store.save} remove={store.remove} />}
         </div>
       </div>
     </div>
