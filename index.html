@@ -356,6 +356,55 @@ tbody tr:last-child td{border-bottom:none;}
   .id-card-grid{gap:0.1in;}
 }
 
+/* ===== Admit Card — half A4 portrait ===== */
+.admit-card-grid{display:flex;flex-wrap:wrap;gap:6mm;justify-content:flex-start;}
+.admit-card-physical{
+  width:99mm;min-height:148mm;background:#fff;
+  border:1px solid var(--line);box-shadow:var(--shadow-sm);
+  break-inside:avoid;page-break-inside:avoid;padding:4mm;
+}
+@media print{ .admit-card-physical{box-shadow:none;} }
+.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:5mm;height:100%;display:flex;flex-direction:column;}
+.acp-header{display:flex;align-items:flex-start;gap:3mm;border-bottom:1px solid var(--line);padding-bottom:3mm;margin-bottom:3mm;}
+.acp-logo,.acp-photo{width:16mm;height:19mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
+.acp-logo img,.acp-photo img{width:100%;height:100%;object-fit:cover;}
+.acp-center{flex:1;text-align:center;}
+.acp-school-name{font-family:'Fraunces',serif;font-size:14pt;font-weight:700;}
+.acp-school-address{font-size:8pt;color:var(--slate-soft);margin-top:1px;}
+.acp-school-phone{font-size:8pt;color:var(--slate-soft);}
+.acp-exam-line{text-align:center;font-size:10pt;font-weight:600;margin-top:2mm;}
+.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:13pt;font-weight:700;margin:1mm 0 4mm;padding-bottom:2mm;border-bottom:1px dashed var(--line);}
+.acp-fields{font-size:9.5pt;margin-bottom:4mm;}
+.acp-note{font-size:7.5pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
+.acp-signatures{display:flex;justify-content:space-between;margin-top:8mm;gap:4mm;}
+.acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:7.5pt;text-align:center;flex:1;line-height:1.5;}
+.acp-credit{text-align:center;font-size:6.5pt;color:var(--slate-soft);margin-top:3mm;}
+
+/* ===== Seat Plan card — 3in x 2in ===== */
+.seat-card-grid{display:flex;flex-wrap:wrap;gap:0.12in;justify-content:flex-start;}
+.seat-card-physical{
+  width:3in;height:2in;background:#fff;border:1.2px solid var(--moss-deep);border-radius:0.08in;
+  padding:0.1in;break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;
+  box-shadow:var(--shadow-sm);
+}
+@media print{ .seat-card-physical{box-shadow:none;} }
+.scp-school{font-family:'Fraunces',serif;font-size:9.5pt;font-weight:700;text-align:center;}
+.scp-address{font-size:6pt;color:var(--slate-soft);text-align:center;}
+.scp-exam{font-size:7.5pt;font-weight:600;text-align:center;margin:0.04in 0;padding-bottom:0.04in;border-bottom:1px dashed var(--line);}
+.scp-body{display:flex;gap:0.08in;flex:1;margin-top:0.04in;}
+.scp-photo{width:0.62in;height:0.75in;flex-shrink:0;border:1px solid var(--line);border-radius:0.03in;overflow:hidden;background:var(--paper);display:flex;align-items:center;justify-content:center;}
+.scp-photo img{width:100%;height:100%;object-fit:cover;}
+.scp-fields{flex:1;font-size:6.6pt;}
+
+/* FieldRow (name|colon|value) uses a fixed 12.5px by default — override to inherit
+   the much smaller card font sizes when nested inside ID/Admit/Seat cards. */
+.id-card-physical .field-row,
+.admit-card-physical .field-row,
+.seat-card-physical .field-row{font-size:inherit;padding:1px 0;border-bottom:none;gap:3px;}
+.id-card-physical .fr-colon,
+.admit-card-physical .fr-colon,
+.seat-card-physical .fr-colon{flex:0 0 8px;}
+
 .field-form-title{text-align:center;margin-bottom:14px;}
 
 /* Empty state */
@@ -403,6 +452,7 @@ tbody tr:last-child td{border-bottom:none;}
   padding:0.1in 0.12in 0.08in;flex-shrink:0;
 }
 .id-card-physical .icp-head .icp-school{font-size:7.5pt;text-transform:uppercase;letter-spacing:0.05em;opacity:0.85;}
+.id-card-physical .icp-head .icp-address{font-size:6pt;opacity:0.75;margin-top:1px;}
 .id-card-physical .icp-head .icp-doctype{font-family:'Fraunces',serif;font-size:10.5pt;font-weight:600;margin-top:1px;}
 .id-card-physical .icp-photo{
   width:0.85in;height:0.85in;border-radius:0.1in;overflow:hidden;margin:0.12in auto 0.06in;
@@ -1145,23 +1195,20 @@ function nextRollForClass(students, className, excludeId) {
 const emptyStudent = (existingStudents) => ({
   id: null, studentId: generateStudentId(existingStudents), admissionFormNo: generateFormNo(existingStudents),
   name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
-  className: "One", section: "A", roll: String(nextRollForClass(existingStudents, "One")), admissionDate: new Date().toISOString().slice(0,10),
+  className: "One", section: "A", roll: String(nextRollForClass(existingStudents, "One")), session: "",
+  admissionDate: new Date().toISOString().slice(0,10),
   bloodGroup: "", phone: "", guardianPhone: "",
   presentAddress: "", permanentAddress: "", sameAsPresent: false,
-  photoUrl: "", status: "Active", payments: [],
+  photoUrl: "", status: "Active", payments: [], waivers: [],
 });
 
 function StudentsModule({ data, save, remove, config }) {
-  const [tab, setTab] = useState("list");
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
-  const [docTarget, setDocTarget] = useState(null); // { type: 'id'|'invoice'|'admit'|'seat', student }
-  const [printInvoice, setPrintInvoice] = useState(null);
-  const toast = useToast();
+  const [printStudent, setPrintStudent] = useState(null);
 
   const students = data.students || [];
-  const invoices = data.invoices || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filtered = students.filter(s => {
@@ -1173,14 +1220,6 @@ function StudentsModule({ data, save, remove, config }) {
     return matchQ && matchC;
   });
 
-  const filteredInvoices = invoices.filter(inv =>
-    !query
-    || str(inv.studentName).toLowerCase().includes(query.toLowerCase())
-    || str(inv.roll).toLowerCase().includes(query.toLowerCase())
-    || str(inv.studentDisplayId).toLowerCase().includes(query.toLowerCase())
-    || str(inv.invoiceNo).toLowerCase().includes(query.toLowerCase())
-  );
-
   function openNew() { setEditing(emptyStudent(students)); }
   function openEdit(s) { setEditing({ ...s }); }
   async function handleSave(record) {
@@ -1188,122 +1227,29 @@ function StudentsModule({ data, save, remove, config }) {
     setEditing(null);
     return saved;
   }
-  async function handleSaveInvoice(record) {
-    return save("invoices", record);
-  }
-
-  const TAB_ACTION = {
-    list: { label: "New Admission", icon: "plus", onClick: openNew },
-    idcard: { label: "Open ID Card Form", icon: "idcard", onClick: () => setDocTarget({ type: "id" }) },
-    invoice: { label: "Open Fee Invoice Form", icon: "fee", onClick: () => setDocTarget({ type: "invoice" }) },
-    admit: { label: "Open Admit Card Form", icon: "idcard", onClick: () => setDocTarget({ type: "admit" }) },
-    seat: { label: "Open Seat Plan Form", icon: "plus", onClick: () => setDocTarget({ type: "seatform" }) },
-  };
-  const action = TAB_ACTION[tab];
-  function handlePrintList() { window.print(); }
 
   return (
     <div>
       <div className="section-head">
         <div>
           <h2>Students</h2>
-          <p>Admissions, ID cards, invoices, admit cards, seat plans, and student records.</p>
+          <p>All admissions submitted through the Admission Form.</p>
         </div>
-        <button className="btn btn-primary no-print" onClick={action.onClick}><IconWrap name={action.icon} />{action.label}</button>
+        <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />New Admission</button>
       </div>
 
-      <div className="tabs no-print">
-        <button className={`tab ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>All Students</button>
-        <button className={`tab ${tab === "idcard" ? "active" : ""}`} onClick={() => setTab("idcard")}>ID Cards</button>
-        <button className={`tab ${tab === "invoice" ? "active" : ""}`} onClick={() => setTab("invoice")}>Fee Invoice</button>
-        <button className={`tab ${tab === "admit" ? "active" : ""}`} onClick={() => setTab("admit")}>Admit Card</button>
-        <button className={`tab ${tab === "seat" ? "active" : ""}`} onClick={() => setTab("seat")}>Seat Plan</button>
-      </div>
-
-      {tab === "list" && (
-        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config} />
-      )}
-      {tab === "idcard" && (
-        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config}
-          rowAction={{ label: "ID Card", icon: "idcard", onClick: (s) => setDocTarget({ type: "id", student: s }) }} />
-      )}
-      {tab === "invoice" && (
-        <div className="card card-flush">
-          <div className="no-print" style={{ padding: "16px 18px 0" }}>
-            <div className="search-row">
-              <input className="search-input" placeholder="Search by student name, roll, ID, or invoice no…" value={query} onChange={(e) => setQuery(e.target.value)} />
-              <button className="btn btn-sm" onClick={handlePrintList}><Icon.print />Print List</button>
-            </div>
-          </div>
-          {filteredInvoices.length === 0 ? (
-            <EmptyState title="No saved invoices yet" sub={`Use "Open Fee Invoice Form" above to create and submit one.`} />
-          ) : (
-            <div className="table-wrap">
-              <PrintDocHead config={config} headline="All Invoices" />
-              <table>
-                <thead>
-                  <tr><th>Invoice No</th><th>Student</th><th>Class</th><th>Date</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Due</th><th className="no-print"></th></tr>
-                </thead>
-                <tbody>
-                  {filteredInvoices.map(inv => (
-                    <tr key={inv.id}>
-                      <td className="mono">{inv.invoiceNo}</td>
-                      <td>{inv.studentName}</td>
-                      <td>{inv.className} — {inv.section}</td>
-                      <td>{fmtDate(inv.date)}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalCharged)}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalPaid)}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalWaived)}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalDue)}</td>
-                      <td className="no-print">
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn btn-sm btn-icon" title="Open / Edit" onClick={() => { const s = students.find(x => x.id === inv.studentId); if (s) setDocTarget({ type: "invoice", student: s }); else toast && toast("Original student record not found", "error"); }}><Icon.edit /></button>
-                          <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintInvoice(inv)}><Icon.print /></button>
-                          <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this invoice record?")) remove("invoices", inv.id); }}><Icon.trash /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-      {tab === "admit" && (
-        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-          onEdit={openEdit} onDelete={(id) => remove("students", id)} onOpenDoc={setDocTarget} feeRules={feeRules} config={config}
-          rowAction={{ label: "Admit Card", icon: "idcard", onClick: (s) => setDocTarget({ type: "admit", student: s }) }} />
-      )}
-      {tab === "seat" && <SeatPlanTab data={data} save={save} remove={remove} formOpen={docTarget && docTarget.type === "seatform"} onCloseForm={() => setDocTarget(null)} config={config} />}
+      <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
+        onEdit={openEdit} onDelete={(id) => remove("students", id)} onPrint={(s) => setPrintStudent(s)} feeRules={feeRules} config={config} />
 
       {editing && (
         <StudentFormModal student={editing} students={students} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
       )}
-      {docTarget && docTarget.type === "id" && <IdCardModal students={students} initialStudent={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
-      {docTarget && docTarget.type === "invoice" && <StudentInvoiceModal students={students} initialStudent={docTarget.student} config={config} feeRules={feeRules} onSave={handleSave} saveInvoice={handleSaveInvoice} onClose={() => setDocTarget(null)} />}
-      {docTarget && docTarget.type === "admit" && <StudentAdmitCardModal students={students} initialStudent={docTarget.student} config={config} onClose={() => setDocTarget(null)} />}
-      {printInvoice && (
-        <SingleRecordPrintModal title={`Invoice — ${printInvoice.studentName}`} config={config} onClose={() => setPrintInvoice(null)} fields={[
-          { name: "Invoice No", value: printInvoice.invoiceNo },
-          { name: "Student", value: printInvoice.studentName },
-          { name: "Class / Section", value: `${printInvoice.className} — ${printInvoice.section}` },
-          { name: "Roll", value: printInvoice.roll || "—" },
-          { name: "Date", value: fmtDate(printInvoice.date) },
-          { name: "Total Charged", value: "৳" + money(printInvoice.totalCharged) },
-          { name: "Total Paid", value: "৳" + money(printInvoice.totalPaid) },
-          { name: "Total Waiver", value: "৳" + money(printInvoice.totalWaived) },
-          { name: "Balance Due", value: <strong>৳{money(printInvoice.totalDue)}</strong> },
-        ]} />
-      )}
+      {printStudent && <AdmissionFormPrintModal student={printStudent} config={config} onClose={() => setPrintStudent(null)} />}
     </div>
   );
 }
 
-function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onOpenDoc, feeRules, config, rowAction }) {
-  const [printRow, setPrintRow] = useState(null);
+function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onPrint, feeRules, config }) {
   function handlePrint() { window.print(); }
   return (
     <div className="card card-flush">
@@ -1348,17 +1294,9 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
                     <td><span className={`badge ${s.status === "Active" ? "badge-green" : "badge-slate"}`}>{s.status || "Active"}</span></td>
                     <td className="no-print">
                       <div style={{ display: "flex", gap: 6 }}>
-                        {rowAction ? (
-                          <button className="btn btn-sm btn-primary" onClick={() => rowAction.onClick(s)}><IconWrap name={rowAction.icon} />{rowAction.label}</button>
-                        ) : (
-                          <>
-                            <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
-                            <button className="btn btn-sm btn-icon" title="ID Card" onClick={() => onOpenDoc({ type: "id", student: s })}><Icon.idcard /></button>
-                            <button className="btn btn-sm btn-icon" title="Invoice" onClick={() => onOpenDoc({ type: "invoice", student: s })}><Icon.fee /></button>
-                            <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}?`)) onDelete(s.id); }}><Icon.trash /></button>
-                          </>
-                        )}
-                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintRow(s)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Print Admission Form" onClick={() => onPrint(s)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}?`)) onDelete(s.id); }}><Icon.trash /></button>
                       </div>
                     </td>
                   </tr>
@@ -1367,18 +1305,6 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
             </tbody>
           </table>
         </div>
-      )}
-      {printRow && (
-        <SingleRecordPrintModal title={`Student — ${printRow.name}`} config={config} onClose={() => setPrintRow(null)} fields={[
-          { name: "Student ID", value: printRow.studentId || "—" },
-          { name: "Name", value: printRow.name },
-          { name: "Class / Section", value: `${printRow.className} — ${printRow.section}` },
-          { name: "Roll", value: printRow.roll || "—" },
-          { name: "Father's Name", value: printRow.fatherName || "—" },
-          { name: "Guardian Phone", value: printRow.guardianPhone || "—" },
-          { name: "Fee Due", value: "৳" + money(studentDueFromRules(printRow, feeRules)) },
-          { name: "Status", value: printRow.status || "Active" },
-        ]} />
       )}
     </div>
   );
@@ -1407,241 +1333,102 @@ function StudentPicker({ students, label, onPick }) {
   );
 }
 
-function StudentFormModal({ student, students, onClose, onSave, config }) {
-  const [form, setForm] = useState(student);
-  const [showPrint, setShowPrint] = useState(false);
-  const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
+/* =========================================================
+   FEE INVOICE MODULE (top-level) — form button + saved invoice list
+   ========================================================= */
+function FeeInvoiceModule({ data, save, remove, config }) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [editInvoice, setEditInvoice] = useState(null); // reopen the form pre-selected on that student
+  const [printInvoice, setPrintInvoice] = useState(null);
+  const [query, setQuery] = useState("");
+  const toast = useToast();
 
-  function handleClassChange(e) {
-    const className = e.target.value;
-    setForm(f => {
-      const next = { ...f, className };
-      // Auto-fill next roll for the newly selected class — only for brand-new admissions,
-      // so editing an existing student's class never silently overwrites their roll.
-      if (!f.id) next.roll = String(nextRollForClass(students, className, f.id));
-      return next;
-    });
-  }
+  const students = data.students || [];
+  const invoices = data.invoices || [];
+  const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
-  function handlePresentChange(e) {
-    const val = e.target.value;
-    setForm(f => ({ ...f, presentAddress: val, permanentAddress: f.sameAsPresent ? val : f.permanentAddress }));
-  }
-  function toggleSameAddress(e) {
-    const checked = e.target.checked;
-    setForm(f => ({ ...f, sameAsPresent: checked, permanentAddress: checked ? f.presentAddress : f.permanentAddress }));
-  }
+  const filteredInvoices = invoices.filter(inv =>
+    !query
+    || str(inv.studentName).toLowerCase().includes(query.toLowerCase())
+    || str(inv.roll).toLowerCase().includes(query.toLowerCase())
+    || str(inv.studentDisplayId).toLowerCase().includes(query.toLowerCase())
+    || str(inv.invoiceNo).toLowerCase().includes(query.toLowerCase())
+  );
 
-  async function handleSaveAndPreview() {
-    const saved = await onSave(form);
-    if (saved) setForm(saved);
-    setShowPrint(true);
-  }
-
-  const phones = (config.schoolPhones || []).filter(Boolean);
+  async function handleSaveStudent(record) { return save("students", record); }
+  async function handleSaveInvoice(record) { return save("invoices", record); }
+  function handlePrintList() { window.print(); }
 
   return (
-    <Modal title={student.id ? "Edit Student" : "New Admission"} onClose={onClose} size="lg"
-      footer={showPrint ? (
-        <>
-          <button className="btn" onClick={() => setShowPrint(false)}>← Back to Form</button>
-          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Admission Form (A4)</button>
-        </>
-      ) : (
-        <>
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn" onClick={() => onSave(form)}>Save</button>
-          <button className="btn btn-primary" onClick={handleSaveAndPreview}>Save &amp; Preview / Print</button>
-        </>
-      )}>
-      {showPrint ? (
-        <div className="doc-preview admission-form-print">
-          <div className="adm-header">
-            <div className="adm-header-logo">
-              {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
-            </div>
-            <div className="adm-header-center">
-              <div className="adm-school-name">{config.schoolName || "School Name"}</div>
-              {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-              {phones[0] && <div className="adm-school-phone">☎ {phones[0]}</div>}
-              <div className="adm-form-title">শিক্ষার্থী ভর্তি ফরম</div>
-              <div className="adm-form-no">ফরম নং: <span className="mono">{form.admissionFormNo || "—"}</span></div>
-            </div>
-            <div className="adm-header-photo">
-              {form.photoUrl ? <img src={form.photoUrl} alt="" /> : null}
-            </div>
-          </div>
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Fee Invoice</h2>
+          <p>Create fee invoices and review every invoice that has been submitted so far.</p>
+        </div>
+        <button className="btn btn-primary no-print" onClick={() => setFormOpen(true)}><Icon.fee />Open Fee Invoice Form</button>
+      </div>
 
-          <div className="adm-fields">
-            <FieldRow name="Student ID" value={<span className="mono">{form.studentId}</span>} />
-            <FieldRow name="শিক্ষার্থীর নাম / Name" value={form.name || "—"} />
-            <FieldRow name="পিতার নাম / Father's Name" value={form.fatherName || "—"} />
-            <FieldRow name="মাতার নাম / Mother's Name" value={form.motherName || "—"} />
-            <FieldRow name="জন্ম তারিখ / Date of Birth" value={fmtDate(form.dob)} />
-            <FieldRow name="লিঙ্গ / Gender" value={form.gender} />
-            <FieldRow name="শ্রেণি / Class" value={form.className} />
-            <FieldRow name="শাখা / Section" value={form.section} />
-            <FieldRow name="রোল / Roll" value={form.roll || "—"} />
-            <FieldRow name="ভর্তির তারিখ / Admission Date" value={fmtDate(form.admissionDate)} />
-            <FieldRow name="রক্তের গ্রুপ / Blood Group" value={form.bloodGroup || "—"} />
-            <FieldRow name="শিক্ষার্থীর ফোন / Student Phone" value={form.phone || "—"} />
-            <FieldRow name="অভিভাবকের ফোন / Guardian Phone" value={form.guardianPhone || "—"} />
-            <FieldRow name="বর্তমান ঠিকানা / Present Address" value={form.presentAddress || "—"} />
-            <FieldRow name="স্থায়ী ঠিকানা / Permanent Address" value={form.permanentAddress || "—"} />
-            <FieldRow name="অবস্থা / Status" value={form.status} />
-          </div>
-
-          <div className="adm-signatures">
-            <div className="adm-sig">অভিভাবকের স্বাক্ষর<br/>Guardian's Signature</div>
-            <div className="adm-sig">অধ্যক্ষ / প্রধান শিক্ষক<br/>Principal / Head Teacher</div>
-          </div>
-
-          <div className="adm-footer">
-            <div className="adm-slogan">শিক্ষাই জাতির মেরুদণ্ড — আলোকিত মানুষ গড়ার প্রত্যয়ে</div>
-            <div className="adm-credit">@Powered by: AM Shahed- 01605721296</div>
+      <div className="card card-flush">
+        <div className="no-print" style={{ padding: "16px 18px 0" }}>
+          <div className="search-row">
+            <input className="search-input" placeholder="Search by student name, roll, ID, or invoice no…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            {filteredInvoices.length > 0 && <button className="btn btn-sm" onClick={handlePrintList}><Icon.print />Print List</button>}
           </div>
         </div>
-      ) : (
-      <div className="form-grid">
-        <Field label="Student ID" hint="auto-generated"><input type="text" value={form.studentId} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
-        <Field label="Form No." hint="auto-generated"><input type="text" value={form.admissionFormNo || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
-        <Field label="Full Name"><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
-        <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
-        <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
-        <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
-        <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
-        <Field label="Class"><select value={form.className} onChange={handleClassChange}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-        <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-        <Field label="Roll Number" hint={!form.id ? "auto-filled from class" : ""}><input type="text" value={form.roll} onChange={set("roll")} /></Field>
-        <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
-        <Field label="Blood Group"><select value={form.bloodGroup} onChange={set("bloodGroup")}><option value="">—</option>{BLOOD_GROUPS.map(b => <option key={b}>{b}</option>)}</select></Field>
-        <Field label="Student Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
-        <Field label="Guardian Phone"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
-        <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option><option>Graduated</option></select></Field>
-        <Field label="Present Address" span2><textarea value={form.presentAddress} onChange={handlePresentChange} /></Field>
-        <Field label="Permanent Address" span2
-          hint={<label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 400, cursor: "pointer" }}>
-            <input type="checkbox" checked={!!form.sameAsPresent} onChange={toggleSameAddress} /> Same as present address
-          </label>}>
-          <textarea value={form.permanentAddress} onChange={set("permanentAddress")} disabled={form.sameAsPresent} />
-        </Field>
-        <PhotoBox label="Student Photo" folder="students" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+        {filteredInvoices.length === 0 ? (
+          <EmptyState title="No saved invoices yet" sub={`Use "Open Fee Invoice Form" above to create and submit one.`} />
+        ) : (
+          <div className="table-wrap">
+            <PrintDocHead config={config} headline="All Invoices" />
+            <table>
+              <thead>
+                <tr><th>Invoice No</th><th>Student</th><th>Class</th><th>Date</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Due</th><th className="no-print"></th></tr>
+              </thead>
+              <tbody>
+                {filteredInvoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td className="mono">{inv.invoiceNo}</td>
+                    <td>{inv.studentName}</td>
+                    <td>{inv.className} — {inv.section}</td>
+                    <td>{fmtDate(inv.date)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalCharged)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalPaid)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalWaived)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalDue)}</td>
+                    <td className="no-print">
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditInvoice(inv)}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Print this Invoice" onClick={() => setPrintInvoice(inv)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this invoice record?")) remove("invoices", inv.id); }}><Icon.trash /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {formOpen && (
+        <StudentInvoiceModal students={students} config={config} feeRules={feeRules}
+          onSave={handleSaveStudent} saveInvoice={handleSaveInvoice} onClose={() => setFormOpen(false)} />
       )}
-    </Modal>
-  );
-}
-
-function DocShell({ title, onClose, children, filename }) {
-  function handlePrint() { window.print(); }
-  function handleDownloadPdf() {
-    const node = document.getElementById("doc-capture-area");
-    if (!node || !window.jspdf) { window.print(); return; }
-    const { jsPDF } = window.jspdf;
-    // Simple text-based fallback isn't ideal for styled content; use print dialog as primary path.
-    window.print();
-  }
-  return (
-    <Modal title={title} onClose={onClose} size="lg"
-      footer={<>
-        <button className="btn" onClick={onClose}>Close</button>
-        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print / Save as PDF</button>
-      </>}>
-      <div id="doc-capture-area">{children}</div>
-    </Modal>
-  );
-}
-
-function StudentIdCardPhysical({ student, config }) {
-  return (
-    <div className="id-card-physical">
-      <div className="icp-head">
-        <div className="icp-school">{config.schoolName || "School Name"}</div>
-        <div className="icp-doctype">Student ID Card</div>
-      </div>
-      <div className="icp-photo">
-        {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={22} height={22} />}
-      </div>
-      <div className="icp-name">{student.name}</div>
-      <div className="icp-sub">Class {student.className} — {student.section}</div>
-      <div className="icp-body">
-        <FieldRow name="ID" value={student.studentId || "—"} />
-        <FieldRow name="Roll" value={student.roll || "—"} />
-        <FieldRow name="Blood" value={student.bloodGroup || "—"} />
-        <FieldRow name="Guardian" value={student.guardianPhone || "—"} />
-      </div>
-      <div className="icp-footer">
-        {config.schoolName || "School Name"}
-        {(config.schoolPhones && config.schoolPhones.filter(Boolean).length > 0) && <span className="icp-phone">☎ {config.schoolPhones.filter(Boolean).join(", ")}</span>}
-      </div>
+      {editInvoice && (
+        <StudentInvoiceModal students={students}
+          initialStudent={students.find(s => s.id === editInvoice.studentId) || null}
+          config={config} feeRules={feeRules}
+          onSave={handleSaveStudent} saveInvoice={handleSaveInvoice} onClose={() => setEditInvoice(null)} />
+      )}
+      {printInvoice && (
+        <SavedInvoicePrintModal invoice={printInvoice} config={config} onClose={() => setPrintInvoice(null)} />
+      )}
     </div>
   );
 }
 
-function IdCardModal({ students, initialStudent, config, onClose }) {
-  const [mode, setMode] = useState(initialStudent ? "single" : "single");
-  const [selected, setSelected] = useState(initialStudent || null);
-  const [query, setQuery] = useState("");
-  const [classFilter, setClassFilter] = useState(initialStudent ? initialStudent.className : "One");
-  const [sectionFilter, setSectionFilter] = useState("");
-
-  const matches = query.trim() ? students.filter(s =>
-    str(s.name).toLowerCase().includes(query.toLowerCase())
-    || str(s.roll).toLowerCase().includes(query.toLowerCase())
-    || str(s.studentId).toLowerCase().includes(query.toLowerCase())
-  ).slice(0, 20) : [];
-
-  const classList = students.filter(s => s.className === classFilter && (!sectionFilter || s.section === sectionFilter));
-
-  function handlePrint() { window.print(); }
-
-  return (
-    <Modal title="Student ID Cards" onClose={onClose} size="lg"
-      footer={<>
-        <button className="btn" onClick={onClose}>Close</button>
-        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button>
-      </>}>
-      <div className="tabs no-print" style={{ marginBottom: 16 }}>
-        <button className={`tab ${mode === "single" ? "active" : ""}`} onClick={() => setMode("single")}>Single Student</button>
-        <button className={`tab ${mode === "class" ? "active" : ""}`} onClick={() => setMode("class")}>Class-wise (All)</button>
-      </div>
-
-      {mode === "single" && (
-        <div className="no-print" style={{ marginBottom: 16 }}>
-          <Field label="Search Student" hint="by name, roll, or Student ID">
-            <input className="search-input" value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Type to search…" />
-          </Field>
-          {matches.length > 0 && (
-            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {matches.map(s => (
-                <button key={s.id} className={`chip ${selected && selected.id === s.id ? "active" : ""}`} onClick={() => { setSelected(s); setQuery(""); }}>{s.name} · {s.className}{s.section}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      {mode === "class" && (
-        <div className="no-print search-row" style={{ marginBottom: 16 }}>
-          <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select className="filter-select" value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
-            <option value="">All Sections</option>
-            {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      )}
-
-      <div className="id-card-grid" style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
-        {mode === "single" && selected && <StudentIdCardPhysical student={selected} config={config} />}
-        {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
-        {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
-        {mode === "class" && classList.map(s => <StudentIdCardPhysical key={s.id} student={s} config={config} />)}
-      </div>
-    </Modal>
-  );
-}
-
+// Prints exactly the saved (already-submitted) invoice snapshot — not a fresh/editable invoice.
 function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSave, saveInvoice, onClose }) {
   const [selected, setSelected] = useState(initialStudent || null);
   const [query, setQuery] = useState("");
@@ -1842,41 +1629,307 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
   );
 }
 
-function StudentAdmitCardSingle({ student, config }) {
+function SavedInvoicePrintModal({ invoice, config, onClose }) {
   return (
-    <div className="doc-preview" style={{ marginBottom: 20, breakAfter: "page" }}>
-      <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
-        <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
-        <div style={{ fontSize: 12, color: "var(--slate-soft)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 4 }}>Examination Admit Card</div>
-      </div>
-      <div style={{ display: "flex", gap: 20 }}>
-        <div className="id-card-photo" style={{ margin: 0, flexShrink: 0 }}>
-          {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={30} height={30} />}
+    <Modal title={`Invoice — ${invoice.studentName}`} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button></>}>
+      <div className="doc-preview half-a4">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 10, marginBottom: 12 }}>
+          <div>
+            <h3 style={{ fontSize: 15 }}>{config.schoolName || "School Name"}</h3>
+            <div style={{ fontSize: 10.5, color: "var(--slate-soft)" }}>Fee Invoice</div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 10.5 }}>
+            <div>Invoice No: <strong className="mono">{invoice.invoiceNo}</strong></div>
+            <div>Date: {fmtDate(invoice.date)}</div>
+          </div>
         </div>
-        <div style={{ flex: 1 }}>
-          <FieldRow name="Student ID" value={<span className="mono">{student.studentId || "—"}</span>} />
-          <FieldRow name="Name" value={student.name} />
-          <FieldRow name="Father's Name" value={student.fatherName || "—"} />
-          <FieldRow name="Class / Section" value={`${student.className} — ${student.section}`} />
-          <FieldRow name="Roll No." value={student.roll || "—"} />
+        <FieldRow name="Student ID" value={<span className="mono">{invoice.studentDisplayId || "—"}</span>} />
+        <FieldRow name="Student" value={invoice.studentName} />
+        <FieldRow name="Class / Section" value={`${invoice.className} — ${invoice.section}`} />
+        <FieldRow name="Roll" value={invoice.roll || "—"} />
+        <div style={{ marginTop: 14 }}>
+          <FieldRow name="Total Charged" value={"৳" + money(invoice.totalCharged)} />
+          <FieldRow name="Total Paid" value={"৳" + money(invoice.totalPaid)} />
+          <FieldRow name="Total Waiver" value={"৳" + money(invoice.totalWaived)} />
+          <FieldRow name="Paid This Invoice" value={"৳" + money(invoice.paidThisTime)} />
+          <FieldRow name="Waived This Invoice" value={"৳" + money(invoice.waivedThisTime)} />
+          <FieldRow name="Balance Due" value={<strong>৳{money(invoice.totalDue)}</strong>} />
+        </div>
+        <div style={{ marginTop: 20, fontSize: 9.5, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
+      </div>
+    </Modal>
+  );
+}
+
+function AdmissionFormPrint({ student, config }) {
+  const phones = (config.schoolPhones || []).filter(Boolean);
+  return (
+    <div className="doc-preview admission-form-print">
+      <div className="adm-header">
+        <div className="adm-header-logo">
+          {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
+        </div>
+        <div className="adm-header-center">
+          <div className="adm-school-name">{config.schoolName || "School Name"}</div>
+          {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+          {phones[0] && <div className="adm-school-phone">☎ {phones[0]}</div>}
+          <div className="adm-form-title">শিক্ষার্থী ভর্তি ফরম</div>
+          <div className="adm-form-no">ফরম নং: <span className="mono">{student.admissionFormNo || "—"}</span></div>
+        </div>
+        <div className="adm-header-photo">
+          {student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
         </div>
       </div>
-      <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between" }}>
-        <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>Valid only with school seal & signature.</div>
+
+      <div className="adm-fields">
+        <FieldRow name="Student ID" value={<span className="mono">{student.studentId}</span>} />
+        <FieldRow name="শিক্ষার্থীর নাম / Name" value={student.name || "—"} />
+        <FieldRow name="পিতার নাম / Father's Name" value={student.fatherName || "—"} />
+        <FieldRow name="মাতার নাম / Mother's Name" value={student.motherName || "—"} />
+        <FieldRow name="জন্ম তারিখ / Date of Birth" value={fmtDate(student.dob)} />
+        <FieldRow name="লিঙ্গ / Gender" value={student.gender} />
+        <FieldRow name="শ্রেণি / Class" value={student.className} />
+        <FieldRow name="শাখা / Section" value={student.section} />
+        <FieldRow name="রোল / Roll" value={student.roll || "—"} />
+        <FieldRow name="শিক্ষাবর্ষ / Session" value={student.session || "—"} />
+        <FieldRow name="ভর্তির তারিখ / Admission Date" value={fmtDate(student.admissionDate)} />
+        <FieldRow name="রক্তের গ্রুপ / Blood Group" value={student.bloodGroup || "—"} />
+        <FieldRow name="শিক্ষার্থীর ফোন / Student Phone" value={student.phone || "—"} />
+        <FieldRow name="অভিভাবকের ফোন / Guardian Phone" value={student.guardianPhone || "—"} />
+        <FieldRow name="বর্তমান ঠিকানা / Present Address" value={student.presentAddress || "—"} />
+        <FieldRow name="স্থায়ী ঠিকানা / Permanent Address" value={student.permanentAddress || "—"} />
+        <FieldRow name="অবস্থা / Status" value={student.status} />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 50 }}>
-        <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 150, textAlign: "center" }}>Class Teacher</div>
-        <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 150, textAlign: "center" }}>Head Teacher / Principal</div>
+
+      <div className="adm-signatures">
+        <div className="adm-sig">অভিভাবকের স্বাক্ষর<br/>Guardian's Signature</div>
+        <div className="adm-sig">অধ্যক্ষ / প্রধান শিক্ষক<br/>Principal / Head Teacher</div>
+      </div>
+
+      <div className="adm-footer">
+        <div className="adm-slogan">শিক্ষাই জাতির মেরুদণ্ড — আলোকিত মানুষ গড়ার প্রত্যয়ে</div>
+        <div className="adm-credit">@Powered by: AM Shahed- 01605721296</div>
       </div>
     </div>
   );
 }
 
-function StudentAdmitCardModal({ students, initialStudent, config, onClose }) {
+function AdmissionFormPrintModal({ student, config, onClose }) {
+  return (
+    <Modal title={`Admission Form — ${student.name}`} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Admission Form (A4)</button></>}>
+      <AdmissionFormPrint student={student} config={config} />
+    </Modal>
+  );
+}
+
+function StudentFormModal({ student, students, onClose, onSave, config }) {
+  const [form, setForm] = useState(student);
+  const [showPrint, setShowPrint] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
+
+  function handleClassChange(e) {
+    const className = e.target.value;
+    setForm(f => {
+      const next = { ...f, className };
+      // Auto-fill next roll for the newly selected class — only for brand-new admissions,
+      // so editing an existing student's class never silently overwrites their roll.
+      if (!f.id) next.roll = String(nextRollForClass(students, className, f.id));
+      return next;
+    });
+  }
+
+  function handlePresentChange(e) {
+    const val = e.target.value;
+    setForm(f => ({ ...f, presentAddress: val, permanentAddress: f.sameAsPresent ? val : f.permanentAddress }));
+  }
+  function toggleSameAddress(e) {
+    const checked = e.target.checked;
+    setForm(f => ({ ...f, sameAsPresent: checked, permanentAddress: checked ? f.presentAddress : f.permanentAddress }));
+  }
+
+  async function handleSaveAndPreview() {
+    const saved = await onSave(form);
+    if (saved) setForm(saved);
+    setShowPrint(true);
+  }
+
+  return (
+    <Modal title={student.id ? "Edit Student" : "New Admission"} onClose={onClose} size="lg"
+      footer={showPrint ? (
+        <>
+          <button className="btn" onClick={() => setShowPrint(false)}>← Back to Form</button>
+          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Admission Form (A4)</button>
+        </>
+      ) : (
+        <>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={() => onSave(form)}>Save</button>
+          <button className="btn btn-primary" onClick={handleSaveAndPreview}>Save &amp; Preview / Print</button>
+        </>
+      )}>
+      {showPrint ? (
+        <AdmissionFormPrint student={form} config={config} />
+      ) : (
+      <div className="form-grid">
+        <Field label="Student ID" hint="auto-generated"><input type="text" value={form.studentId} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
+        <Field label="Form No." hint="auto-generated"><input type="text" value={form.admissionFormNo || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
+        <Field label="Full Name"><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
+        <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
+        <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
+        <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
+        <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
+        <Field label="Class"><select value={form.className} onChange={handleClassChange}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Roll Number" hint={!form.id ? "auto-filled from class" : ""}><input type="text" value={form.roll} onChange={set("roll")} /></Field>
+        <Field label="Session" hint="e.g. 2025-2026"><input type="text" value={form.session || ""} onChange={set("session")} /></Field>
+        <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
+        <Field label="Blood Group"><select value={form.bloodGroup} onChange={set("bloodGroup")}><option value="">—</option>{BLOOD_GROUPS.map(b => <option key={b}>{b}</option>)}</select></Field>
+        <Field label="Student Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
+        <Field label="Guardian Phone"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
+        <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option><option>Graduated</option></select></Field>
+        <Field label="Present Address" span2><textarea value={form.presentAddress} onChange={handlePresentChange} /></Field>
+        <Field label="Permanent Address" span2
+          hint={<label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 400, cursor: "pointer" }}>
+            <input type="checkbox" checked={!!form.sameAsPresent} onChange={toggleSameAddress} /> Same as present address
+          </label>}>
+          <textarea value={form.permanentAddress} onChange={set("permanentAddress")} disabled={form.sameAsPresent} />
+        </Field>
+        <PhotoBox label="Student Photo" folder="students" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+      </div>
+      )}
+    </Modal>
+  );
+}
+
+function DocShell({ title, onClose, children, filename }) {
+  function handlePrint() { window.print(); }
+  function handleDownloadPdf() {
+    const node = document.getElementById("doc-capture-area");
+    if (!node || !window.jspdf) { window.print(); return; }
+    const { jsPDF } = window.jspdf;
+    // Simple text-based fallback isn't ideal for styled content; use print dialog as primary path.
+    window.print();
+  }
+  return (
+    <Modal title={title} onClose={onClose} size="lg"
+      footer={<>
+        <button className="btn" onClick={onClose}>Close</button>
+        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print / Save as PDF</button>
+      </>}>
+      <div id="doc-capture-area">{children}</div>
+    </Modal>
+  );
+}
+
+function StudentIdCardPhysical({ student, config }) {
+  return (
+    <div className="id-card-physical">
+      <div className="icp-head">
+        <div className="icp-school">{config.schoolName || "School Name"}</div>
+        {config.schoolAddress && <div className="icp-address">{config.schoolAddress}</div>}
+        <div className="icp-doctype">Student Identity Card</div>
+      </div>
+      <div className="icp-photo">
+        {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={22} height={22} />}
+      </div>
+      <div className="icp-name">{student.name}</div>
+      <div className="icp-body">
+        <FieldRow name="ID No" value={student.studentId || "—"} />
+        <FieldRow name="Roll" value={student.roll || "—"} />
+        <FieldRow name="Class" value={student.className || "—"} />
+        <FieldRow name="Section" value={student.section || "—"} />
+        <FieldRow name="Session" value={student.session || "—"} />
+      </div>
+      <div className="icp-footer">
+        {config.schoolName || "School Name"}
+        {(config.schoolPhones && config.schoolPhones.filter(Boolean).length > 0) && <span className="icp-phone">☎ {config.schoolPhones.filter(Boolean).join(", ")}</span>}
+      </div>
+    </div>
+  );
+}
+
+function SeatCardPhysical({ student, config, examName }) {
+  return (
+    <div className="seat-card-physical">
+      <div className="scp-school">{config.schoolName || "School Name"}</div>
+      {config.schoolAddress && <div className="scp-address">{config.schoolAddress}</div>}
+      <div className="scp-exam">{examName || "Examination"}</div>
+      <div className="scp-body">
+        <div className="scp-photo">
+          {student.photoUrl ? <img src={student.photoUrl} alt="" /> : <Icon.students style={{ opacity: 0.3 }} width={20} height={20} />}
+        </div>
+        <div className="scp-fields">
+          <FieldRow name="ID No" value={<span className="mono">{student.studentId || "—"}</span>} />
+          <FieldRow name="Name" value={student.name} />
+          <FieldRow name="Roll" value={student.roll || "—"} />
+          <FieldRow name="Class" value={student.className || "—"} />
+          <FieldRow name="Section" value={student.section || "—"} />
+          <FieldRow name="Session" value={student.session || "—"} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdmitCardPhysical({ student, config, examName }) {
+  const phones = (config.schoolPhones || []).filter(Boolean);
+  return (
+    <div className="admit-card-physical">
+      <div className="acp-border">
+        <div className="acp-header">
+          <div className="acp-logo">
+            {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
+          </div>
+          <div className="acp-center">
+            <div className="acp-school-name">{config.schoolName || "School Name"}</div>
+            {config.schoolAddress && <div className="acp-school-address">{config.schoolAddress}</div>}
+            {phones[0] && <div className="acp-school-phone">☎ {phones[0]}</div>}
+          </div>
+          <div className="acp-photo">
+            {student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
+          </div>
+        </div>
+
+        <div className="acp-exam-line">{examName || "Examination"}</div>
+        <div className="acp-title">Admit Card</div>
+
+        <div className="acp-fields">
+          <FieldRow name="ID No" value={<span className="mono">{student.studentId || "—"}</span>} />
+          <FieldRow name="Name" value={student.name} />
+          <FieldRow name="Class" value={student.className || "—"} />
+          <FieldRow name="Roll" value={student.roll || "—"} />
+          <FieldRow name="Section" value={student.section || "—"} />
+          <FieldRow name="Session" value={student.session || "—"} />
+        </div>
+
+        <div className="acp-note">Note: This admit card must be brought to every exam. Valid only with school seal &amp; signature.</div>
+
+        <div className="acp-signatures">
+          <div className="acp-sig">শিক্ষার্থীর স্বাক্ষর<br/>Student's Signature</div>
+          <div className="acp-sig">অধ্যক্ষ / প্রধান শিক্ষক<br/>Principal / Head Teacher</div>
+        </div>
+
+        <div className="acp-credit">@AM Shahed: 01605721296</div>
+      </div>
+    </div>
+  );
+}
+
+const CARD_TYPES = {
+  id: { title: "ID Card", needsExam: false, sizeClass: "id-card-grid", cardWidth: "2.2in" },
+  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "99mm" },
+  seat: { title: "Seat Plan", needsExam: true, sizeClass: "seat-card-grid", cardWidth: "3in" },
+};
+
+function CardTypeFlow({ type, students, config, onBack }) {
+  const meta = CARD_TYPES[type];
   const [mode, setMode] = useState("single");
-  const [selected, setSelected] = useState(initialStudent || null);
+  const [examName, setExamName] = useState("");
+  const [selected, setSelected] = useState(null);
   const [query, setQuery] = useState("");
-  const [classFilter, setClassFilter] = useState(initialStudent ? initialStudent.className : "One");
+  const [classFilter, setClassFilter] = useState("One");
   const [sectionFilter, setSectionFilter] = useState("");
 
   const matches = query.trim() ? students.filter(s =>
@@ -1889,145 +1942,103 @@ function StudentAdmitCardModal({ students, initialStudent, config, onClose }) {
 
   function handlePrint() { window.print(); }
 
+  function renderCard(student) {
+    if (type === "id") return <StudentIdCardPhysical key={student.id} student={student} config={config} />;
+    if (type === "admit") return <AdmitCardPhysical key={student.id} student={student} config={config} examName={examName} />;
+    return <SeatCardPhysical key={student.id} student={student} config={config} examName={examName} />;
+  }
+
+  const readyToShow = !meta.needsExam || examName.trim();
+
   return (
-    <Modal title="Admit Cards" onClose={onClose} size="lg"
+    <Modal title={meta.title} onClose={onBack} size="lg"
       footer={<>
-        <button className="btn" onClick={onClose}>Close</button>
-        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button>
+        <button className="btn" onClick={onBack}>← Back to All Card</button>
+        {readyToShow && <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button>}
       </>}>
       <div className="tabs no-print" style={{ marginBottom: 16 }}>
-        <button className={`tab ${mode === "single" ? "active" : ""}`} onClick={() => setMode("single")}>Single Student</button>
-        <button className={`tab ${mode === "class" ? "active" : ""}`} onClick={() => setMode("class")}>Class-wise (All)</button>
+        <button className={`tab ${mode === "single" ? "active" : ""}`} onClick={() => setMode("single")}>Single</button>
+        <button className={`tab ${mode === "class" ? "active" : ""}`} onClick={() => setMode("class")}>Class</button>
       </div>
 
-      {mode === "single" && (
+      {meta.needsExam && (
         <div className="no-print" style={{ marginBottom: 16 }}>
-          <Field label="Search Student" hint="by name, roll, or Student ID">
-            <input className="search-input" value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Type to search…" />
-          </Field>
-          {matches.length > 0 && (
-            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {matches.map(s => (
-                <button key={s.id} className={`chip ${selected && selected.id === s.id ? "active" : ""}`} onClick={() => { setSelected(s); setQuery(""); }}>{s.name} · {s.className}{s.section}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      {mode === "class" && (
-        <div className="no-print search-row" style={{ marginBottom: 16 }}>
-          <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select className="filter-select" value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
-            <option value="">All Sections</option>
-            {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <Field label="Exam Name" hint="e.g. Half-Yearly Exam 2026"><input type="text" value={examName} onChange={(e) => setExamName(e.target.value)} placeholder="Type exam name and year…" /></Field>
         </div>
       )}
 
-      {mode === "single" && selected && <StudentAdmitCardSingle student={selected} config={config} />}
-      {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
-      {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
-      {mode === "class" && classList.map(s => <StudentAdmitCardSingle key={s.id} student={s} config={config} />)}
+      {!readyToShow ? (
+        <EmptyState title="Enter exam name first" sub="The exam name is required before selecting students." />
+      ) : (
+        <>
+          {mode === "single" && (
+            <div className="no-print" style={{ marginBottom: 16 }}>
+              <Field label="Search Student" hint="by name, roll, or Student ID">
+                <input className="search-input" value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Type to search…" />
+              </Field>
+              {matches.length > 0 && (
+                <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {matches.map(s => (
+                    <button key={s.id} className={`chip ${selected && selected.id === s.id ? "active" : ""}`} onClick={() => { setSelected(s); setQuery(""); }}>{s.name} · {s.className}{s.section}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {mode === "class" && (
+            <div className="no-print search-row" style={{ marginBottom: 16 }}>
+              <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+                {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select className="filter-select" value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
+                <option value="">All Sections</option>
+                {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className={meta.sizeClass} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
+            {mode === "single" && selected && renderCard(selected)}
+            {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
+            {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
+            {mode === "class" && classList.map(s => renderCard(s))}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }
 
-function SeatPlanTab({ data, save, remove, formOpen, onCloseForm, config }) {
-  const [form, setForm] = useState({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" });
-  const [editingRow, setEditingRow] = useState(null);
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const plans = data.seatplans || [];
-  const [printRow, setPrintRow] = useState(null);
+function AllCardModule({ data, config }) {
+  const [cardType, setCardType] = useState(null); // 'id' | 'admit' | 'seat' | null
+  const students = data.students || [];
 
-  function handlePrint() { window.print(); }
-  async function handleSaveForm() {
-    await save("seatplans", form);
-    setForm({ id: null, examName: "", room: "", className: "", section: "", capacity: "", rangeFrom: "", rangeTo: "" });
-    onCloseForm();
-  }
-  function openEdit(p) { setEditingRow({ ...p }); }
-  async function handleSaveEdit() {
-    await save("seatplans", editingRow);
-    setEditingRow(null);
+  if (cardType) {
+    return <CardTypeFlow type={cardType} students={students} config={config} onBack={() => setCardType(null)} />;
   }
 
   return (
     <div>
-      <div className="card card-flush">
-        <div style={{ padding: "16px 18px", display: "flex", justifyContent: "flex-end" }} className="no-print">
-          {plans.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
-        </div>
-        <PrintDocHead config={config} headline="Seat Plans" />
-        {plans.length === 0 ? (
-          <EmptyState title="No seat plans yet" sub={`Use "Open Seat Plan Form" above to create one.`} />
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Exam Name</th><th>Room</th><th>Class</th><th>Section</th><th>Roll Range</th><th>Capacity</th><th className="no-print"></th></tr></thead>
-              <tbody>
-                {plans.map(p => (
-                  <tr key={p.id}>
-                    <td>{p.examName}</td>
-                    <td>{p.room}</td>
-                    <td>{p.className || "—"}</td>
-                    <td>{p.section || "—"}</td>
-                    <td>{p.rangeFrom}–{p.rangeTo}</td>
-                    <td>{p.capacity}</td>
-                    <td className="no-print">
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => openEdit(p)}><Icon.edit /></button>
-                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintRow(p)}><Icon.print /></button>
-                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this seat plan?")) remove("seatplans", p.id); }}><Icon.trash /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="section-head">
+        <div><h2>All Card</h2><p>Choose a card type, then print for a single student or an entire class.</p></div>
       </div>
-
-      {formOpen && (
-        <Modal title="Create Seat Plan" onClose={onCloseForm}
-          footer={<><button className="btn" onClick={onCloseForm}>Cancel</button><button className="btn btn-primary" onClick={handleSaveForm}>Save Seat Plan</button></>}>
-          <div className="form-grid">
-            <Field label="Exam Name" span2><input type="text" value={form.examName} onChange={set("examName")} placeholder="e.g. Half-Yearly Exam 2026" /></Field>
-            <Field label="Room / Hall No."><input type="text" value={form.room} onChange={set("room")} /></Field>
-            <Field label="Capacity"><input type="number" value={form.capacity} onChange={set("capacity")} /></Field>
-            <Field label="Class"><select value={form.className} onChange={set("className")}><option value="">—</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-            <Field label="Section"><select value={form.section} onChange={set("section")}><option value="">—</option>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-            <Field label="Roll Range From"><input type="text" value={form.rangeFrom} onChange={set("rangeFrom")} /></Field>
-            <Field label="Roll Range To"><input type="text" value={form.rangeTo} onChange={set("rangeTo")} /></Field>
-          </div>
-        </Modal>
-      )}
-      {printRow && (
-        <SingleRecordPrintModal title={`Seat Plan — ${printRow.examName}`} config={config} onClose={() => setPrintRow(null)} fields={[
-          { name: "Exam Name", value: printRow.examName },
-          { name: "Room", value: printRow.room },
-          { name: "Class", value: printRow.className || "—" },
-          { name: "Section", value: printRow.section || "—" },
-          { name: "Roll Range", value: `${printRow.rangeFrom}–${printRow.rangeTo}` },
-          { name: "Capacity", value: printRow.capacity },
-        ]} />
-      )}
-      {editingRow && (
-        <Modal title="Edit Seat Plan" onClose={() => setEditingRow(null)}
-          footer={<><button className="btn" onClick={() => setEditingRow(null)}>Cancel</button><button className="btn btn-primary" onClick={handleSaveEdit}>Save Changes</button></>}>
-          <div className="form-grid">
-            <Field label="Exam Name" span2><input type="text" value={editingRow.examName} onChange={(e) => setEditingRow({ ...editingRow, examName: e.target.value })} /></Field>
-            <Field label="Room / Hall No."><input type="text" value={editingRow.room} onChange={(e) => setEditingRow({ ...editingRow, room: e.target.value })} /></Field>
-            <Field label="Capacity"><input type="number" value={editingRow.capacity} onChange={(e) => setEditingRow({ ...editingRow, capacity: e.target.value })} /></Field>
-            <Field label="Class"><select value={editingRow.className} onChange={(e) => setEditingRow({ ...editingRow, className: e.target.value })}><option value="">—</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-            <Field label="Section"><select value={editingRow.section} onChange={(e) => setEditingRow({ ...editingRow, section: e.target.value })}><option value="">—</option>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-            <Field label="Roll Range From"><input type="text" value={editingRow.rangeFrom} onChange={(e) => setEditingRow({ ...editingRow, rangeFrom: e.target.value })} /></Field>
-            <Field label="Roll Range To"><input type="text" value={editingRow.rangeTo} onChange={(e) => setEditingRow({ ...editingRow, rangeTo: e.target.value })} /></Field>
-          </div>
-        </Modal>
-      )}
+      <div className="grid grid-3">
+        <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("id")}>
+          <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--moss)" }} />
+          <h3 style={{ fontSize: 15 }}>ID Card</h3>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Student identity card, 2.2in × 3.2in</p>
+        </button>
+        <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("admit")}>
+          <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--clay)" }} />
+          <h3 style={{ fontSize: 15 }}>Admit Card</h3>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Examination admit card, half A4 portrait</p>
+        </button>
+        <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("seat")}>
+          <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--gold)" }} />
+          <h3 style={{ fontSize: 15 }}>Seat Plan</h3>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Exam seat card, 3in × 2in</p>
+        </button>
+      </div>
     </div>
   );
 }
@@ -3013,6 +3024,10 @@ const NAV_GROUPS = [
     { key: "students", label: "Students", icon: "students" },
     { key: "teachers", label: "Teachers", icon: "teachers" },
   ]},
+  { label: "Cards & Forms", items: [
+    { key: "allcard", label: "All Card", icon: "idcard" },
+    { key: "invoice", label: "Fee Invoice", icon: "fee" },
+  ]},
   { label: "Money", items: [
     { key: "finance", label: "Finance", icon: "finance" },
     { key: "due", label: "Due List", icon: "due" },
@@ -3028,6 +3043,7 @@ const NAV_GROUPS = [
 const MODULE_TITLES = {
   dashboard: "Dashboard", students: "Students", teachers: "Teachers", finance: "Finance",
   due: "Due List", fees: "Master Fee", committee: "Committee", reports: "Reports", settings: "Settings",
+  allcard: "All Card", invoice: "Fee Invoice",
 };
 
 function MenuBar({ active, setActive, config, store }) {
@@ -3148,6 +3164,8 @@ function AppShell() {
           <ConnectionBanner config={config} onOpenSettings={() => setActive("settings")} />
           {active === "dashboard" && <Dashboard data={store.data} setActiveModule={setActive} />}
           {active === "students" && <StudentsModule data={store.data} save={store.save} remove={store.remove} config={config} />}
+          {active === "allcard" && <AllCardModule data={store.data} config={config} />}
+          {active === "invoice" && <FeeInvoiceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "teachers" && <TeachersModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "finance" && <FinanceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "due" && <DueModule data={store.data} config={config} />}
