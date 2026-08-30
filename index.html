@@ -366,6 +366,13 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-footer .adm-divider{border-top-color:rgba(255,255,255,0.3);margin:8px 0 6px;}
 .adm-credit{font-size:9px;color:#fff;opacity:0.75;}
 
+/* Fee Invoice — reuses the .adm-header/.adm-footer look, plus its own meta rows and fee table */
+.inv-meta-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px dashed var(--line);}
+.inv-fee-table{width:100%;margin:14px 0 10px;border-collapse:collapse;font-size:12px;}
+.inv-fee-table thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--slate-soft);padding:6px 4px;border-bottom:1.5px solid var(--moss-deep);}
+.inv-fee-table tbody td{padding:7px 4px;border-bottom:1px dashed var(--line);}
+.inv-summary{margin-top:6px;padding-top:6px;border-top:1px solid var(--line);}
+
 .id-card-grid{display:flex;flex-wrap:wrap;gap:0.2in;justify-content:flex-start;align-content:flex-start;}
 @media print{
   .id-card-grid{gap:0.2in;}
@@ -550,6 +557,8 @@ function loadConfig() {
     schoolLogo: "",
     facebookUrl: "",
     youtubeUrl: "",
+    cashierName: "",
+    principalName: "",
   };
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
@@ -1457,7 +1466,7 @@ function FeeInvoiceModule({ data, save, remove, config }) {
             <PrintDocHead config={config} headline="All Invoices" />
             <table>
               <thead>
-                <tr><th>Invoice No</th><th>Student</th><th>Class</th><th>Date</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Due</th><th className="no-print"></th></tr>
+                <tr><th>Invoice No</th><th>Student</th><th>Class</th><th>Date</th><th style={{ textAlign: "right" }}>Subtotal</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th className="no-print"></th></tr>
               </thead>
               <tbody>
                 {filteredInvoices.map(inv => (
@@ -1466,10 +1475,10 @@ function FeeInvoiceModule({ data, save, remove, config }) {
                     <td>{inv.studentName}</td>
                     <td>{inv.className} — {inv.section}</td>
                     <td>{fmtDate(inv.date)}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalCharged)}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalPaid)}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalWaived)}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalDue)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.subtotal != null ? inv.subtotal : inv.totalCharged)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.waiverTotal != null ? inv.waiverTotal : inv.totalWaived)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.paymentTotal != null ? inv.paymentTotal : inv.totalPaid)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.dueAfter != null ? inv.dueAfter : inv.totalDue)}</td>
                     <td className="no-print">
                       <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditInvoice(inv)}><Icon.edit /></button>
@@ -1499,7 +1508,7 @@ function FeeInvoiceModule({ data, save, remove, config }) {
         <SavedInvoicePrintModal invoice={printInvoice} config={config} onClose={() => setPrintInvoice(null)} />
       )}
       {showPaymentSheet && (
-        <PaymentSheetPrintModal students={students} feeRules={feeRules} config={config} onClose={() => setShowPaymentSheet(false)} />
+        <InvoiceListPrintModal invoices={invoices} students={students} config={config} onClose={() => setShowPaymentSheet(false)} />
       )}
     </div>
   );
@@ -1507,48 +1516,84 @@ function FeeInvoiceModule({ data, save, remove, config }) {
 
 // One row per student, one column per fee head, showing total paid-to-date in each head —
 // pulled straight from each student's payment records (not the saved-invoice list).
-function PaymentSheetPrintModal({ students, feeRules, config, onClose }) {
-  const rows = students
-    .map(s => ({ student: s, breakdown: studentFeeBreakdown(s, feeRules) }))
-    .filter(r => sumBy(r.breakdown, b => b.paid) > 0);
-  const allHeads = [...new Set(rows.flatMap(r => r.breakdown.map(b => b.head)))];
+// Print List: pick a class, OR search by student ID/name — shows every saved invoice
+// for that class (or that student) as a printable table.
+function InvoiceListPrintModal({ invoices, students, config, onClose }) {
+  const [mode, setMode] = useState("class"); // 'class' | 'search'
+  const [classFilter, setClassFilter] = useState("One");
+  const [query, setQuery] = useState("");
 
+  const matches = query.trim() ? students.filter(s =>
+    str(s.name).toLowerCase().includes(query.toLowerCase())
+    || str(s.roll).toLowerCase().includes(query.toLowerCase())
+    || str(s.studentId).toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 20) : [];
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const rows = mode === "class"
+    ? invoices.filter(inv => inv.className === classFilter)
+    : selectedStudent
+      ? invoices.filter(inv => inv.studentId === selectedStudent.id)
+      : [];
+
+  const headline = mode === "class" ? `Invoices — Class ${classFilter}` : selectedStudent ? `Invoices — ${selectedStudent.name}` : "Invoices";
   function handlePrint() { window.print(); }
 
   return (
-    <Modal title="Payment List — All Students" onClose={onClose} size="lg"
-      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button></>}>
+    <Modal title="Print Invoice List" onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Close</button>{rows.length > 0 && <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button>}</>}>
+      <div className="tabs no-print" style={{ marginBottom: 16 }}>
+        <button className={`tab ${mode === "class" ? "active" : ""}`} onClick={() => setMode("class")}>By Class</button>
+        <button className={`tab ${mode === "search" ? "active" : ""}`} onClick={() => setMode("search")}>By Student (ID / Name)</button>
+      </div>
+
+      {mode === "class" && (
+        <div className="no-print" style={{ marginBottom: 16 }}>
+          <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      )}
+      {mode === "search" && (
+        <div className="no-print" style={{ marginBottom: 16 }}>
+          <Field label="Search Student" hint="by name, roll, or Student ID">
+            <input className="search-input" value={query} onChange={(e) => { setQuery(e.target.value); setSelectedStudent(null); }} placeholder="Type to search…" />
+          </Field>
+          {matches.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {matches.map(s => (
+                <button key={s.id} className={`chip ${selectedStudent && selectedStudent.id === s.id ? "active" : ""}`} onClick={() => { setSelectedStudent(s); setQuery(""); }}>{s.name} · {s.className}{s.section}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="print-landscape">
-        <PrintDocHead config={config} headline="Head-wise Payment Summary" />
-        {rows.length === 0 ? (
-          <EmptyState title="No payments recorded yet" sub="Payments will appear here once students start paying via the Fee Invoice form." />
+        <PrintDocHead config={config} headline={headline} />
+        {mode === "search" && !selectedStudent ? (
+          <EmptyState title="Search and select a student" sub="Their full invoice history will appear here." />
+        ) : rows.length === 0 ? (
+          <EmptyState title="No invoices found" sub="No invoices have been submitted for this selection yet." />
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>Student ID</th><th>Name</th><th>Class</th><th>Section</th>
-                  {allHeads.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
-                  <th style={{ textAlign: "right" }}>Total Paid</th>
-                </tr>
+                <tr><th>Invoice No</th><th>Student</th><th>Class</th><th>Date</th><th style={{ textAlign: "right" }}>Subtotal</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr>
               </thead>
               <tbody>
-                {rows.map(r => {
-                  const totalPaid = sumBy(r.breakdown, b => b.paid);
-                  return (
-                    <tr key={r.student.id}>
-                      <td className="mono">{r.student.studentId || "—"}</td>
-                      <td>{r.student.name}</td>
-                      <td>{r.student.className}</td>
-                      <td>{r.student.section}</td>
-                      {allHeads.map(h => {
-                        const paid = sumBy(r.breakdown.filter(b => b.head === h), b => b.paid);
-                        return <td key={h} style={{ textAlign: "right" }} className="mono">{paid > 0 ? "৳" + money(paid) : "—"}</td>;
-                      })}
-                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(totalPaid)}</strong></td>
-                    </tr>
-                  );
-                })}
+                {rows.map(inv => (
+                  <tr key={inv.id}>
+                    <td className="mono">{inv.invoiceNo}</td>
+                    <td>{inv.studentName}</td>
+                    <td>{inv.className} — {inv.section}</td>
+                    <td>{fmtDate(inv.date)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.subtotal != null ? inv.subtotal : inv.totalCharged)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.waiverTotal != null ? inv.waiverTotal : inv.totalWaived)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.paymentTotal != null ? inv.paymentTotal : inv.totalPaid)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.dueAfter != null ? inv.dueAfter : inv.totalDue)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -1559,13 +1604,98 @@ function PaymentSheetPrintModal({ students, feeRules, config, onClose }) {
 }
 
 // Prints exactly the saved (already-submitted) invoice snapshot — not a fresh/editable invoice.
+function invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey) {
+  const multiYear = new Set(breakdown.map(r => r.year)).size > 1;
+  return breakdown.map((r, i) => ({
+    no: i + 1,
+    key: lineKey(r),
+    description: multiYear ? `${r.head} (${r.year})` : r.head,
+    head: r.head, year: r.year, className: r.className,
+    amountDue: r.due,
+    waiver: waiverAmounts ? (Number(waiverAmounts[lineKey(r)]) || 0) : (r.waiver || 0),
+    payment: payAmounts ? (Number(payAmounts[lineKey(r)]) || 0) : (r.payment || 0),
+  }));
+}
+
+// Shared professional invoice layout — used both for the live submit-preview and for
+// reprinting a previously saved invoice from the list, so both look identical.
+function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, waiverTotal, paymentTotal, dueAfter }) {
+  const phones = (config.schoolPhones || []).filter(Boolean);
+  return (
+    <div className="doc-preview admission-form-print" style={{ maxWidth: 480 }}>
+      <div className="adm-header">
+        <div className="adm-header-row">
+          <div className="adm-header-logo">
+            {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
+          </div>
+          <div className="adm-header-center">
+            <div className="adm-school-name">
+              {config.schoolName || "School Name"}
+              {config.instituteCode && <span className="adm-school-code"> (Code: {config.instituteCode})</span>}
+            </div>
+            {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+          </div>
+          <div className="adm-header-photo">
+            {student && student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
+          </div>
+        </div>
+        <hr className="adm-divider" />
+        <div className="adm-form-title">Fee Invoice</div>
+      </div>
+
+      <div className="inv-meta-row">
+        <span>Invoice No: <strong className="mono">{invoiceNo}</strong></span>
+        <span>Date: {fmtDate(date)}</span>
+      </div>
+      <div className="inv-meta-row">
+        <span>Student ID: <strong className="mono">{(student && student.studentId) || "—"}</strong></span>
+        <span>Roll: <strong>{(student && student.roll) || "—"}</strong></span>
+      </div>
+      <div className="inv-meta-row">
+        <span>Name: <strong>{(student && student.name) || "—"}</strong></span>
+        <span>Class: <strong>{(student && student.className) || "—"}</strong></span>
+      </div>
+
+      <table className="inv-fee-table">
+        <thead>
+          <tr><th>Sl</th><th>Description</th><th style={{ textAlign: "right" }}>Amount Due</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Payment</th></tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.no}>
+              <td>{r.no}</td>
+              <td>{r.description}</td>
+              <td style={{ textAlign: "right" }} className="mono">৳{money(r.amountDue)}</td>
+              <td style={{ textAlign: "right" }} className="mono">৳{money(r.waiver)}</td>
+              <td style={{ textAlign: "right" }} className="mono">৳{money(r.payment)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="inv-summary">
+        <FieldRow name="Subtotal" value={"৳" + money(subtotal)} />
+        <FieldRow name="Waiver" value={"৳" + money(waiverTotal)} />
+        <FieldRow name="Paid" value={"৳" + money(paymentTotal)} />
+        <FieldRow name="Due" value={<strong>৳{money(dueAfter)}</strong>} />
+      </div>
+
+      <div className="adm-signatures" style={{ marginTop: 40 }}>
+        <div className="adm-sig">Cashier{config.cashierName ? <><br/>{config.cashierName}</> : null}</div>
+        <div className="adm-sig">Principal{config.principalName ? <><br/>{config.principalName}</> : null}</div>
+      </div>
+    </div>
+  );
+}
+
 function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSave, saveInvoice, onClose }) {
   const [selected, setSelected] = useState(initialStudent || null);
   const [query, setQuery] = useState("");
-  const [payAmounts, setPayAmounts] = useState({}); // { head: amountString }
-  const [waiverAmounts, setWaiverAmounts] = useState({}); // { head: amountString }
+  const [payAmounts, setPayAmounts] = useState({}); // { lineKey: amountString }
+  const [waiverAmounts, setWaiverAmounts] = useState({}); // { lineKey: amountString }
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [submittedInvoice, setSubmittedInvoice] = useState(null);
   const toast = useToast();
 
   const matches = query.trim() ? students.filter(s =>
@@ -1575,25 +1705,20 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
   ).slice(0, 20) : [];
 
   const breakdown = selected ? studentFeeBreakdown(selected, feeRules) : [];
-  const totalCharged = sumBy(breakdown, r => r.charged);
-  const totalPaid = sumBy(breakdown, r => r.paid);
-  const totalWaived = sumBy(breakdown, r => r.waived);
-  const totalDue = sumBy(breakdown, r => r.due);
-  const invNo = selected ? "INV-" + str(selected.studentId || selected.roll || selected.id.slice(0,6)).toUpperCase() : "";
   const lineKey = (r) => `${r.year}::${r.className}::${r.head}`;
+  const rows = invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey);
+  const subtotal = sumBy(rows, r => r.amountDue);
+  const waiverTotal = sumBy(rows, r => r.waiver);
+  const paymentTotal = sumBy(rows, r => r.payment);
+  const dueAfter = Math.max(0, subtotal - waiverTotal - paymentTotal);
+  const invNo = selected ? "INV-" + str(selected.studentId || selected.roll || selected.id.slice(0,6)).toUpperCase() : "";
 
   async function submitPayments() {
-    const payEntries = Object.entries(payAmounts).filter(([key, amt]) => Number(amt) > 0);
-    const waiverEntries = Object.entries(waiverAmounts).filter(([key, amt]) => Number(amt) > 0);
-    if (payEntries.length === 0 && waiverEntries.length === 0) { toast && toast("Enter a payment or waiver amount", "error"); return; }
+    if (waiverTotal === 0 && paymentTotal === 0) { toast && toast("Enter a payment or waiver amount", "error"); return; }
     setSaving(true);
     const today = new Date().toISOString().slice(0,10);
-    function unpack(key, amt) {
-      const [year, className, head] = key.split("::");
-      return { head, year, className, amount: Number(amt), date: today };
-    }
-    const newPayments = payEntries.map(([key, amt]) => unpack(key, amt));
-    const newWaivers = waiverEntries.map(([key, amt]) => unpack(key, amt));
+    const newPayments = rows.filter(r => r.payment > 0).map(r => ({ head: r.head, year: r.year, className: r.className, amount: r.payment, date: today }));
+    const newWaivers = rows.filter(r => r.waiver > 0).map(r => ({ head: r.head, year: r.year, className: r.className, amount: r.waiver, date: today }));
     const updated = {
       ...selected,
       payments: [...(selected.payments || []), ...newPayments],
@@ -1603,40 +1728,32 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
     const finalStudent = saved || updated;
     setSelected(finalStudent);
 
-    // Persist this invoice submission as its own record, so it shows up under
-    // Fee Invoice → "All Invoice" as a saved, editable, printable, deletable entry.
-    // We also snapshot the full per-head breakdown as-of this submission, so printing
-    // this invoice later always shows exactly what was true at this point in time —
-    // not whatever the student's live/current numbers happen to be by then.
+    const invoiceNo = "INV-" + str(finalStudent.studentId || finalStudent.roll || finalStudent.id.slice(0,6)).toUpperCase() + "-" + Date.now().toString(36).toUpperCase().slice(-4);
+    const invoiceRecord = {
+      id: null,
+      invoiceNo,
+      studentId: finalStudent.id,
+      studentDisplayId: finalStudent.studentId,
+      studentName: finalStudent.name,
+      className: finalStudent.className,
+      section: finalStudent.section,
+      roll: finalStudent.roll,
+      photoUrl: finalStudent.photoUrl,
+      date: today,
+      rows,
+      subtotal, waiverTotal, paymentTotal, dueAfter,
+    };
+    let savedInvoiceRecord = invoiceRecord;
     if (saveInvoice) {
-      const newBreakdown = studentFeeBreakdown(finalStudent, feeRules);
-      await saveInvoice({
-        id: null,
-        invoiceNo: "INV-" + str(finalStudent.studentId || finalStudent.roll || finalStudent.id.slice(0,6)).toUpperCase() + "-" + Date.now().toString(36).toUpperCase().slice(-4),
-        studentId: finalStudent.id,
-        studentDisplayId: finalStudent.studentId,
-        studentName: finalStudent.name,
-        className: finalStudent.className,
-        section: finalStudent.section,
-        roll: finalStudent.roll,
-        date: today,
-        totalCharged: sumBy(newBreakdown, r => r.charged),
-        totalPaid: sumBy(newBreakdown, r => r.paid),
-        totalWaived: sumBy(newBreakdown, r => r.waived),
-        totalDue: sumBy(newBreakdown, r => r.due),
-        paidThisTime: sumBy(newPayments, p => p.amount),
-        waivedThisTime: sumBy(newWaivers, w => w.amount),
-        breakdownSnapshot: newBreakdown,
-      });
+      const res = await saveInvoice(invoiceRecord);
+      savedInvoiceRecord = res || invoiceRecord;
     }
-
+    setSubmittedInvoice(savedInvoiceRecord);
     setPayAmounts({});
     setWaiverAmounts({});
     setSaving(false);
     toast && toast("Invoice saved", "success");
-  }
-
-  function handlePrintInvoice() {
+    // Submit → immediately show the print preview, in the same official format.
     setShowPrint(true);
   }
 
@@ -1645,61 +1762,20 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
       footer={selected && !showPrint ? (
         <>
           <button className="btn" onClick={() => { setSelected(null); setPayAmounts({}); setWaiverAmounts({}); }}>← Search Another Student</button>
-          <button className="btn" onClick={handlePrintInvoice}><Icon.print />Print Invoice</button>
           <button className="btn btn-primary" disabled={saving} onClick={submitPayments}>Submit</button>
         </>
       ) : showPrint ? (
         <>
-          <button className="btn" onClick={() => setShowPrint(false)}>← Back to Invoice</button>
+          <button className="btn" onClick={() => { setShowPrint(false); setSelected(null); }}>← New Invoice</button>
           <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
         </>
       ) : (
         <button className="btn" onClick={onClose}>Close</button>
       )}>
-      {selected && showPrint ? (
-        <div className="doc-preview half-a4">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 10, marginBottom: 12 }}>
-            <div>
-              <h3 style={{ fontSize: 15 }}>{config.schoolName || "School Name"}</h3>
-              <div style={{ fontSize: 10.5, color: "var(--slate-soft)" }}>Fee Invoice</div>
-            </div>
-            <div style={{ textAlign: "right", fontSize: 10.5 }}>
-              <div>Invoice No: <strong className="mono">{invNo}</strong></div>
-              <div>Date: {fmtDate(new Date().toISOString())}</div>
-            </div>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <FieldRow name="Student ID" value={<span className="mono">{selected.studentId || "—"}</span>} />
-            <FieldRow name="Student" value={selected.name} />
-            <FieldRow name="Class / Section" value={`${selected.className} — ${selected.section}`} />
-            <FieldRow name="Roll" value={selected.roll || "—"} />
-          </div>
-          <table style={{ width: "100%", marginBottom: 10, fontSize: 11 }}>
-            <thead><tr><th style={{ fontSize: 9.5 }}>Year</th><th style={{ fontSize: 9.5 }}>Class</th><th style={{ fontSize: 9.5 }}>Fee Head</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Charged</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Paid</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Waiver</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Due</th></tr></thead>
-            <tbody>
-              {breakdown.map(r => (
-                <tr key={lineKey(r)}>
-                  <td>{r.year}</td>
-                  <td>{r.className}</td>
-                  <td>{r.head}</td>
-                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
-                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
-                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.waived)}</td>
-                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <div style={{ minWidth: 200, fontSize: 11 }}>
-              <FieldRow name="Total Charged" value={"৳" + money(totalCharged)} />
-              <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
-              <FieldRow name="Total Waiver" value={"৳" + money(totalWaived)} />
-              <FieldRow name="Balance Due" value={<strong>৳{money(totalDue)}</strong>} />
-            </div>
-          </div>
-          <div style={{ marginTop: 20, fontSize: 9.5, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
-        </div>
+      {showPrint && submittedInvoice ? (
+        <InvoiceDocPrint config={config} student={selected} invoiceNo={submittedInvoice.invoiceNo} date={submittedInvoice.date}
+          rows={submittedInvoice.rows} subtotal={submittedInvoice.subtotal} waiverTotal={submittedInvoice.waiverTotal}
+          paymentTotal={submittedInvoice.paymentTotal} dueAfter={submittedInvoice.dueAfter} />
       ) : !selected ? (
         <div>
           <Field label="Search Student" hint="by name, roll, or Student ID">
@@ -1725,34 +1801,35 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
             <div className="kv-row"><span className="k">Roll</span><span className="v">{selected.roll || "—"}</span></div>
           </div>
 
-          {breakdown.length === 0 ? (
+          {rows.length === 0 ? (
             <EmptyState title="No fee rules set for this class" sub={`Add fee heads for ${selected.className} in Master Fee first.`} />
           ) : (
             <div className="table-wrap">
               <table style={{ width: "100%", marginBottom: 16 }}>
-                <thead><tr><th>Year</th><th>Class</th><th>Fee Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Due</th><th>Waiver Amount</th><th>Pay Amount</th></tr></thead>
+                <thead><tr><th>Sl</th><th>Description</th><th style={{ textAlign: "right" }}>Amount Due</th><th>Waiver</th><th>Payment</th></tr></thead>
                 <tbody>
-                  {breakdown.map(r => (
-                    <tr key={lineKey(r)}>
-                      <td>{r.year}</td>
-                      <td>{r.className}</td>
-                      <td>{r.head}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.waived)}</td>
-                      <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
-                      <td>
-                        {r.due > 0 ? (
-                          <input type="number" placeholder="0" value={waiverAmounts[lineKey(r)] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [lineKey(r)]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
-                        ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
-                      </td>
-                      <td>
-                        {r.due > 0 ? (
-                          <input type="number" placeholder="0" value={payAmounts[lineKey(r)] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [lineKey(r)]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
-                        ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
-                      </td>
-                    </tr>
-                  ))}
+                  {breakdown.map((r, i) => {
+                    const key = lineKey(r);
+                    const multiYear = new Set(breakdown.map(b => b.year)).size > 1;
+                    const description = multiYear ? `${r.head} (${r.year})` : r.head;
+                    return (
+                      <tr key={key}>
+                        <td>{i + 1}</td>
+                        <td>{description}</td>
+                        <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
+                        <td>
+                          {r.due > 0 ? (
+                            <input type="number" placeholder="0" value={waiverAmounts[key] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                          ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
+                        </td>
+                        <td>
+                          {r.due > 0 ? (
+                            <input type="number" placeholder="0" value={payAmounts[key] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                          ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1760,10 +1837,10 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <div style={{ minWidth: 240 }}>
-              <div className="kv-row"><span className="k">Total Charged</span><span className="v mono">৳{money(totalCharged)}</span></div>
-              <div className="kv-row"><span className="k">Total Paid</span><span className="v mono">৳{money(totalPaid)}</span></div>
-              <div className="kv-row"><span className="k">Total Waiver</span><span className="v mono">৳{money(totalWaived)}</span></div>
-              <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Balance Due</span><span className="v" style={{ color: totalDue > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(totalDue)}</span></div>
+              <div className="kv-row"><span className="k">Subtotal</span><span className="v mono">৳{money(subtotal)}</span></div>
+              <div className="kv-row"><span className="k">Waiver</span><span className="v mono">৳{money(waiverTotal)}</span></div>
+              <div className="kv-row"><span className="k">Paid</span><span className="v mono">৳{money(paymentTotal)}</span></div>
+              <div className="kv-row" style={{ fontSize: 15 }}><span className="k">Due</span><span className="v" style={{ color: dueAfter > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(dueAfter)}</span></div>
             </div>
           </div>
         </div>
@@ -1773,63 +1850,21 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
 }
 
 function SavedInvoicePrintModal({ invoice, config, onClose }) {
-  const breakdown = Array.isArray(invoice.breakdownSnapshot) ? invoice.breakdownSnapshot : null;
+  const student = { studentId: invoice.studentDisplayId, name: invoice.studentName, className: invoice.className, roll: invoice.roll, photoUrl: invoice.photoUrl };
+  const legacyRows = !Array.isArray(invoice.rows) && Array.isArray(invoice.breakdownSnapshot)
+    ? invoice.breakdownSnapshot.map((r, i) => ({ no: i + 1, description: r.head, amountDue: r.due, waiver: r.waived, payment: r.paid }))
+    : null;
+  const rows = Array.isArray(invoice.rows) ? invoice.rows : (legacyRows || []);
+  const subtotal = invoice.subtotal != null ? invoice.subtotal : invoice.totalCharged;
+  const waiverTotal = invoice.waiverTotal != null ? invoice.waiverTotal : invoice.totalWaived;
+  const paymentTotal = invoice.paymentTotal != null ? invoice.paymentTotal : invoice.paidThisTime;
+  const dueAfter = invoice.dueAfter != null ? invoice.dueAfter : invoice.totalDue;
+
   return (
     <Modal title={`Invoice — ${invoice.studentName}`} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button></>}>
-      <div className="doc-preview half-a4">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 10, marginBottom: 12 }}>
-          <div>
-            <h3 style={{ fontSize: 15 }}>{config.schoolName || "School Name"}</h3>
-            <div style={{ fontSize: 10.5, color: "var(--slate-soft)" }}>Fee Invoice</div>
-          </div>
-          <div style={{ textAlign: "right", fontSize: 10.5 }}>
-            <div>Invoice No: <strong className="mono">{invoice.invoiceNo}</strong></div>
-            <div>Date: {fmtDate(invoice.date)}</div>
-          </div>
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <FieldRow name="Student ID" value={<span className="mono">{invoice.studentDisplayId || "—"}</span>} />
-          <FieldRow name="Student" value={invoice.studentName} />
-          <FieldRow name="Class / Section" value={`${invoice.className} — ${invoice.section}`} />
-          <FieldRow name="Roll" value={invoice.roll || "—"} />
-        </div>
-
-        {breakdown ? (
-          <div className="table-wrap">
-            <table style={{ width: "100%", marginBottom: 10, fontSize: 11 }}>
-              <thead><tr><th style={{ fontSize: 9.5 }}>Year</th><th style={{ fontSize: 9.5 }}>Class</th><th style={{ fontSize: 9.5 }}>Fee Head</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Charged</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Waiver</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Paid</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Due</th></tr></thead>
-              <tbody>
-                {breakdown.map((r, i) => (
-                  <tr key={i}>
-                    <td>{r.year}</td>
-                    <td>{r.className}</td>
-                    <td>{r.head}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.waived)}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
-                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div style={{ fontSize: 11, color: "var(--slate-soft)", marginBottom: 10 }}>(Head-wise breakdown not available for this older invoice — showing totals only.)</div>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ minWidth: 220, fontSize: 11 }}>
-            <FieldRow name="Total Charged" value={"৳" + money(invoice.totalCharged)} />
-            <FieldRow name="Total Waived" value={"৳" + money(invoice.totalWaived)} />
-            <FieldRow name="Total Paid" value={"৳" + money(invoice.totalPaid)} />
-            <FieldRow name="Paid This Invoice" value={"৳" + money(invoice.paidThisTime)} />
-            <FieldRow name="Waived This Invoice" value={"৳" + money(invoice.waivedThisTime)} />
-            <FieldRow name="Balance Due" value={<strong>৳{money(invoice.totalDue)}</strong>} />
-          </div>
-        </div>
-        <div style={{ marginTop: 20, fontSize: 9.5, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
-      </div>
+      <InvoiceDocPrint config={config} student={student} invoiceNo={invoice.invoiceNo} date={invoice.date}
+        rows={rows} subtotal={subtotal} waiverTotal={waiverTotal} paymentTotal={paymentTotal} dueAfter={dueAfter} />
     </Modal>
   );
 }
@@ -3354,6 +3389,10 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           <PhotoBox label="Logo" folder="logo" config={form} existingUrl={form.schoolLogo} onUploaded={(url) => setForm(f => ({ ...f, schoolLogo: url }))} />
           <Field label="Facebook Page URL"><input type="text" value={form.facebookUrl || ""} onChange={set("facebookUrl")} placeholder="https://facebook.com/…" /></Field>
           <Field label="YouTube Channel URL"><input type="text" value={form.youtubeUrl || ""} onChange={set("youtubeUrl")} placeholder="https://youtube.com/…" /></Field>
+          <Field label="Cashier Name" hint="printed on invoice signature line"><input type="text" value={form.cashierName || ""} onChange={set("cashierName")} /></Field>
+          <Field label="Principal Name" hint="printed on invoice/admission form signature line"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
+          <Field label="Cashier Name" hint="shown on Fee Invoice"><input type="text" value={form.cashierName || ""} onChange={set("cashierName")} /></Field>
+          <Field label="Principal Name" hint="shown on Fee Invoice"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
         </div>
         <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Settings"}</button>
       </div>
