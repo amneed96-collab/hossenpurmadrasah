@@ -351,9 +351,9 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-slogan{font-size:11px;font-style:italic;color:var(--slate-soft);}
 .adm-credit{font-size:10px;color:var(--slate-soft);margin-top:4px;}
 
-.id-card-grid{display:flex;flex-wrap:wrap;gap:0.14in;justify-content:flex-start;}
+.id-card-grid{display:flex;flex-wrap:wrap;gap:0.2in;justify-content:flex-start;align-content:flex-start;}
 @media print{
-  .id-card-grid{gap:0.1in;}
+  .id-card-grid{gap:0.2in;}
 }
 
 /* ===== Admit Card — half A4 portrait ===== */
@@ -451,7 +451,10 @@ tbody tr:last-child td{border-bottom:none;}
   background:var(--moss-deep);color:#fff;text-align:center;
   padding:0.1in 0.12in 0.08in;flex-shrink:0;
 }
-.id-card-physical .icp-head .icp-school{font-size:7.5pt;text-transform:uppercase;letter-spacing:0.05em;opacity:0.85;}
+.id-card-physical .icp-head .icp-school{
+  font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;
+  color:var(--gold);text-shadow:0 1px 1px rgba(0,0,0,0.25);
+}
 .id-card-physical .icp-head .icp-address{font-size:6pt;opacity:0.75;margin-top:1px;}
 .id-card-physical .icp-head .icp-doctype{font-family:'Fraunces',serif;font-size:10.5pt;font-weight:600;margin-top:1px;}
 .id-card-physical .icp-photo{
@@ -460,16 +463,15 @@ tbody tr:last-child td{border-bottom:none;}
   display:flex;align-items:center;justify-content:center;
 }
 .id-card-physical .icp-photo img{width:100%;height:100%;object-fit:cover;}
-.id-card-physical .icp-name{font-weight:700;font-size:9pt;text-align:center;padding:0 0.1in;}
+.id-card-physical .icp-name{font-weight:800;font-size:11pt;text-align:center;padding:0 0.1in;}
 .id-card-physical .icp-sub{font-size:7pt;color:var(--slate-soft);text-align:center;margin-bottom:0.06in;}
 .id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;}
 .id-card-physical .icp-footer{
   margin-top:auto;background:var(--gold);color:var(--moss-deep);
-  padding:0.07in 0.12in;text-align:center;
+  padding:0.06in 0.12in;text-align:center;
   border-radius:0.5in 0.5in 0 0;
-  font-size:6.8pt;font-weight:700;flex-shrink:0;
+  font-size:7pt;font-weight:700;flex-shrink:0;white-space:nowrap;
 }
-.id-card-physical .icp-footer .icp-phone{display:block;font-size:7.2pt;margin-top:1px;}
 
 .field-row{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;gap:6px;}
 .field-row:last-child{border-bottom:none;}
@@ -1370,6 +1372,7 @@ function FeeInvoiceModule({ data, save, remove, config }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editInvoice, setEditInvoice] = useState(null); // reopen the form pre-selected on that student
   const [printInvoice, setPrintInvoice] = useState(null);
+  const [showPaymentSheet, setShowPaymentSheet] = useState(false);
   const [query, setQuery] = useState("");
   const toast = useToast();
 
@@ -1396,14 +1399,17 @@ function FeeInvoiceModule({ data, save, remove, config }) {
           <h2>Fee Invoice</h2>
           <p>Create fee invoices and review every invoice that has been submitted so far.</p>
         </div>
-        <button className="btn btn-primary no-print" onClick={() => setFormOpen(true)}><Icon.fee />Open Fee Invoice Form</button>
+        <div className="no-print" style={{ display: "flex", gap: 10 }}>
+          <button className="btn" onClick={() => setShowPaymentSheet(true)}><Icon.print />Print List</button>
+          <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Icon.fee />Open Fee Invoice Form</button>
+        </div>
       </div>
 
       <div className="card card-flush">
         <div className="no-print" style={{ padding: "16px 18px 0" }}>
           <div className="search-row">
             <input className="search-input" placeholder="Search by student name, roll, ID, or invoice no…" value={query} onChange={(e) => setQuery(e.target.value)} />
-            {filteredInvoices.length > 0 && <button className="btn btn-sm" onClick={handlePrintList}><Icon.print />Print List</button>}
+            {filteredInvoices.length > 0 && <button className="btn btn-sm" onClick={handlePrintList}><Icon.print />Print Table</button>}
           </div>
         </div>
         {filteredInvoices.length === 0 ? (
@@ -1454,7 +1460,63 @@ function FeeInvoiceModule({ data, save, remove, config }) {
       {printInvoice && (
         <SavedInvoicePrintModal invoice={printInvoice} config={config} onClose={() => setPrintInvoice(null)} />
       )}
+      {showPaymentSheet && (
+        <PaymentSheetPrintModal students={students} feeRules={feeRules} config={config} onClose={() => setShowPaymentSheet(false)} />
+      )}
     </div>
+  );
+}
+
+// One row per student, one column per fee head, showing total paid-to-date in each head —
+// pulled straight from each student's payment records (not the saved-invoice list).
+function PaymentSheetPrintModal({ students, feeRules, config, onClose }) {
+  const rows = students
+    .map(s => ({ student: s, breakdown: studentFeeBreakdown(s, feeRules) }))
+    .filter(r => sumBy(r.breakdown, b => b.paid) > 0);
+  const allHeads = [...new Set(rows.flatMap(r => r.breakdown.map(b => b.head)))];
+
+  function handlePrint() { window.print(); }
+
+  return (
+    <Modal title="Payment List — All Students" onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button></>}>
+      <div className="print-landscape">
+        <PrintDocHead config={config} headline="Head-wise Payment Summary" />
+        {rows.length === 0 ? (
+          <EmptyState title="No payments recorded yet" sub="Payments will appear here once students start paying via the Fee Invoice form." />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student ID</th><th>Name</th><th>Class</th><th>Section</th>
+                  {allHeads.map(h => <th key={h} style={{ textAlign: "right" }}>{h}</th>)}
+                  <th style={{ textAlign: "right" }}>Total Paid</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => {
+                  const totalPaid = sumBy(r.breakdown, b => b.paid);
+                  return (
+                    <tr key={r.student.id}>
+                      <td className="mono">{r.student.studentId || "—"}</td>
+                      <td>{r.student.name}</td>
+                      <td>{r.student.className}</td>
+                      <td>{r.student.section}</td>
+                      {allHeads.map(h => {
+                        const paid = sumBy(r.breakdown.filter(b => b.head === h), b => b.paid);
+                        return <td key={h} style={{ textAlign: "right" }} className="mono">{paid > 0 ? "৳" + money(paid) : "—"}</td>;
+                      })}
+                      <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(totalPaid)}</strong></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -1505,6 +1567,9 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
 
     // Persist this invoice submission as its own record, so it shows up under
     // Fee Invoice → "All Invoice" as a saved, editable, printable, deletable entry.
+    // We also snapshot the full per-head breakdown as-of this submission, so printing
+    // this invoice later always shows exactly what was true at this point in time —
+    // not whatever the student's live/current numbers happen to be by then.
     if (saveInvoice) {
       const newBreakdown = studentFeeBreakdown(finalStudent, feeRules);
       await saveInvoice({
@@ -1523,6 +1588,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
         totalDue: sumBy(newBreakdown, r => r.due),
         paidThisTime: sumBy(newPayments, p => p.amount),
         waivedThisTime: sumBy(newWaivers, w => w.amount),
+        breakdownSnapshot: newBreakdown,
       });
     }
 
@@ -1669,6 +1735,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
 }
 
 function SavedInvoicePrintModal({ invoice, config, onClose }) {
+  const breakdown = Array.isArray(invoice.breakdownSnapshot) ? invoice.breakdownSnapshot : null;
   return (
     <Modal title={`Invoice — ${invoice.studentName}`} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button></>}>
@@ -1683,17 +1750,45 @@ function SavedInvoicePrintModal({ invoice, config, onClose }) {
             <div>Date: {fmtDate(invoice.date)}</div>
           </div>
         </div>
-        <FieldRow name="Student ID" value={<span className="mono">{invoice.studentDisplayId || "—"}</span>} />
-        <FieldRow name="Student" value={invoice.studentName} />
-        <FieldRow name="Class / Section" value={`${invoice.className} — ${invoice.section}`} />
-        <FieldRow name="Roll" value={invoice.roll || "—"} />
-        <div style={{ marginTop: 14 }}>
-          <FieldRow name="Total Charged" value={"৳" + money(invoice.totalCharged)} />
-          <FieldRow name="Total Paid" value={"৳" + money(invoice.totalPaid)} />
-          <FieldRow name="Total Waiver" value={"৳" + money(invoice.totalWaived)} />
-          <FieldRow name="Paid This Invoice" value={"৳" + money(invoice.paidThisTime)} />
-          <FieldRow name="Waived This Invoice" value={"৳" + money(invoice.waivedThisTime)} />
-          <FieldRow name="Balance Due" value={<strong>৳{money(invoice.totalDue)}</strong>} />
+        <div style={{ marginBottom: 10 }}>
+          <FieldRow name="Student ID" value={<span className="mono">{invoice.studentDisplayId || "—"}</span>} />
+          <FieldRow name="Student" value={invoice.studentName} />
+          <FieldRow name="Class / Section" value={`${invoice.className} — ${invoice.section}`} />
+          <FieldRow name="Roll" value={invoice.roll || "—"} />
+        </div>
+
+        {breakdown ? (
+          <div className="table-wrap">
+            <table style={{ width: "100%", marginBottom: 10, fontSize: 11 }}>
+              <thead><tr><th style={{ fontSize: 9.5 }}>Year</th><th style={{ fontSize: 9.5 }}>Class</th><th style={{ fontSize: 9.5 }}>Fee Head</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Charged</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Waiver</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Paid</th><th style={{ textAlign: "right", fontSize: 9.5 }}>Due</th></tr></thead>
+              <tbody>
+                {breakdown.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.year}</td>
+                    <td>{r.className}</td>
+                    <td>{r.head}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.waived)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ fontSize: 11, color: "var(--slate-soft)", marginBottom: 10 }}>(Head-wise breakdown not available for this older invoice — showing totals only.)</div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ minWidth: 220, fontSize: 11 }}>
+            <FieldRow name="Total Charged" value={"৳" + money(invoice.totalCharged)} />
+            <FieldRow name="Total Waived" value={"৳" + money(invoice.totalWaived)} />
+            <FieldRow name="Total Paid" value={"৳" + money(invoice.totalPaid)} />
+            <FieldRow name="Paid This Invoice" value={"৳" + money(invoice.paidThisTime)} />
+            <FieldRow name="Waived This Invoice" value={"৳" + money(invoice.waivedThisTime)} />
+            <FieldRow name="Balance Due" value={<strong>৳{money(invoice.totalDue)}</strong>} />
+          </div>
         </div>
         <div style={{ marginTop: 20, fontSize: 9.5, color: "var(--slate-soft)", textAlign: "center" }}>This is a system-generated invoice.</div>
       </div>
@@ -1926,8 +2021,7 @@ function StudentIdCardPhysical({ student, config }) {
         <FieldRow name="Session" value={student.session || "—"} />
       </div>
       <div className="icp-footer">
-        {config.schoolName || "School Name"}
-        {(config.schoolPhones && config.schoolPhones.filter(Boolean).length > 0) && <span className="icp-phone">☎ {config.schoolPhones.filter(Boolean).join(", ")}</span>}
+        Ins: {(config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "—"}
       </div>
     </div>
   );
@@ -2326,8 +2420,7 @@ function TeacherIdCardModal({ teacher, config, onClose }) {
             <FieldRow name="Joined" value={fmtDate(teacher.joinDate)} />
           </div>
           <div className="icp-footer">
-            {config.schoolName || "School Name"}
-            {(config.schoolPhones && config.schoolPhones.filter(Boolean).length > 0) && <span className="icp-phone">☎ {config.schoolPhones.filter(Boolean).join(", ")}</span>}
+            Ins: {(config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "—"}
           </div>
         </div>
       </div>
