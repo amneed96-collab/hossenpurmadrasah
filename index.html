@@ -329,27 +329,42 @@ tbody tr:last-child td{border-bottom:none;}
 /* Professional Admission Form layout */
 .admission-form-print{max-width:100%;}
 @media print{ .admission-form-print{box-shadow:none;border:none;padding:0;} }
+
 .adm-header{
-  display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
-  border-bottom:2px solid var(--moss-deep);padding-bottom:14px;margin-bottom:16px;
+  background:var(--moss-deep);color:#fff;
+  padding:14px 18px 12px;margin:-28px -28px 18px;border-radius:var(--radius) var(--radius) 0 0;
 }
+@media print{ .adm-header{margin:0 0 18px;border-radius:0;} }
+.adm-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;}
 .adm-header-logo,.adm-header-photo{
-  width:72px;height:86px;flex-shrink:0;border:1px solid var(--line);border-radius:6px;
-  display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);
+  width:70px;height:84px;flex-shrink:0;border:1px solid rgba(255,255,255,0.4);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.08);
 }
 .adm-header-logo img,.adm-header-photo img{width:100%;height:100%;object-fit:cover;}
 .adm-header-center{flex:1;text-align:center;}
-.adm-school-name{font-family:'Fraunces',serif;font-size:21px;font-weight:700;}
-.adm-school-address{font-size:11.5px;color:var(--slate-soft);margin-top:2px;}
-.adm-school-phone{font-size:11.5px;color:var(--slate-soft);}
-.adm-form-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);}
-.adm-form-no{font-size:11px;color:var(--slate-soft);margin-top:2px;}
-.adm-fields{margin-bottom:20px;}
-.adm-signatures{display:flex;justify-content:space-between;margin-top:50px;padding:0 10px;}
+.adm-school-name{font-family:'Fraunces',serif;font-size:20px;font-weight:800;color:var(--gold);}
+.adm-school-code{font-size:11px;font-weight:400;color:#fff;opacity:0.85;}
+.adm-school-address{font-size:11px;opacity:0.9;margin-top:3px;}
+.adm-school-contact{font-size:11px;opacity:0.9;margin-top:1px;}
+.adm-divider{border:none;border-top:2px solid var(--gold);margin:10px 0 8px;}
+.adm-header-bottom{display:flex;justify-content:space-between;align-items:flex-end;}
+.adm-form-title{font-family:'Fraunces',serif;font-size:16px;font-weight:700;text-align:center;flex:1;}
+.adm-form-no{font-size:11px;font-weight:600;}
+
+.adm-section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--moss-deep);margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--line);}
+.adm-fields{margin-bottom:8px;}
+.adm-declaration{font-size:11.5px;line-height:1.6;color:var(--slate);margin:8px 0 10px;padding:8px 10px;background:var(--paper);border-radius:6px;}
+.adm-signatures{display:flex;justify-content:space-between;margin-top:34px;padding:0 6px;}
 .adm-sig{border-top:1px solid var(--ink);padding-top:6px;font-size:10.5px;text-align:center;width:180px;line-height:1.5;}
-.adm-footer{margin-top:36px;text-align:center;border-top:1px dashed var(--line);padding-top:10px;}
-.adm-slogan{font-size:11px;font-style:italic;color:var(--slate-soft);}
-.adm-credit{font-size:10px;color:var(--slate-soft);margin-top:4px;}
+
+.adm-footer{
+  background:var(--moss-deep);color:#fff;text-align:center;
+  padding:12px 18px 10px;margin:26px -28px -28px;border-radius:0 0 var(--radius) var(--radius);
+}
+@media print{ .adm-footer{margin:26px 0 0;border-radius:0;} }
+.adm-slogan{font-size:11.5px;font-style:italic;color:var(--gold);}
+.adm-footer .adm-divider{border-top-color:rgba(255,255,255,0.3);margin:8px 0 6px;}
+.adm-credit{font-size:9px;color:#fff;opacity:0.75;}
 
 .id-card-grid{display:flex;flex-wrap:wrap;gap:0.2in;justify-content:flex-start;align-content:flex-start;}
 @media print{
@@ -530,6 +545,8 @@ function loadConfig() {
     schoolName: DEFAULT_SCHOOL_NAME,
     schoolAddress: "",
     schoolPhones: ["", "", ""],
+    schoolEmail: "",
+    instituteCode: "",
     schoolLogo: "",
     facebookUrl: "",
     youtubeUrl: "",
@@ -841,6 +858,20 @@ function fmtDate(d) {
   } catch (e) { return d; }
 }
 
+// Age as of the admission date (years + months), computed from date of birth.
+function calcAge(dob, asOfDate) {
+  if (!dob) return "—";
+  const birth = new Date(dob);
+  const asOf = asOfDate ? new Date(asOfDate) : new Date();
+  if (isNaN(birth.getTime()) || isNaN(asOf.getTime())) return "—";
+  let years = asOf.getFullYear() - birth.getFullYear();
+  let months = asOf.getMonth() - birth.getMonth();
+  if (asOf.getDate() < birth.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  if (years < 0) return "—";
+  return `${years}y ${months}m`;
+}
+
 // Resizes an image client-side (max dimension) before upload, to keep Drive uploads fast
 // and avoid huge base64 payloads over the wire.
 function resizeImageFile(file, maxDim) {
@@ -936,7 +967,9 @@ function PhotoBox({ label, folder, config, onUploaded, existingUrl }) {
    DOMAIN CONSTANTS
    ========================================================= */
 const CLASSES = ["Play", "Nursery", "KG", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
-const SECTIONS = ["A", "B", "C", "D"];
+const SECTIONS = ["Noorani", "Ibtedayee", "Junior Dakhil", "Dakhil"];
+const SUBJECT_GROUPS = ["General", "Humanity", "Science"];
+const GUARDIAN_RELATIONS = ["Father", "Mother", "Uncle", "Grandfather", "Grandmother", "Brother", "Sister", "Other"];
 const GENDERS = ["Male", "Female", "Other"];
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const DESIGNATIONS = ["Principal", "Vice Principal", "Senior Teacher", "Assistant Teacher", "Librarian", "Accountant", "Office Staff", "Lab Assistant", "Peon/Support Staff"];
@@ -1223,15 +1256,20 @@ function nextRollForClass(students, className, excludeId) {
   return rolls.length ? Math.max(...rolls) + 1 : 1;
 }
 
+const emptyAddress = () => ({ co: "", village: "", union: "", ward: "", po: "", upazila: "", district: "" });
+
 const emptyStudent = (existingStudents) => ({
   id: null, studentId: generateStudentId(existingStudents), admissionFormNo: generateFormNo(existingStudents),
   name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
-  className: "One", section: "A", roll: String(nextRollForClass(existingStudents, "One")), session: "",
+  className: "One", section: SECTIONS[0], subjectGroup: SUBJECT_GROUPS[0],
+  roll: String(nextRollForClass(existingStudents, "One")), session: "",
   admissionDate: new Date().toISOString().slice(0,10),
-  bloodGroup: "", phone: "", guardianPhone: "",
-  presentAddress: "", permanentAddress: "", sameAsPresent: false,
+  previousInstitute: "", previousClass: "",
+  bloodGroup: "", nidOrBirthNo: "", phone: "",
+  guardianName: "", guardianRelation: GUARDIAN_RELATIONS[0], guardianPhone: "",
+  presentAddress: emptyAddress(), permanentAddress: emptyAddress(), sameAsPresent: false,
   photoUrl: "", status: "Active", payments: [], waivers: [],
-  classHistory: [{ year: String(CURRENT_YEAR), className: "One", section: "A" }],
+  classHistory: [{ year: String(CURRENT_YEAR), className: "One", section: SECTIONS[0] }],
 });
 
 function StudentsModule({ data, save, remove, config }) {
@@ -1796,54 +1834,114 @@ function SavedInvoicePrintModal({ invoice, config, onClose }) {
   );
 }
 
+function formatAddress(addr) {
+  if (!addr || typeof addr !== "object") return "—";
+  const parts = [
+    addr.co && `C/O: ${addr.co}`,
+    addr.village && `Vill: ${addr.village}`,
+    addr.union && `Union: ${addr.union}`,
+    addr.ward && `Ward No: ${addr.ward}`,
+    addr.po && `P/O: ${addr.po}`,
+    addr.upazila && `Upazila: ${addr.upazila}`,
+    addr.district && `District: ${addr.district}`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : "—";
+}
+
 function AdmissionFormPrint({ student, config }) {
   const phones = (config.schoolPhones || []).filter(Boolean);
+  const present = student.presentAddress && typeof student.presentAddress === "object" ? student.presentAddress : emptyAddress();
+  const permanent = student.permanentAddress && typeof student.permanentAddress === "object" ? student.permanentAddress : emptyAddress();
+
   return (
     <div className="doc-preview admission-form-print">
       <div className="adm-header">
-        <div className="adm-header-logo">
-          {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
+        <div className="adm-header-row">
+          <div className="adm-header-logo">
+            {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
+          </div>
+          <div className="adm-header-center">
+            <div className="adm-school-name">
+              {config.schoolName || "School Name"}
+              {config.instituteCode && <span className="adm-school-code"> (Code: {config.instituteCode})</span>}
+            </div>
+            {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+            {(config.schoolEmail || phones[0]) && (
+              <div className="adm-school-contact">
+                {config.schoolEmail && <span>Email: {config.schoolEmail}</span>}
+                {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
+                {phones[0] && <span>Mobile: {phones[0]}</span>}
+              </div>
+            )}
+          </div>
+          <div className="adm-header-photo">
+            {student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
+          </div>
         </div>
-        <div className="adm-header-center">
-          <div className="adm-school-name">{config.schoolName || "School Name"}</div>
-          {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-          {phones[0] && <div className="adm-school-phone">☎ {phones[0]}</div>}
-          <div className="adm-form-title">শিক্ষার্থী ভর্তি ফরম</div>
-          <div className="adm-form-no">ফরম নং: <span className="mono">{student.admissionFormNo || "—"}</span></div>
-        </div>
-        <div className="adm-header-photo">
-          {student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
+        <hr className="adm-divider" />
+        <div className="adm-header-bottom">
+          <div className="adm-form-no">Form No: <span className="mono">{student.admissionFormNo || "—"}</span></div>
+          <div className="adm-form-title">Admission Form</div>
+          <div style={{ width: 90 }}></div>
         </div>
       </div>
 
       <div className="adm-fields">
+        <FieldRow name="Admission Date" value={fmtDate(student.admissionDate)} />
         <FieldRow name="Student ID" value={<span className="mono">{student.studentId}</span>} />
-        <FieldRow name="শিক্ষার্থীর নাম / Name" value={student.name || "—"} />
-        <FieldRow name="পিতার নাম / Father's Name" value={student.fatherName || "—"} />
-        <FieldRow name="মাতার নাম / Mother's Name" value={student.motherName || "—"} />
-        <FieldRow name="জন্ম তারিখ / Date of Birth" value={fmtDate(student.dob)} />
-        <FieldRow name="লিঙ্গ / Gender" value={student.gender} />
-        <FieldRow name="শ্রেণি / Class" value={student.className} />
-        <FieldRow name="শাখা / Section" value={student.section} />
-        <FieldRow name="রোল / Roll" value={student.roll || "—"} />
-        <FieldRow name="শিক্ষাবর্ষ / Session" value={student.session || "—"} />
-        <FieldRow name="ভর্তির তারিখ / Admission Date" value={fmtDate(student.admissionDate)} />
-        <FieldRow name="রক্তের গ্রুপ / Blood Group" value={student.bloodGroup || "—"} />
-        <FieldRow name="শিক্ষার্থীর ফোন / Student Phone" value={student.phone || "—"} />
-        <FieldRow name="অভিভাবকের ফোন / Guardian Phone" value={student.guardianPhone || "—"} />
-        <FieldRow name="বর্তমান ঠিকানা / Present Address" value={student.presentAddress || "—"} />
-        <FieldRow name="স্থায়ী ঠিকানা / Permanent Address" value={student.permanentAddress || "—"} />
-        <FieldRow name="অবস্থা / Status" value={student.status} />
+        <FieldRow name="Class" value={student.className} />
+        <FieldRow name="Section" value={student.section} />
+        <FieldRow name="Subject" value={student.subjectGroup || "—"} />
+        <FieldRow name="Roll" value={student.roll || "—"} />
+        <FieldRow name="Student Name" value={student.name || "—"} />
+        <FieldRow name="Father's Name" value={student.fatherName || "—"} />
+        <FieldRow name="Mother's Name" value={student.motherName || "—"} />
+        <FieldRow name="Date of Birth" value={fmtDate(student.dob)} />
+        <FieldRow name="Age" value={calcAge(student.dob, student.admissionDate)} />
+        <FieldRow name="Previous Institute Name" value={student.previousInstitute || "—"} />
+        <FieldRow name="Previous Class" value={student.previousClass || "—"} />
+        <FieldRow name="Blood Group" value={student.bloodGroup || "—"} />
+        <FieldRow name="NID / Birth No" value={student.nidOrBirthNo || "—"} />
+        <FieldRow name="Mobile No" value={student.phone || "—"} />
+        <FieldRow name="Guardian's Name" value={student.guardianName || "—"} />
+        <FieldRow name="Relation with Guardian" value={student.guardianRelation || "—"} />
+        <FieldRow name="Mobile No (Guardian)" value={student.guardianPhone || "—"} />
       </div>
 
+      <div className="adm-section-title">Permanent Address</div>
+      <div className="adm-fields">
+        <FieldRow name="Address" value={formatAddress(permanent)} />
+      </div>
+
+      <div className="adm-section-title">Present Address</div>
+      <div className="adm-fields">
+        <FieldRow name="Address" value={formatAddress(present)} />
+      </div>
+
+      <div className="adm-section-title">Declaration of Guardian</div>
+      <div className="adm-declaration">
+        I hereby declare that the information provided above is true and correct to the best of my knowledge.<br/>
+        I agree to abide by the rules and regulations of this institution.
+      </div>
       <div className="adm-signatures">
-        <div className="adm-sig">অভিভাবকের স্বাক্ষর<br/>Guardian's Signature</div>
-        <div className="adm-sig">অধ্যক্ষ / প্রধান শিক্ষক<br/>Principal / Head Teacher</div>
+        <div className="adm-sig">Student's Signature</div>
+        <div className="adm-sig">Guardian's Signature</div>
+      </div>
+
+      <div className="adm-section-title">Institute Admission Permission</div>
+      <div className="adm-declaration">
+        The admission of the above-named student has been reviewed and is hereby approved by the institute authority.<br/>
+        This student is admitted to the class and section stated above for the current session.
+      </div>
+      <div className="adm-signatures">
+        <div className="adm-sig">Class Teacher</div>
+        <div className="adm-sig">Principal</div>
       </div>
 
       <div className="adm-footer">
-        <div className="adm-slogan">শিক্ষাই জাতির মেরুদণ্ড — আলোকিত মানুষ গড়ার প্রত্যয়ে</div>
-        <div className="adm-credit">@Powered by: AM Shahed- 01605721296</div>
+        <div className="adm-slogan">Education is the backbone of a nation — building an enlightened generation</div>
+        <hr className="adm-divider" />
+        <div className="adm-credit">@Powered by: AM Shahed: 01605-721296</div>
       </div>
     </div>
   );
@@ -1881,9 +1979,15 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
     });
   }
 
-  function handlePresentChange(e) {
-    const val = e.target.value;
-    setForm(f => ({ ...f, presentAddress: val, permanentAddress: f.sameAsPresent ? val : f.permanentAddress }));
+  function handlePresentChange(key, val) {
+    setForm(f => {
+      const nextPresent = { ...(f.presentAddress || emptyAddress()), [key]: val };
+      const nextPermanent = f.sameAsPresent ? nextPresent : f.permanentAddress;
+      return { ...f, presentAddress: nextPresent, permanentAddress: nextPermanent };
+    });
+  }
+  function handlePermanentChange(key, val) {
+    setForm(f => ({ ...f, permanentAddress: { ...(f.permanentAddress || emptyAddress()), [key]: val } }));
   }
   function toggleSameAddress(e) {
     const checked = e.target.checked;
@@ -1905,11 +2009,14 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
     setForm(f => ({ ...f, classHistory: next }));
   }
   function addHistoryRow() {
-    setForm(f => ({ ...f, classHistory: [...history, { year: String(CURRENT_YEAR), className: "One", section: "A" }] }));
+    setForm(f => ({ ...f, classHistory: [...history, { year: String(CURRENT_YEAR), className: "One", section: SECTIONS[0] }] }));
   }
   function removeHistoryRow(i) {
     setForm(f => ({ ...f, classHistory: history.filter((_, idx) => idx !== i) }));
   }
+
+  const present = form.presentAddress && typeof form.presentAddress === "object" ? form.presentAddress : emptyAddress();
+  const permanent = form.permanentAddress && typeof form.permanentAddress === "object" ? form.permanentAddress : emptyAddress();
 
   return (
     <Modal title={student.id ? "Edit Student" : "New Admission"} onClose={onClose} size="lg"
@@ -1932,28 +2039,59 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
       <div className="form-grid">
         <Field label="Student ID" hint="auto-generated"><input type="text" value={form.studentId} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
         <Field label="Form No." hint="auto-generated"><input type="text" value={form.admissionFormNo || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
-        <Field label="Full Name"><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
+        <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
+        <Field label="Class" hint="current class"><select value={form.className} onChange={handleClassChange}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Subject"><select value={form.subjectGroup || SUBJECT_GROUPS[0]} onChange={set("subjectGroup")}>{SUBJECT_GROUPS.map(s => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Roll Number" hint={!form.id ? "auto-filled from class" : ""}><input type="text" value={form.roll} onChange={set("roll")} /></Field>
+        <Field label="Student Name"><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
         <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
         <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
         <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
+        <Field label="Age" hint="auto-calculated"><input type="text" value={calcAge(form.dob, form.admissionDate)} readOnly style={{ background: "var(--paper)" }} /></Field>
         <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
-        <Field label="Class" hint="current class"><select value={form.className} onChange={handleClassChange}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-        <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-        <Field label="Roll Number" hint={!form.id ? "auto-filled from class" : ""}><input type="text" value={form.roll} onChange={set("roll")} /></Field>
         <Field label="Session" hint="e.g. 2025-2026"><input type="text" value={form.session || ""} onChange={set("session")} /></Field>
-        <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
+        <Field label="Previous Institute Name"><input type="text" value={form.previousInstitute || ""} onChange={set("previousInstitute")} /></Field>
+        <Field label="Previous Class"><input type="text" value={form.previousClass || ""} onChange={set("previousClass")} /></Field>
         <Field label="Blood Group"><select value={form.bloodGroup} onChange={set("bloodGroup")}><option value="">—</option>{BLOOD_GROUPS.map(b => <option key={b}>{b}</option>)}</select></Field>
-        <Field label="Student Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
-        <Field label="Guardian Phone"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
+        <Field label="NID / Birth No"><input type="text" value={form.nidOrBirthNo || ""} onChange={set("nidOrBirthNo")} /></Field>
+        <Field label="Mobile No"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
+        <Field label="Guardian's Name"><input type="text" value={form.guardianName || ""} onChange={set("guardianName")} /></Field>
+        <Field label="Relation with Guardian"><select value={form.guardianRelation || GUARDIAN_RELATIONS[0]} onChange={set("guardianRelation")}>{GUARDIAN_RELATIONS.map(r => <option key={r}>{r}</option>)}</select></Field>
+        <Field label="Mobile No (Guardian)"><input type="tel" value={form.guardianPhone} onChange={set("guardianPhone")} /></Field>
         <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option><option>Graduated</option></select></Field>
-        <Field label="Present Address" span2><textarea value={form.presentAddress} onChange={handlePresentChange} /></Field>
-        <Field label="Permanent Address" span2
-          hint={<label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 400, cursor: "pointer" }}>
-            <input type="checkbox" checked={!!form.sameAsPresent} onChange={toggleSameAddress} /> Same as present address
-          </label>}>
-          <textarea value={form.permanentAddress} onChange={set("permanentAddress")} disabled={form.sameAsPresent} />
-        </Field>
         <PhotoBox label="Student Photo" folder="students" config={config} existingUrl={form.photoUrl} onUploaded={(url) => setForm(f => ({ ...f, photoUrl: url }))} />
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", marginBottom: 8 }}>Present Address</div>
+        <div className="form-grid cols-3">
+          <Field label="C/O"><input type="text" value={present.co} onChange={(e) => handlePresentChange("co", e.target.value)} /></Field>
+          <Field label="Village"><input type="text" value={present.village} onChange={(e) => handlePresentChange("village", e.target.value)} /></Field>
+          <Field label="Union"><input type="text" value={present.union} onChange={(e) => handlePresentChange("union", e.target.value)} /></Field>
+          <Field label="Ward No"><input type="text" value={present.ward} onChange={(e) => handlePresentChange("ward", e.target.value)} /></Field>
+          <Field label="P/O"><input type="text" value={present.po} onChange={(e) => handlePresentChange("po", e.target.value)} /></Field>
+          <Field label="Upazila"><input type="text" value={present.upazila} onChange={(e) => handlePresentChange("upazila", e.target.value)} /></Field>
+          <Field label="District" span2><input type="text" value={present.district} onChange={(e) => handlePresentChange("district", e.target.value)} /></Field>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)" }}>Permanent Address</div>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 400, cursor: "pointer" }}>
+            <input type="checkbox" checked={!!form.sameAsPresent} onChange={toggleSameAddress} /> Same as present address
+          </label>
+        </div>
+        <div className="form-grid cols-3">
+          <Field label="C/O"><input type="text" value={permanent.co} onChange={(e) => handlePermanentChange("co", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="Village"><input type="text" value={permanent.village} onChange={(e) => handlePermanentChange("village", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="Union"><input type="text" value={permanent.union} onChange={(e) => handlePermanentChange("union", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="Ward No"><input type="text" value={permanent.ward} onChange={(e) => handlePermanentChange("ward", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="P/O"><input type="text" value={permanent.po} onChange={(e) => handlePermanentChange("po", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="Upazila"><input type="text" value={permanent.upazila} onChange={(e) => handlePermanentChange("upazila", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="District" span2><input type="text" value={permanent.district} onChange={(e) => handlePermanentChange("district", e.target.value)} disabled={form.sameAsPresent} /></Field>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 16, background: "var(--paper)" }}>
@@ -3207,7 +3345,9 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
       <div className="card" style={{ maxWidth: 560, marginBottom: 20 }}>
         <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
           <Field label="Institution Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
+          <Field label="Institute Code No." hint="shown on Admission Form"><input type="text" value={form.instituteCode || ""} onChange={set("instituteCode")} /></Field>
           <Field label="Address"><textarea value={form.schoolAddress || ""} onChange={set("schoolAddress")} placeholder="Full address" /></Field>
+          <Field label="Email"><input type="email" value={form.schoolEmail || ""} onChange={set("schoolEmail")} placeholder="school@example.com" /></Field>
           <Field label="Mobile Number 1"><input type="tel" value={form.schoolPhones[0] || ""} onChange={(e) => setPhone(0, e.target.value)} placeholder="e.g. 01XXXXXXXXX" /></Field>
           <Field label="Mobile Number 2" hint="optional"><input type="tel" value={form.schoolPhones[1] || ""} onChange={(e) => setPhone(1, e.target.value)} /></Field>
           <Field label="Mobile Number 3" hint="optional"><input type="tel" value={form.schoolPhones[2] || ""} onChange={(e) => setPhone(2, e.target.value)} /></Field>
