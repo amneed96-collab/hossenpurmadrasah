@@ -326,52 +326,96 @@ tbody tr:last-child td{border-bottom:none;}
   .doc-preview.half-a4{width:100%;min-height:0;box-shadow:none;border:none;}
 }
 
-/* Professional Admission Form layout */
-.admission-form-print{max-width:100%;}
+/* Professional Admission Form layout — tightened to fit one A4 page */
+.admission-form-print{max-width:100%;font-size:11px;}
 @media print{ .admission-form-print{box-shadow:none;border:none;padding:0;} }
 
 .adm-header{
   background:var(--moss-deep);color:#fff;
-  padding:14px 18px 12px;margin:-28px -28px 18px;border-radius:var(--radius) var(--radius) 0 0;
+  padding:10px 16px 8px;margin:-28px -28px 12px;border-radius:var(--radius) var(--radius) 0 0;
 }
-@media print{ .adm-header{margin:0 0 18px;border-radius:0;} }
-.adm-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;}
+@media print{ .adm-header{margin:0 0 12px;border-radius:0;} }
+.adm-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 .adm-header-logo,.adm-header-photo{
-  width:70px;height:84px;flex-shrink:0;border:1px solid rgba(255,255,255,0.4);border-radius:6px;
+  width:58px;height:70px;flex-shrink:0;border:1px solid rgba(255,255,255,0.4);border-radius:5px;
   display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.08);
 }
 .adm-header-logo img,.adm-header-photo img{width:100%;height:100%;object-fit:cover;}
 .adm-header-center{flex:1;text-align:center;}
-.adm-school-name{font-family:'Fraunces',serif;font-size:20px;font-weight:800;color:var(--gold);}
-.adm-school-code{font-size:11px;font-weight:400;color:#fff;opacity:0.85;}
-.adm-school-address{font-size:11px;opacity:0.9;margin-top:3px;}
-.adm-school-contact{font-size:11px;opacity:0.9;margin-top:1px;}
-.adm-divider{border:none;border-top:2px solid var(--gold);margin:10px 0 8px;}
-.adm-header-bottom{display:flex;justify-content:space-between;align-items:flex-end;}
-.adm-form-title{font-family:'Fraunces',serif;font-size:16px;font-weight:700;text-align:center;flex:1;}
-.adm-form-no{font-size:11px;font-weight:600;}
+.adm-school-name{
+  font-family:'Fraunces',serif;font-size:19px;font-weight:800;color:var(--gold);
+  text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.adm-school-code{font-size:10px;font-weight:400;color:#fff;opacity:0.85;text-transform:none;}
+.adm-school-address{font-size:10px;opacity:0.9;margin-top:2px;}
+.adm-school-contact{font-size:10px;opacity:0.9;margin-top:1px;}
+.adm-form-title{font-family:'Fraunces',serif;font-size:13px;font-weight:700;letter-spacing:0.06em;margin-top:5px;}
+.adm-divider{border:none;border-top:2px solid var(--gold);margin:7px 0 5px;}
+.adm-form-no{font-size:10.5px;font-weight:600;text-align:left;}
 
-.adm-section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--moss-deep);margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--line);}
-.adm-fields{margin-bottom:8px;}
-.adm-declaration{font-size:11.5px;line-height:1.6;color:var(--slate);margin:8px 0 10px;padding:8px 10px;background:var(--paper);border-radius:6px;}
-.adm-signatures{display:flex;justify-content:space-between;margin-top:34px;padding:0 6px;}
-.adm-sig{border-top:1px solid var(--ink);padding-top:6px;font-size:10.5px;text-align:center;width:180px;line-height:1.5;}
+.adm-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--moss-deep);margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid var(--line);}
+.adm-fields{margin-bottom:4px;}
+.adm-fields-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;margin-bottom:4px;}
+.adm-fields-grid .field-row{font-size:10.5px;padding:2px 0;}
+.adm-declaration{font-size:10.5px;line-height:1.5;color:var(--slate);margin:4px 0 6px;text-align:justify;}
+.adm-signatures{display:flex;justify-content:space-between;margin-top:22px;padding:0 6px;}
+.adm-sig{border-top:1px solid var(--ink);padding-top:4px;font-size:10px;text-align:center;width:170px;line-height:1.4;}
 
 .adm-footer{
   background:var(--moss-deep);color:#fff;text-align:center;
-  padding:12px 18px 10px;margin:26px -28px -28px;border-radius:0 0 var(--radius) var(--radius);
+  padding:8px 16px 7px;margin:14px -28px -28px;border-radius:0 0 var(--radius) var(--radius);
 }
-@media print{ .adm-footer{margin:26px 0 0;border-radius:0;} }
-.adm-slogan{font-size:11.5px;font-style:italic;color:var(--gold);}
-.adm-footer .adm-divider{border-top-color:rgba(255,255,255,0.3);margin:8px 0 6px;}
+@media print{ .adm-footer{margin:14px 0 0;border-radius:0;} }
+.adm-slogan{font-size:10.5px;font-style:italic;color:var(--gold);}
+.adm-footer .adm-divider{border-top-color:rgba(255,255,255,0.3);margin:6px 0 5px;}
 .adm-credit{font-size:9px;color:#fff;opacity:0.75;}
 
-/* Fee Invoice — reuses the .adm-header/.adm-footer look, plus its own meta rows and fee table */
-.inv-meta-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px dashed var(--line);}
-.inv-fee-table{width:100%;margin:14px 0 10px;border-collapse:collapse;font-size:12px;}
-.inv-fee-table thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--slate-soft);padding:6px 4px;border-bottom:1.5px solid var(--moss-deep);}
-.inv-fee-table tbody td{padding:7px 4px;border-bottom:1px dashed var(--line);}
-.inv-summary{margin-top:6px;padding-top:6px;border-top:1px solid var(--line);}
+/* Fee Invoice — its own black-on-white look (no colored header/footer), separate from the Admission Form's. */
+.invoice-doc-print{max-width:480px;color:#000;font-size:11px;}
+@media print{ .invoice-doc-print{box-shadow:none;border:none;padding:0;} }
+.inv-header{color:#000;}
+.inv-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.inv-header-logo,.inv-header-photo{
+  width:44px;height:54px;flex-shrink:0;border:1px solid var(--line);border-radius:4px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);
+}
+.inv-header-logo img,.inv-header-photo img{width:100%;height:100%;object-fit:cover;}
+.inv-header-center{flex:1;text-align:center;}
+.inv-school-name{font-family:'Fraunces',serif;font-size:16px;font-weight:800;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.inv-school-code{font-size:10px;font-weight:400;color:#000;}
+.inv-school-address{font-size:10px;color:#000;margin-top:2px;}
+.inv-title{font-family:'Fraunces',serif;font-size:13px;font-weight:700;letter-spacing:0.06em;color:#000;margin-top:5px;}
+.inv-divider{border-top-color:#000;margin:7px 0 8px;}
+
+.inv-meta-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;margin-bottom:10px;}
+.inv-meta-grid .field-row{font-size:11px;padding:2px 0;border-bottom:none;color:#000;}
+
+.inv-fee-table{width:100%;margin:0 0 10px;border-collapse:collapse;font-size:11.5px;color:#000;}
+.inv-fee-table thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.03em;color:#000;padding:5px 4px;border-bottom:1.5px solid #000;}
+.inv-fee-table tbody td{padding:6px 4px;border-bottom:1px dashed var(--line);color:#000;}
+.inv-fee-table tbody tr:last-child td{border-bottom:1px dashed var(--line);}
+.inv-summary{min-width:220px;color:#000;}
+.inv-summary .field-row{border-bottom:none;padding:2px 0;}
+.inv-credit{font-size:8.5px;color:var(--slate-soft);text-align:right;margin-top:4px;}
+
+/* Global print watermark + footer — shown on every printed page except ID Card and Seat Plan,
+   and suppressed on documents that already carry their own bespoke footer (Admission Form, Invoice, Admit Card). */
+.print-watermark{display:none;}
+.print-footer{display:none;}
+@media print{
+  .print-watermark{
+    display:flex;position:fixed;inset:0;align-items:center;justify-content:center;
+    z-index:1;pointer-events:none;
+  }
+  .print-watermark img{width:45%;max-width:320px;opacity:0.07;}
+  .print-footer{
+    display:block;position:fixed;left:0;right:0;bottom:6mm;
+    text-align:center;padding-top:4px;border-top:1px dashed var(--line);
+    font-size:8px;color:var(--slate-soft);margin:0 14mm;
+  }
+  body.no-print-watermark .print-watermark{display:none !important;}
+  body.no-print-footer .print-footer{display:none !important;}
+}
 
 .id-card-grid{display:flex;flex-wrap:wrap;gap:0.2in;justify-content:flex-start;align-content:flex-start;}
 @media print{
@@ -775,6 +819,36 @@ function Modal({ title, onClose, children, footer, size }) {
   // not a descendant — this lets print CSS hide the page behind it
   // without also hiding the modal (and its document) itself.
   return ReactDOM.createPortal(overlay, document.body);
+}
+
+// Toggles body classes while a component is mounted, so the shared print watermark/footer
+// behave correctly for special-case documents:
+// - ID Card and Seat Plan: no watermark, no footer at all (their own compact card design has no room for either).
+// - Admission Form, Fee Invoice, Admit Card: keep the watermark, but suppress the shared footer
+//   since these already print their own dedicated credit line — avoids showing it twice.
+function usePrintChrome({ hideWatermark = false, hideFooter = false } = {}) {
+  useEffect(() => {
+    if (hideWatermark) document.body.classList.add("no-print-watermark");
+    if (hideFooter) document.body.classList.add("no-print-footer");
+    return () => {
+      document.body.classList.remove("no-print-watermark");
+      document.body.classList.remove("no-print-footer");
+    };
+  }, [hideWatermark, hideFooter]);
+}
+
+// Rendered once, globally: a faint institution-logo watermark and a small credit footer
+// on every printed page, with exceptions handled via usePrintChrome (see above).
+function GlobalPrintChrome({ config }) {
+  const node = (
+    <>
+      {config.schoolLogo && (
+        <div className="print-watermark"><img src={config.schoolLogo} alt="" /></div>
+      )}
+      <div className="print-footer">@PoweredBy: AM Shahed: 01605-721296</div>
+    </>
+  );
+  return ReactDOM.createPortal(node, document.body);
 }
 
 function Field({ label, hint, span2, children }) {
@@ -1247,14 +1321,23 @@ function generateStudentId(existingStudents) {
 }
 
 function generateFormNo(existingStudents) {
-  const year = new Date().getFullYear();
   const nums = (existingStudents || [])
     .map(s => s.admissionFormNo || "")
-    .filter(id => id.startsWith(`ADM-${year}-`))
+    .filter(id => id.startsWith("ADM-"))
+    .map(id => parseInt(id.split("-")[1], 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `ADM-${String(next).padStart(4, "0")}`;
+}
+
+function generateInvoiceNo(existingInvoices) {
+  const nums = (existingInvoices || [])
+    .map(inv => inv.invoiceNo || "")
+    .filter(id => id.startsWith("INV-STU-"))
     .map(id => parseInt(id.split("-")[2], 10))
     .filter(n => !isNaN(n));
   const next = (nums.length ? Math.max(...nums) : 0) + 1;
-  return `ADM-${year}-${String(next).padStart(4, "0")}`;
+  return `INV-STU-${String(next).padStart(4, "0")}`;
 }
 
 function nextRollForClass(students, className, excludeId) {
@@ -1495,13 +1578,13 @@ function FeeInvoiceModule({ data, save, remove, config }) {
       </div>
 
       {formOpen && (
-        <StudentInvoiceModal students={students} config={config} feeRules={feeRules}
+        <StudentInvoiceModal students={students} config={config} feeRules={feeRules} invoices={invoices}
           onSave={handleSaveStudent} saveInvoice={handleSaveInvoice} onClose={() => setFormOpen(false)} />
       )}
       {editInvoice && (
         <StudentInvoiceModal students={students}
           initialStudent={students.find(s => s.id === editInvoice.studentId) || null}
-          config={config} feeRules={feeRules}
+          config={config} feeRules={feeRules} invoices={invoices}
           onSave={handleSaveStudent} saveInvoice={handleSaveInvoice} onClose={() => setEditInvoice(null)} />
       )}
       {printInvoice && (
@@ -1603,7 +1686,6 @@ function InvoiceListPrintModal({ invoices, students, config, onClose }) {
   );
 }
 
-// Prints exactly the saved (already-submitted) invoice snapshot — not a fresh/editable invoice.
 function invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey) {
   const multiYear = new Set(breakdown.map(r => r.year)).size > 1;
   return breakdown.map((r, i) => ({
@@ -1620,40 +1702,35 @@ function invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey)
 // Shared professional invoice layout — used both for the live submit-preview and for
 // reprinting a previously saved invoice from the list, so both look identical.
 function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, waiverTotal, paymentTotal, dueAfter }) {
-  const phones = (config.schoolPhones || []).filter(Boolean);
   return (
-    <div className="doc-preview admission-form-print" style={{ maxWidth: 480 }}>
-      <div className="adm-header">
-        <div className="adm-header-row">
-          <div className="adm-header-logo">
+    <div className="doc-preview invoice-doc-print">
+      <div className="inv-header">
+        <div className="inv-header-row">
+          <div className="inv-header-logo">
             {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
           </div>
-          <div className="adm-header-center">
-            <div className="adm-school-name">
+          <div className="inv-header-center">
+            <div className="inv-school-name">
               {config.schoolName || "School Name"}
-              {config.instituteCode && <span className="adm-school-code"> (Code: {config.instituteCode})</span>}
+              {config.instituteCode && <span className="inv-school-code"> ({config.instituteCode})</span>}
             </div>
-            {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+            {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
+            <div className="inv-title">FEE INVOICE</div>
           </div>
-          <div className="adm-header-photo">
+          <div className="inv-header-photo">
             {student && student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
           </div>
         </div>
-        <hr className="adm-divider" />
-        <div className="adm-form-title">Fee Invoice</div>
+        <hr className="adm-divider inv-divider" />
       </div>
 
-      <div className="inv-meta-row">
-        <span>Invoice No: <strong className="mono">{invoiceNo}</strong></span>
-        <span>Date: {fmtDate(date)}</span>
-      </div>
-      <div className="inv-meta-row">
-        <span>Student ID: <strong className="mono">{(student && student.studentId) || "—"}</strong></span>
-        <span>Roll: <strong>{(student && student.roll) || "—"}</strong></span>
-      </div>
-      <div className="inv-meta-row">
-        <span>Name: <strong>{(student && student.name) || "—"}</strong></span>
-        <span>Class: <strong>{(student && student.className) || "—"}</strong></span>
+      <div className="inv-meta-grid">
+        <FieldRow name="Invoice No" value={<span className="mono">{invoiceNo}</span>} />
+        <FieldRow name="Date" value={fmtDate(date)} />
+        <FieldRow name="Student ID" value={<span className="mono">{(student && student.studentId) || "—"}</span>} />
+        <FieldRow name="Roll" value={(student && student.roll) || "—"} />
+        <FieldRow name="Name" value={(student && student.name) || "—"} />
+        <FieldRow name="Class" value={(student && student.className) || "—"} />
       </div>
 
       <table className="inv-fee-table">
@@ -1673,22 +1750,27 @@ function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, wai
         </tbody>
       </table>
 
-      <div className="inv-summary">
-        <FieldRow name="Subtotal" value={"৳" + money(subtotal)} />
-        <FieldRow name="Waiver" value={"৳" + money(waiverTotal)} />
-        <FieldRow name="Paid" value={"৳" + money(paymentTotal)} />
-        <FieldRow name="Due" value={<strong>৳{money(dueAfter)}</strong>} />
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div className="inv-summary">
+          <FieldRow name="Subtotal" value={"৳" + money(subtotal)} />
+          <FieldRow name="Waiver" value={"৳" + money(waiverTotal)} />
+          <FieldRow name="Paid" value={"৳" + money(paymentTotal)} />
+          <FieldRow name="Due" value={<strong>৳{money(dueAfter)}</strong>} />
+        </div>
       </div>
 
       <div className="adm-signatures" style={{ marginTop: 40 }}>
         <div className="adm-sig">Cashier{config.cashierName ? <><br/>{config.cashierName}</> : null}</div>
         <div className="adm-sig">Principal{config.principalName ? <><br/>{config.principalName}</> : null}</div>
       </div>
+
+      <hr className="adm-divider inv-divider" style={{ marginTop: 14 }} />
+      <div className="inv-credit">@Poweredby: AM Shahed: 01605721296</div>
     </div>
   );
 }
 
-function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSave, saveInvoice, onClose }) {
+function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoices, onSave, saveInvoice, onClose }) {
   const [selected, setSelected] = useState(initialStudent || null);
   const [query, setQuery] = useState("");
   const [payAmounts, setPayAmounts] = useState({}); // { lineKey: amountString }
@@ -1696,6 +1778,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [submittedInvoice, setSubmittedInvoice] = useState(null);
+  usePrintChrome({ hideFooter: true }); // invoice prints its own dashed-line + credit under the signatures
   const toast = useToast();
 
   const matches = query.trim() ? students.filter(s =>
@@ -1711,7 +1794,6 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
   const waiverTotal = sumBy(rows, r => r.waiver);
   const paymentTotal = sumBy(rows, r => r.payment);
   const dueAfter = Math.max(0, subtotal - waiverTotal - paymentTotal);
-  const invNo = selected ? "INV-" + str(selected.studentId || selected.roll || selected.id.slice(0,6)).toUpperCase() : "";
 
   async function submitPayments() {
     if (waiverTotal === 0 && paymentTotal === 0) { toast && toast("Enter a payment or waiver amount", "error"); return; }
@@ -1728,7 +1810,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
     const finalStudent = saved || updated;
     setSelected(finalStudent);
 
-    const invoiceNo = "INV-" + str(finalStudent.studentId || finalStudent.roll || finalStudent.id.slice(0,6)).toUpperCase() + "-" + Date.now().toString(36).toUpperCase().slice(-4);
+    const invoiceNo = generateInvoiceNo(invoices);
     const invoiceRecord = {
       id: null,
       invoiceNo,
@@ -1850,6 +1932,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, onSav
 }
 
 function SavedInvoicePrintModal({ invoice, config, onClose }) {
+  usePrintChrome({ hideFooter: true }); // invoice prints its own dashed-line + credit under the signatures
   const student = { studentId: invoice.studentDisplayId, name: invoice.studentName, className: invoice.className, roll: invoice.roll, photoUrl: invoice.photoUrl };
   const legacyRows = !Array.isArray(invoice.rows) && Array.isArray(invoice.breakdownSnapshot)
     ? invoice.breakdownSnapshot.map((r, i) => ({ no: i + 1, description: r.head, amountDue: r.due, waiver: r.waived, payment: r.paid }))
@@ -1888,6 +1971,19 @@ function AdmissionFormPrint({ student, config }) {
   const present = student.presentAddress && typeof student.presentAddress === "object" ? student.presentAddress : emptyAddress();
   const permanent = student.permanentAddress && typeof student.permanentAddress === "object" ? student.permanentAddress : emptyAddress();
 
+  const dataFields = [
+    ["Admission Date", fmtDate(student.admissionDate)], ["Student ID", student.studentId],
+    ["Class", student.className], ["Section", student.section],
+    ["Subject", student.subjectGroup || "—"], ["Roll", student.roll || "—"],
+    ["Student Name", student.name || "—"], ["Father's Name", student.fatherName || "—"],
+    ["Mother's Name", student.motherName || "—"], ["Date of Birth", fmtDate(student.dob)],
+    ["Age", calcAge(student.dob, student.admissionDate)], ["Previous Institute", student.previousInstitute || "—"],
+    ["Previous Class", student.previousClass || "—"], ["Blood Group", student.bloodGroup || "—"],
+    ["NID / Birth No", student.nidOrBirthNo || "—"], ["Mobile No", student.phone || "—"],
+    ["Guardian's Name", student.guardianName || "—"], ["Relation w/ Guardian", student.guardianRelation || "—"],
+    ["Mobile No (Guardian)", student.guardianPhone || "—"],
+  ];
+
   return (
     <div className="doc-preview admission-form-print">
       <div className="adm-header">
@@ -1897,8 +1993,8 @@ function AdmissionFormPrint({ student, config }) {
           </div>
           <div className="adm-header-center">
             <div className="adm-school-name">
-              {config.schoolName || "School Name"}
-              {config.instituteCode && <span className="adm-school-code"> (Code: {config.instituteCode})</span>}
+              {(config.schoolName || "School Name").toUpperCase()}
+              {config.instituteCode && <span className="adm-school-code"> ({config.instituteCode})</span>}
             </div>
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
             {(config.schoolEmail || phones[0]) && (
@@ -1908,69 +2004,42 @@ function AdmissionFormPrint({ student, config }) {
                 {phones[0] && <span>Mobile: {phones[0]}</span>}
               </div>
             )}
+            <div className="adm-form-title">ADMISSION FORM</div>
           </div>
           <div className="adm-header-photo">
             {student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
           </div>
         </div>
         <hr className="adm-divider" />
-        <div className="adm-header-bottom">
-          <div className="adm-form-no">Form No: <span className="mono">{student.admissionFormNo || "—"}</span></div>
-          <div className="adm-form-title">Admission Form</div>
-          <div style={{ width: 90 }}></div>
-        </div>
+        <div className="adm-form-no">Form No: <span className="mono">{student.admissionFormNo || "—"}</span></div>
       </div>
 
-      <div className="adm-fields">
-        <FieldRow name="Admission Date" value={fmtDate(student.admissionDate)} />
-        <FieldRow name="Student ID" value={<span className="mono">{student.studentId}</span>} />
-        <FieldRow name="Class" value={student.className} />
-        <FieldRow name="Section" value={student.section} />
-        <FieldRow name="Subject" value={student.subjectGroup || "—"} />
-        <FieldRow name="Roll" value={student.roll || "—"} />
-        <FieldRow name="Student Name" value={student.name || "—"} />
-        <FieldRow name="Father's Name" value={student.fatherName || "—"} />
-        <FieldRow name="Mother's Name" value={student.motherName || "—"} />
-        <FieldRow name="Date of Birth" value={fmtDate(student.dob)} />
-        <FieldRow name="Age" value={calcAge(student.dob, student.admissionDate)} />
-        <FieldRow name="Previous Institute Name" value={student.previousInstitute || "—"} />
-        <FieldRow name="Previous Class" value={student.previousClass || "—"} />
-        <FieldRow name="Blood Group" value={student.bloodGroup || "—"} />
-        <FieldRow name="NID / Birth No" value={student.nidOrBirthNo || "—"} />
-        <FieldRow name="Mobile No" value={student.phone || "—"} />
-        <FieldRow name="Guardian's Name" value={student.guardianName || "—"} />
-        <FieldRow name="Relation with Guardian" value={student.guardianRelation || "—"} />
-        <FieldRow name="Mobile No (Guardian)" value={student.guardianPhone || "—"} />
+      <div className="adm-fields-grid">
+        {dataFields.map(([name, value]) => <FieldRow key={name} name={name} value={value} />)}
       </div>
 
       <div className="adm-section-title">Permanent Address</div>
-      <div className="adm-fields">
-        <FieldRow name="Address" value={formatAddress(permanent)} />
-      </div>
+      <div className="adm-fields"><FieldRow name="Address" value={formatAddress(permanent)} /></div>
 
       <div className="adm-section-title">Present Address</div>
-      <div className="adm-fields">
-        <FieldRow name="Address" value={formatAddress(present)} />
-      </div>
+      <div className="adm-fields"><FieldRow name="Address" value={formatAddress(present)} /></div>
 
       <div className="adm-section-title">Declaration of Guardian</div>
-      <div className="adm-declaration">
-        I hereby declare that the information provided above is true and correct to the best of my knowledge.<br/>
-        I agree to abide by the rules and regulations of this institution.
-      </div>
+      <p className="adm-declaration">
+        I hereby declare that the information provided above is true and correct to the best of my knowledge, and I agree to abide by the rules and regulations of this institution.
+      </p>
       <div className="adm-signatures">
         <div className="adm-sig">Student's Signature</div>
         <div className="adm-sig">Guardian's Signature</div>
       </div>
 
       <div className="adm-section-title">Institute Admission Permission</div>
-      <div className="adm-declaration">
-        The admission of the above-named student has been reviewed and is hereby approved by the institute authority.<br/>
-        This student is admitted to the class and section stated above for the current session.
-      </div>
+      <p className="adm-declaration">
+        The admission of the above-named student has been reviewed and is hereby approved by the institute authority, and this student is admitted to the class and section stated above for the current session.
+      </p>
       <div className="adm-signatures">
         <div className="adm-sig">Class Teacher</div>
-        <div className="adm-sig">Principal</div>
+        <div className="adm-sig">Principal{config.principalName ? <><br/>{config.principalName}</> : null}</div>
       </div>
 
       <div className="adm-footer">
@@ -1983,6 +2052,7 @@ function AdmissionFormPrint({ student, config }) {
 }
 
 function AdmissionFormPrintModal({ student, config, onClose }) {
+  usePrintChrome({ hideFooter: true }); // admission form prints its own footer with slogan + credit
   return (
     <Modal title={`Admission Form — ${student.name}`} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Admission Form (A4)</button></>}>
@@ -1994,6 +2064,7 @@ function AdmissionFormPrintModal({ student, config, onClose }) {
 function StudentFormModal({ student, students, onClose, onSave, config }) {
   const [form, setForm] = useState(student);
   const [showPrint, setShowPrint] = useState(false);
+  usePrintChrome({ hideFooter: true }); // admission form prints its own footer with slogan + credit
   const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
 
   function handleClassChange(e) {
@@ -2281,6 +2352,9 @@ function CardTypeFlow({ type, students, config, onBack }) {
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("One");
   const [sectionFilter, setSectionFilter] = useState("");
+  // ID Card and Seat Plan: no shared watermark/footer at all (too small, no room).
+  // Admit Card: keep the watermark, but it already prints its own credit line, so skip the shared footer.
+  usePrintChrome({ hideWatermark: type === "id" || type === "seat", hideFooter: true });
 
   const matches = query.trim() ? students.filter(s =>
     str(s.name).toLowerCase().includes(query.toLowerCase())
@@ -3560,6 +3634,7 @@ function AppShell() {
 
   return (
     <div className="app-shell">
+      <GlobalPrintChrome config={config} />
       <MenuBar active={active} setActive={setActive} config={config} store={store} />
 
       <div className="main-col">
