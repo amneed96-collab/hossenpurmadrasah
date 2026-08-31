@@ -1994,12 +1994,11 @@ function AdmissionFormPrint({ student, config }) {
           <div className="adm-header-center">
             <div className="adm-school-name">
               {(config.schoolName || "School Name").toUpperCase()}
-              
+              {config.instituteCode && <span className="adm-school-code"> ({config.instituteCode})</span>}
             </div>
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
             {(config.schoolEmail || phones[0]) && (
               <div className="adm-school-contact">
-                {config.instituteCode && <span className="adm-school-code"> ({config.instituteCode})</span>} && <span> &nbsp;|&nbsp; </span>}
                 {config.schoolEmail && <span>Email: {config.schoolEmail}</span>}
                 {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
                 {phones[0] && <span>Mobile: {phones[0]}</span>}
