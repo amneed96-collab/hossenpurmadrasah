@@ -77,6 +77,13 @@ input,select,textarea{font-family:inherit;}
   padding:0 20px;
   height:58px;
 }
+.menubar-row-desktop{display:none;}
+.menubar-row-mobile{display:flex;width:100%;}
+@media(min-width:921px){
+  .menubar-row-desktop{display:flex;}
+  .menubar-row-mobile{display:none;}
+}
+
 .menubar-brand{
   display:flex;align-items:center;gap:10px;
 }
@@ -92,6 +99,17 @@ input,select,textarea{font-family:inherit;}
 }
 .menubar-brand-text{font-family:'Fraunces',serif;font-size:16px;font-weight:600;line-height:1.1;}
 .menubar-brand-sub{font-size:10px;color:#a9c2b2;text-transform:uppercase;letter-spacing:0.08em;margin-top:1px;}
+
+.menubar-desktop-name{
+  flex:1;min-width:0;text-align:center;font-family:'Fraunces',serif;font-size:17px;font-weight:700;
+  letter-spacing:0.02em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 14px;
+}
+.menubar-desktop-code{font-size:12px;font-weight:400;color:#a9c2b2;}
+.menubar-desktop-logo{
+  width:34px;height:34px;border-radius:8px;overflow:hidden;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;background:#fff;
+}
+.menubar-desktop-logo img{width:100%;height:100%;object-fit:cover;}
 
 .menubar-nav{
   display:flex;align-items:center;gap:2px;flex-wrap:wrap;
@@ -109,7 +127,7 @@ input,select,textarea{font-family:inherit;}
 .menubar-item svg{flex-shrink:0;opacity:0.9;}
 
 .menubar-toggle{
-  display:none;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
   background:none;border:none;color:#eef2ee;padding:8px;border-radius:8px;
 }
 .menubar-toggle:hover{background:rgba(255,255,255,0.08);}
@@ -125,14 +143,6 @@ input,select,textarea{font-family:inherit;}
 .menubar-group-label{
   font-size:10px;text-transform:uppercase;letter-spacing:0.08em;
   color:#87a291;padding:12px 13px 4px;font-weight:600;
-}
-
-@media(max-width:920px){
-  .menubar-nav.desktop-nav{display:none;}
-  .menubar-toggle{display:flex;}
-}
-@media(min-width:921px){
-  .menubar-mobile-panel{display:none !important;}
 }
 
 .main-col{flex:1;min-width:0;display:flex;flex-direction:column;}
@@ -301,7 +311,7 @@ tbody tr:last-child td{border-bottom:none;}
 @media print{
   .app-shell > .menubar, .topbar, .no-print{display:none !important;}
   .print-only{display:block;}
-  @page{size:A4;margin:14mm;}
+  @page{size:A4;margin:0.5in;}
   body{background:#fff;}
   /* The modal is rendered via a React portal directly under <body>, as a sibling of #root.
      When printing a modal's document, hide #root entirely (not just .content) — otherwise
@@ -326,25 +336,37 @@ tbody tr:last-child td{border-bottom:none;}
   .doc-preview.half-a4{width:100%;min-height:0;box-shadow:none;border:none;}
 }
 
-/* Professional Admission Form layout — tightened to fit one A4 page */
-.admission-form-print{max-width:100%;font-size:11px;}
-@media print{ .admission-form-print{box-shadow:none;border:none;padding:0;} }
+/* Professional Admission Form layout — exactly one A4 page, with a page border and 0.5in margin */
+.admission-form-print{
+  font-size:11px;width:210mm;min-height:297mm;max-width:none;
+  box-sizing:border-box;padding:0.5in;border:1.5px solid var(--ink);border-radius:0;
+  display:flex;flex-direction:column;margin:0 auto;
+}
+@media print{
+  .admission-form-print{
+    width:100%;min-height:100vh;box-sizing:border-box;
+    padding:0;border:1.5px solid var(--ink);box-shadow:none;
+  }
+}
 
 .adm-header{
-  background:var(--moss-deep);color:#fff;
-  padding:10px 16px 8px;margin:-28px -28px 12px;border-radius:var(--radius) var(--radius) 0 0;
+  background:var(--moss-deep);color:#fff;border-radius:0;
+  padding:10px 16px 8px;margin:-0.5in -0.5in 12px;
 }
-@media print{ .adm-header{margin:0 0 12px;border-radius:0;} }
+@media print{ .adm-header{margin:0 0 12px;} }
 .adm-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 .adm-header-logo,.adm-header-photo{
   width:58px;height:70px;flex-shrink:0;border:1px solid rgba(255,255,255,0.4);border-radius:5px;
   display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,0.08);
 }
 .adm-header-logo img,.adm-header-photo img{width:100%;height:100%;object-fit:cover;}
-.adm-header-center{flex:1;text-align:center;}
+.adm-header-center{flex:1;min-width:0;text-align:center;}
 .adm-school-name{
-  font-family:'Fraunces',serif;font-size:18px;font-weight:800;color:#fdee1e;
-  text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-family:'Fraunces',serif;font-size:19px;font-weight:800;
+  background:linear-gradient(180deg,#f6da8a 0%,var(--gold) 55%,#a97a1f 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--gold);
+  text-shadow:0 1px 0 rgba(0,0,0,0.25);
+  text-transform:uppercase;letter-spacing:0.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .adm-school-code{font-size:10px;font-weight:400;color:#fff;opacity:0.85;text-transform:none;}
 .adm-school-address{font-size:10px;opacity:0.9;margin-top:2px;}
@@ -353,22 +375,27 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-divider{border:none;border-top:2px solid var(--gold);margin:7px 0 5px;}
 .adm-form-no{font-size:10.5px;font-weight:600;text-align:left;}
 
-.adm-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--moss-deep);margin:8px 0 3px;padding-bottom:5px;border-bottom:1px solid var(--line);}
+.adm-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--moss-deep);margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid var(--line);}
 .adm-fields{margin-bottom:4px;}
 .adm-fields-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;margin-bottom:4px;}
 .adm-fields-grid .field-row{font-size:10.5px;padding:2px 0;}
 .adm-declaration{font-size:10.5px;line-height:1.5;color:var(--slate);margin:4px 0 6px;text-align:justify;}
-.adm-signatures{display:flex;justify-content:space-between;margin-top:58px;padding:0 6px;}
+.adm-signatures{display:flex;justify-content:space-between;margin-top:22px;padding:0 6px;}
 .adm-sig{border-top:1px solid var(--ink);padding-top:4px;font-size:10px;text-align:center;width:170px;line-height:1.4;}
+.adm-sig-img{display:block;max-height:34px;max-width:120px;margin:0 auto 2px;object-fit:contain;}
 
 .adm-footer{
   background:var(--moss-deep);color:#fff;text-align:center;
-  padding:8px 16px 7px;margin:14px -28px -28px;border-radius:0 0 var(--radius) var(--radius);
+  padding:8px 16px 7px;margin:auto -0.5in 0;border-radius:0;
 }
-@media print{ .adm-footer{margin:14px 0 0;border-radius:0;} }
+@media print{ .adm-footer{margin:auto 0 0;} }
 .adm-slogan{font-size:10.5px;font-style:italic;color:var(--gold);}
 .adm-footer .adm-divider{border-top-color:rgba(255,255,255,0.3);margin:6px 0 5px;}
 .adm-credit{font-size:9px;color:#fff;opacity:0.75;}
+.adm-credit-outside{
+  font-size:9px;color:var(--slate-soft);text-align:center;
+  margin-top:6px;padding-top:5px;border-top:1px dashed var(--line);
+}
 
 /* Fee Invoice — its own black-on-white look (no colored header/footer), separate from the Admission Form's. */
 .invoice-doc-print{max-width:480px;color:#000;font-size:11px;}
@@ -380,7 +407,7 @@ tbody tr:last-child td{border-bottom:none;}
   display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);
 }
 .inv-header-logo img,.inv-header-photo img{width:100%;height:100%;object-fit:cover;}
-.inv-header-center{flex:1;text-align:center;}
+.inv-header-center{flex:1;min-width:0;text-align:center;}
 .inv-school-name{font-family:'Fraunces',serif;font-size:16px;font-weight:800;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .inv-school-code{font-size:10px;font-weight:400;color:#000;}
 .inv-school-address{font-size:10px;color:#000;margin-top:2px;}
@@ -541,9 +568,9 @@ tbody tr:last-child td{border-bottom:none;}
 
 .field-row{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;gap:6px;}
 .field-row:last-child{border-bottom:none;}
-.field-row .fr-name{flex:1;text-align:left;color:#030404;}
+.field-row .fr-name{flex:1;text-align:left;color:var(--slate-soft);}
 .field-row .fr-colon{flex:0 0 14px;text-align:center;color:var(--slate-soft);}
-.field-row .fr-value{flex:1.4;text-align:justify;font-weight:600; padding: 8px;}
+.field-row .fr-value{flex:1.4;text-align:left;font-weight:600;}
 
 .kv-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;}
 .kv-row:last-child{border-bottom:none;}
@@ -602,7 +629,9 @@ function loadConfig() {
     facebookUrl: "",
     youtubeUrl: "",
     cashierName: "",
+    cashierSignUrl: "",
     principalName: "",
+    principalSignUrl: "",
   };
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
@@ -792,7 +821,7 @@ const SHEET_MAP = {
   fees: "MasterFees",
   committee: "Committee",
   seatplans: "SeatPlans",
-  invoices: "Invoices",
+  invoices: "Invoice",
 };
 
 /* =========================================================
@@ -1114,21 +1143,27 @@ function applicableFeeHeadsForEntry(entry, feeRules) {
 // Per-year-per-class-per-head breakdown: [{ year, className, section, head, charged, paid, waived, due }].
 // A student who changed class year to year gets one line group per (year, class) — each priced by
 // that year's Master Fee rules. Repeating the same class across two years produces two separate lines.
-function studentFeeBreakdown(student, feeRules) {
+// Payments/waivers are no longer stored on the student record at all — they live solely as
+// line items inside that student's saved Invoice records (Invoice sheet, one row per invoice).
+// This pulls and flattens all of a student's invoice line-items across their full invoice history.
+function studentPaidRows(student, invoices) {
+  const studentInvoices = (invoices || []).filter(inv => inv.studentId === student.id);
+  return studentInvoices.flatMap(inv => Array.isArray(inv.rows) ? inv.rows : []);
+}
+
+// Per-year-per-class-per-head breakdown: [{ year, className, section, head, charged, paid, waived, due }].
+// Due is the total charged (per Master Fee, year by year per the student's class history) minus
+// everything paid/waived to date across ALL of that student's invoices for that specific head+year+class.
+function studentFeeBreakdown(student, feeRules, invoices) {
   const history = getClassHistory(student);
-  const payments = student.payments || [];
-  const waivers = student.waivers || [];
+  const paidRows = studentPaidRows(student, invoices);
   const lines = [];
   history.forEach(entry => {
-    const isCurrentEntry = entry.className === student.className && entry.section === student.section;
     const heads = applicableFeeHeadsForEntry(entry, feeRules);
     heads.forEach(h => {
-      // Payments/waivers tagged with a year+class match that specific line;
-      // older, untagged records (from before class history existed) apply to the student's current class only.
-      const matchPayments = payments.filter(p => p.head === h.feeType && (p.year ? (String(p.year) === String(entry.year) && p.className === entry.className) : isCurrentEntry));
-      const matchWaivers = waivers.filter(w => w.head === h.feeType && (w.year ? (String(w.year) === String(entry.year) && w.className === entry.className) : isCurrentEntry));
-      const paid = sumBy(matchPayments, p => p.amount);
-      const waived = sumBy(matchWaivers, w => w.amount);
+      const matching = paidRows.filter(r => r.head === h.feeType && String(r.year) === String(entry.year) && r.className === entry.className);
+      const paid = sumBy(matching, r => r.payment);
+      const waived = sumBy(matching, r => r.waiver);
       const charged = Number(h.amount) || 0;
       lines.push({
         year: entry.year, className: entry.className, section: entry.section,
@@ -1139,8 +1174,8 @@ function studentFeeBreakdown(student, feeRules) {
   return lines;
 }
 
-function studentDueFromRules(student, feeRules) {
-  return sumBy(studentFeeBreakdown(student, feeRules), r => r.due);
+function studentDueFromRules(student, feeRules, invoices) {
+  return sumBy(studentFeeBreakdown(student, feeRules, invoices), r => r.due);
 }
 
 // Legacy fallback (kept for any old records without fee-rule linkage)
@@ -1218,12 +1253,13 @@ function Dashboard({ data, setActiveModule }) {
   const students = data.students || [];
   const teachers = data.teachers || [];
   const finance = data.finance || [];
+  const invoices = data.invoices || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
 
   const totalIncome = sumBy(finance.filter(f => f.type === "income"), f => f.amount);
   const totalExpense = sumBy(finance.filter(f => f.type === "expense"), f => f.amount);
-  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules));
+  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices));
   const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
 
   const monthIncome = sumBy(finance.filter(f => f.type === "income" && withinRange(f.date, "monthly")), f => f.amount);
@@ -1320,6 +1356,16 @@ function generateStudentId(existingStudents) {
   return `STU-${year}-${String(next).padStart(4, "0")}`;
 }
 
+function generateStaffId(existingTeachers) {
+  const nums = (existingTeachers || [])
+    .map(t => t.staffId || "")
+    .filter(id => id.startsWith("STF-"))
+    .map(id => parseInt(id.split("-")[1], 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `STF-${String(next).padStart(4, "0")}`;
+}
+
 function generateFormNo(existingStudents) {
   const nums = (existingStudents || [])
     .map(s => s.admissionFormNo || "")
@@ -1350,19 +1396,22 @@ function nextRollForClass(students, className, excludeId) {
 
 const emptyAddress = () => ({ co: "", village: "", union: "", ward: "", po: "", upazila: "", district: "" });
 
-const emptyStudent = (existingStudents) => ({
-  id: null, studentId: generateStudentId(existingStudents), admissionFormNo: generateFormNo(existingStudents),
-  name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
-  className: "One", section: SECTIONS[0], subjectGroup: SUBJECT_GROUPS[0],
-  roll: String(nextRollForClass(existingStudents, "One")), session: "",
-  admissionDate: new Date().toISOString().slice(0,10),
-  previousInstitute: "", previousClass: "",
-  bloodGroup: "", nidOrBirthNo: "", phone: "",
-  guardianName: "", guardianRelation: GUARDIAN_RELATIONS[0], guardianPhone: "",
-  presentAddress: emptyAddress(), permanentAddress: emptyAddress(), sameAsPresent: false,
-  photoUrl: "", status: "Active", payments: [], waivers: [],
-  classHistory: [{ year: String(CURRENT_YEAR), className: "One", section: SECTIONS[0] }],
-});
+const emptyStudent = (existingStudents) => {
+  const studentId = generateStudentId(existingStudents);
+  return {
+    id: studentId, studentId, admissionFormNo: generateFormNo(existingStudents),
+    name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
+    className: "One", section: SECTIONS[0], subjectGroup: SUBJECT_GROUPS[0],
+    roll: String(nextRollForClass(existingStudents, "One")), session: "",
+    admissionDate: new Date().toISOString().slice(0,10),
+    previousInstitute: "", previousClass: "",
+    bloodGroup: "", nidOrBirthNo: "", phone: "",
+    guardianName: "", guardianRelation: GUARDIAN_RELATIONS[0], guardianPhone: "",
+    presentAddress: emptyAddress(), permanentAddress: emptyAddress(), sameAsPresent: false,
+    photoUrl: "", status: "Active",
+    classHistory: [{ year: String(CURRENT_YEAR), className: "One", section: SECTIONS[0] }],
+  };
+};
 
 function StudentsModule({ data, save, remove, config }) {
   const [editing, setEditing] = useState(null);
@@ -1371,6 +1420,7 @@ function StudentsModule({ data, save, remove, config }) {
   const [printStudent, setPrintStudent] = useState(null);
 
   const students = data.students || [];
+  const invoices = data.invoices || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filtered = students.filter(s => {
@@ -1401,7 +1451,7 @@ function StudentsModule({ data, save, remove, config }) {
       </div>
 
       <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-        onEdit={openEdit} onDelete={(id) => remove("students", id)} onPrint={(s) => setPrintStudent(s)} feeRules={feeRules} config={config} />
+        onEdit={openEdit} onDelete={(id) => remove("students", id)} onPrint={(s) => setPrintStudent(s)} feeRules={feeRules} invoices={invoices} config={config} />
 
       {editing && (
         <StudentFormModal student={editing} students={students} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
@@ -1411,7 +1461,7 @@ function StudentsModule({ data, save, remove, config }) {
   );
 }
 
-function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onPrint, feeRules, config }) {
+function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onPrint, feeRules, invoices, config }) {
   function handlePrint() { window.print(); }
   return (
     <div className="card card-flush">
@@ -1438,7 +1488,7 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
             </thead>
             <tbody>
               {students.map(s => {
-                const due = studentDueFromRules(s, feeRules);
+                const due = studentDueFromRules(s, feeRules, invoices);
                 return (
                   <tr key={s.id}>
                     <td>
@@ -1760,8 +1810,14 @@ function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, wai
       </div>
 
       <div className="adm-signatures" style={{ marginTop: 40 }}>
-        <div className="adm-sig">Cashier{config.cashierName ? <><br/>{config.cashierName}</> : null}</div>
-        <div className="adm-sig">Principal{config.principalName ? <><br/>{config.principalName}</> : null}</div>
+        <div className="adm-sig">
+          {config.cashierSignUrl && <img src={config.cashierSignUrl} alt="" className="adm-sig-img" />}
+          Cashier{config.cashierName ? <><br/>{config.cashierName}</> : null}
+        </div>
+        <div className="adm-sig">
+          {config.principalSignUrl && <img src={config.principalSignUrl} alt="" className="adm-sig-img" />}
+          Principal{config.principalName ? <><br/>{config.principalName}</> : null}
+        </div>
       </div>
 
       <hr className="adm-divider inv-divider" style={{ marginTop: 14 }} />
@@ -1787,7 +1843,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
     || str(s.studentId).toLowerCase().includes(query.toLowerCase())
   ).slice(0, 20) : [];
 
-  const breakdown = selected ? studentFeeBreakdown(selected, feeRules) : [];
+  const breakdown = selected ? studentFeeBreakdown(selected, feeRules, invoices) : [];
   const lineKey = (r) => `${r.year}::${r.className}::${r.head}`;
   const rows = invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey);
   const subtotal = sumBy(rows, r => r.amountDue);
@@ -1799,28 +1855,21 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
     if (waiverTotal === 0 && paymentTotal === 0) { toast && toast("Enter a payment or waiver amount", "error"); return; }
     setSaving(true);
     const today = new Date().toISOString().slice(0,10);
-    const newPayments = rows.filter(r => r.payment > 0).map(r => ({ head: r.head, year: r.year, className: r.className, amount: r.payment, date: today }));
-    const newWaivers = rows.filter(r => r.waiver > 0).map(r => ({ head: r.head, year: r.year, className: r.className, amount: r.waiver, date: today }));
-    const updated = {
-      ...selected,
-      payments: [...(selected.payments || []), ...newPayments],
-      waivers: [...(selected.waivers || []), ...newWaivers],
-    };
-    const saved = await onSave(updated);
-    const finalStudent = saved || updated;
-    setSelected(finalStudent);
 
+    // Payments/waivers are never stored on the student record — they live only as line items
+    // inside this invoice (Invoice sheet). Due is always derived by summing a student's full
+    // invoice history, so nothing needs to be written back to the Students sheet here.
     const invoiceNo = generateInvoiceNo(invoices);
     const invoiceRecord = {
       id: null,
       invoiceNo,
-      studentId: finalStudent.id,
-      studentDisplayId: finalStudent.studentId,
-      studentName: finalStudent.name,
-      className: finalStudent.className,
-      section: finalStudent.section,
-      roll: finalStudent.roll,
-      photoUrl: finalStudent.photoUrl,
+      studentId: selected.id,
+      studentDisplayId: selected.studentId,
+      studentName: selected.name,
+      className: selected.className,
+      section: selected.section,
+      roll: selected.roll,
+      photoUrl: selected.photoUrl,
       date: today,
       rows,
       subtotal, waiverTotal, paymentTotal, dueAfter,
@@ -1994,11 +2043,12 @@ function AdmissionFormPrint({ student, config }) {
           <div className="adm-header-center">
             <div className="adm-school-name">
               {(config.schoolName || "School Name").toUpperCase()}
-              {config.instituteCode && <span className="adm-school-code"> ({config.instituteCode})</span>}
             </div>
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-            {(config.schoolEmail || phones[0]) && (
+            {(config.instituteCode || config.schoolEmail || phones[0]) && (
               <div className="adm-school-contact">
+                {config.instituteCode && <span>Code: {config.instituteCode}</span>}
+                {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
                 {config.schoolEmail && <span>Email: {config.schoolEmail}</span>}
                 {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
                 {phones[0] && <span>Mobile: {phones[0]}</span>}
@@ -2039,14 +2089,16 @@ function AdmissionFormPrint({ student, config }) {
       </p>
       <div className="adm-signatures">
         <div className="adm-sig">Class Teacher</div>
-        <div className="adm-sig">Principal{config.principalName ? <><br/>{config.principalName}</> : null}</div>
+        <div className="adm-sig">
+          {config.principalSignUrl && <img src={config.principalSignUrl} alt="" className="adm-sig-img" />}
+          Principal{config.principalName ? <><br/>{config.principalName}</> : null}
+        </div>
       </div>
 
       <div className="adm-footer">
         <div className="adm-slogan">Education is the backbone of a nation — building an enlightened generation</div>
-        <hr className="adm-divider" />
-        <div className="adm-credit">@Powered by: AM Shahed: 01605-721296</div>
       </div>
+      <div className="adm-credit-outside">@Powered by: AM Shahed: 01605-721296</div>
     </div>
   );
 }
@@ -2470,11 +2522,14 @@ function AllCardModule({ data, config }) {
 /* =========================================================
    TEACHERS MODULE
    ========================================================= */
-const emptyTeacher = () => ({
-  id: null, name: "", designation: "Assistant Teacher", subject: "", joinDate: new Date().toISOString().slice(0,10),
-  phone: "", email: "", address: "", nid: "", photoUrl: "",
-  basicSalary: "", allowance: "", paidAmount: "", status: "Active", resignDate: "", payments: [],
-});
+const emptyTeacher = (existingTeachers) => {
+  const staffId = generateStaffId(existingTeachers);
+  return {
+    id: staffId, staffId, name: "", designation: "Assistant Teacher", subject: "", joinDate: new Date().toISOString().slice(0,10),
+    phone: "", email: "", address: "", nid: "", photoUrl: "",
+    basicSalary: "", allowance: "", paidAmount: "", status: "Active", resignDate: "", payments: [],
+  };
+};
 
 function TeachersModule({ data, save, remove, config }) {
   const [tab, setTab] = useState("list");
@@ -2485,7 +2540,7 @@ function TeachersModule({ data, save, remove, config }) {
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
   const filtered = teachers.filter(t => !query || str(t.name).toLowerCase().includes(query.toLowerCase()));
 
-  function openNew() { setEditing(emptyTeacher()); }
+  function openNew() { setEditing(emptyTeacher(teachers)); }
   async function handleSave(record) { const saved = await save("teachers", record); setEditing(null); return saved; }
   function handlePrint() { window.print(); }
 
@@ -2517,12 +2572,13 @@ function TeachersModule({ data, save, remove, config }) {
           {filtered.length === 0 ? <EmptyState title="No staff records" sub="Add your first staff member." /> : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Name</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th className="no-print"></th></tr></thead>
+                <thead><tr><th>Staff ID</th><th>Name</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th className="no-print"></th></tr></thead>
                 <tbody>
                   {filtered.map(t => {
                     const due = teacherDueFromRules(t, teacherFeeRules);
                     return (
                       <tr key={t.id}>
+                        <td className="mono">{t.staffId || t.id}</td>
                         <td>{t.name}</td>
                         <td>{t.designation}</td>
                         <td>{t.subject || "—"}</td>
@@ -2580,6 +2636,7 @@ function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules })
     <Modal title={teacher.id ? "Edit Staff" : "Add Staff"} onClose={onClose} size="lg"
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
       <div className="form-grid">
+        <Field label="Staff ID" hint="auto-generated"><input type="text" value={form.staffId || form.id || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
         <Field label="Full Name" span2><input type="text" value={form.name} onChange={set("name")} /></Field>
         <Field label="Designation"><select value={form.designation} onChange={set("designation")}>{DESIGNATIONS.map(d => <option key={d}>{d}</option>)}</select></Field>
         <Field label="Subject"><select value={form.subject} onChange={set("subject")}><option value="">—</option>{SUBJECTS.map(s => <option key={s}>{s}</option>)}</select></Field>
@@ -2907,12 +2964,13 @@ function DueModule({ data, config }) {
   const [tab, setTab] = useState("students");
   const students = data.students || [];
   const teachers = data.teachers || [];
+  const invoices = data.invoices || [];
   const classFeeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
   const [classFilter, setClassFilter] = useState("");
 
   const classStudents = students.filter(s => !classFilter || s.className === classFilter);
-  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules), due: studentDueFromRules(s, classFeeRules) }));
+  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules, invoices), due: studentDueFromRules(s, classFeeRules, invoices) }));
   // union of all fee heads that appear for the selected class (as of today — i.e. current Master Fee setup)
   const allHeadsInView = [...new Set(studentRows.flatMap(s => s.breakdown.map(r => r.head)))];
 
@@ -3356,6 +3414,7 @@ function ReportsModule({ data }) {
   const finance = data.finance || [];
   const students = data.students || [];
   const teachers = data.teachers || [];
+  const invoices = data.invoices || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
 
@@ -3364,7 +3423,7 @@ function ReportsModule({ data }) {
   const expense = sumBy(filtered.filter(f => f.type === "expense"), f => f.amount);
   const net = income - expense;
 
-  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules));
+  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices));
   const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
 
   const headBreakdown = {};
@@ -3463,10 +3522,10 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           <PhotoBox label="Logo" folder="logo" config={form} existingUrl={form.schoolLogo} onUploaded={(url) => setForm(f => ({ ...f, schoolLogo: url }))} />
           <Field label="Facebook Page URL"><input type="text" value={form.facebookUrl || ""} onChange={set("facebookUrl")} placeholder="https://facebook.com/…" /></Field>
           <Field label="YouTube Channel URL"><input type="text" value={form.youtubeUrl || ""} onChange={set("youtubeUrl")} placeholder="https://youtube.com/…" /></Field>
-          <Field label="Cashier Name" hint="printed on invoice signature line"><input type="text" value={form.cashierName || ""} onChange={set("cashierName")} /></Field>
-          <Field label="Principal Name" hint="printed on invoice/admission form signature line"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
           <Field label="Cashier Name" hint="shown on Fee Invoice"><input type="text" value={form.cashierName || ""} onChange={set("cashierName")} /></Field>
-          <Field label="Principal Name" hint="shown on Fee Invoice"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
+          <PhotoBox label="Cashier Signature Image" folder="signatures" config={form} existingUrl={form.cashierSignUrl} onUploaded={(url) => setForm(f => ({ ...f, cashierSignUrl: url }))} />
+          <Field label="Principal Name" hint="shown on Fee Invoice / Admission Form"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
+          <PhotoBox label="Principal Signature Image" folder="signatures" config={form} existingUrl={form.principalSignUrl} onUploaded={(url) => setForm(f => ({ ...f, principalSignUrl: url }))} />
         </div>
         <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Settings"}</button>
       </div>
@@ -3544,7 +3603,22 @@ function MenuBar({ active, setActive, config, store }) {
 
   return (
     <div className="menubar no-print">
-      <div className="menubar-row">
+      {/* Desktop layout: hamburger (left) — institution name + code (center) — logo (right) */}
+      <div className="menubar-row menubar-row-desktop">
+        <button className="menubar-toggle" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
+          <IconWrap name={mobileOpen ? "x" : "menu"} />
+        </button>
+        <div className="menubar-desktop-name">
+          {(config.schoolName || "Vidyalaya").toUpperCase()}
+          {config.instituteCode && <span className="menubar-desktop-code"> ({config.instituteCode})</span>}
+        </div>
+        <div className="menubar-desktop-logo">
+          {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : <div className="menubar-brand-mark">V</div>}
+        </div>
+      </div>
+
+      {/* Mobile layout: unchanged — brand mark+text (left), hamburger toggle (right) */}
+      <div className="menubar-row menubar-row-mobile">
         <div className="menubar-brand">
           {config.schoolLogo ? (
             <img src={config.schoolLogo} alt="" className="menubar-brand-logo" />
@@ -3556,15 +3630,6 @@ function MenuBar({ active, setActive, config, store }) {
             <div className="menubar-brand-sub">{config.schoolName || "School Manager"}</div>
           </div>
         </div>
-
-        <nav className="menubar-nav desktop-nav">
-          {flatItems.map(item => (
-            <button key={item.key} className={`menubar-item ${active === item.key ? "active" : ""}`} onClick={() => pick(item.key)}>
-              <IconWrap name={item.icon} />
-              {item.label}
-            </button>
-          ))}
-        </nav>
 
         <button className="menubar-toggle" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
           <IconWrap name={mobileOpen ? "x" : "menu"} />
