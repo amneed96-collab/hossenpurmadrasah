@@ -418,7 +418,7 @@ tbody tr:last-child td{border-bottom:none;}
 .inv-meta-grid .field-row{font-size:11px;padding:2px 0;border-bottom:none;color:#000;}
 
 .inv-fee-table{width:100%;margin:0 0 10px;border-collapse:collapse;font-size:11.5px;color:#000;}
-.inv-fee-table thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.03em;color:#000;padding:5px 4px;border-bottom:1.5px solid #000;}
+.inv-fee-table thead th{text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:0.03em;color:#000;padding:5px 4px;border-bottom:1.5px solid #000;}
 .inv-fee-table tbody td{padding:6px 4px;border-bottom:1px dashed var(--line);color:#000;}
 .inv-fee-table tbody tr:last-child td{border-bottom:1px dashed var(--line);}
 .inv-summary{min-width:220px;color:#000;}
@@ -541,7 +541,7 @@ tbody tr:last-child td{border-bottom:none;}
   break-inside:avoid;page-break-inside:avoid;
 }
 .id-card-physical .icp-head{
-  background:var(--moss-deep);color:#fff;text-align:center;
+  background:#1a2b4a;color:#fff;text-align:center;
   padding:0.1in 0.12in 0.08in;flex-shrink:0;
 }
 .id-card-physical .icp-head .icp-school{
@@ -560,9 +560,9 @@ tbody tr:last-child td{border-bottom:none;}
 .id-card-physical .icp-sub{font-size:7pt;color:var(--slate-soft);text-align:center;margin-bottom:0.06in;}
 .id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;}
 .id-card-physical .icp-footer{
-  margin-top:auto;background:var(--gold);color:var(--moss-deep);
+  margin-top:auto;background:#1a2b4a;color:#fff;
   padding:0.06in 0.12in;text-align:center;
-  border-radius:0.5in 0.5in 0 0;
+  border-radius:0.06in 0.06in 0 0;
   font-size:7pt;font-weight:700;flex-shrink:0;white-space:nowrap;
 }
 
@@ -750,14 +750,14 @@ function IconWrap({ name, ...rest }) {
    DATA STORE — central hook wrapping Google Sheets as DB
    Collections: students, teachers, finance, fees, committee, seatplans
    ========================================================= */
-const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices"];
+const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices", "promotions", "classHistories"];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 function useDataStore(config) {
-  const [data, setData] = useState({ students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [] });
+  const [data, setData] = useState({ students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [] });
   const [status, setStatus] = useState("idle"); // idle | loading | ready | error | offline
   const toast = useToast();
 
@@ -822,6 +822,8 @@ const SHEET_MAP = {
   committee: "Committee",
   seatplans: "SeatPlans",
   invoices: "Invoice",
+  promotions: "Promotion",
+  classHistories: "ClassHistory",
 };
 
 /* =========================================================
@@ -1117,15 +1119,43 @@ function feeHeadsOf(row) {
   return Object.keys(row).filter(k => !FEE_META_KEYS.includes(k) && row[k] !== "" && row[k] !== null && row[k] !== undefined);
 }
 
-// A student's year-by-year class history drives which year's Master Fee rules apply.
-// Falls back to a single entry (their current class, dated to admission year) for
-// records created before class history existed, so nothing silently loses its fee link.
-function getClassHistory(student) {
-  if (Array.isArray(student.classHistory) && student.classHistory.length > 0) {
-    return student.classHistory;
+// Returns a student's CURRENT status — class, section, subject, roll, session — sourced from
+// their Promotion sheet record (kept up to date on every promotion) when one exists, falling
+// back to their original Admission Form values for students who somehow have no Promotion row yet.
+function getCurrentStatus(student, promotions) {
+  const promo = (promotions || []).find(p => p.studentId === student.id);
+  if (promo) {
+    return {
+      className: promo.className, section: promo.section,
+      subjectGroup: promo.subjectGroup, roll: promo.roll, session: promo.session,
+    };
   }
-  const fallbackYear = student.admissionDate ? new Date(student.admissionDate).getFullYear() : CURRENT_YEAR;
-  return [{ year: String(fallbackYear || CURRENT_YEAR), className: student.className, section: student.section }];
+  return {
+    className: student.className, section: student.section,
+    subjectGroup: student.subjectGroup, roll: student.roll, session: student.session,
+  };
+}
+
+function yearFromSession(session, fallback) {
+  if (!session) return fallback;
+  const match = String(session).match(/\d{4}/);
+  return match ? match[0] : String(session);
+}
+
+// A student's year-by-year class history drives which year's Master Fee rules apply.
+// Combines the archived ClassHistory sheet (one row per past promotion, i.e. what class they
+// were in before each promotion) with their current Promotion sheet record (what class they're
+// in now) — together these give the full year-by-year progression needed for fee calculation.
+function getClassHistory(student, promotions, classHistories) {
+  const admissionYear = student.admissionDate ? new Date(student.admissionDate).getFullYear() : CURRENT_YEAR;
+  const past = (classHistories || [])
+    .filter(h => h.studentId === student.id)
+    .map(h => ({ year: yearFromSession(h.session, String(admissionYear)), className: h.className, section: h.section }))
+    .filter(e => e.className);
+  const current = getCurrentStatus(student, promotions);
+  const currentEntry = { year: yearFromSession(current.session, String(CURRENT_YEAR)), className: current.className, section: current.section };
+  if (!currentEntry.className) return past.length ? past : [{ year: String(admissionYear), className: student.className, section: student.section }];
+  return [...past, currentEntry];
 }
 
 // Returns [{feeType, amount}] for one class-history entry (a specific year + class),
@@ -1152,10 +1182,10 @@ function studentPaidRows(student, invoices) {
 }
 
 // Per-year-per-class-per-head breakdown: [{ year, className, section, head, charged, paid, waived, due }].
-// Due is the total charged (per Master Fee, year by year per the student's class history) minus
-// everything paid/waived to date across ALL of that student's invoices for that specific head+year+class.
-function studentFeeBreakdown(student, feeRules, invoices) {
-  const history = getClassHistory(student);
+// Due is the total charged (per Master Fee, year by year per the student's Promotion/ClassHistory
+// progression) minus everything paid/waived to date across ALL of that student's invoices for that head+year+class.
+function studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories) {
+  const history = getClassHistory(student, promotions, classHistories);
   const paidRows = studentPaidRows(student, invoices);
   const lines = [];
   history.forEach(entry => {
@@ -1174,8 +1204,8 @@ function studentFeeBreakdown(student, feeRules, invoices) {
   return lines;
 }
 
-function studentDueFromRules(student, feeRules, invoices) {
-  return sumBy(studentFeeBreakdown(student, feeRules, invoices), r => r.due);
+function studentDueFromRules(student, feeRules, invoices, promotions, classHistories) {
+  return sumBy(studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories), r => r.due);
 }
 
 // Legacy fallback (kept for any old records without fee-rule linkage)
@@ -1254,12 +1284,14 @@ function Dashboard({ data, setActiveModule }) {
   const teachers = data.teachers || [];
   const finance = data.finance || [];
   const invoices = data.invoices || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
 
   const totalIncome = sumBy(finance.filter(f => f.type === "income"), f => f.amount);
   const totalExpense = sumBy(finance.filter(f => f.type === "expense"), f => f.amount);
-  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices));
+  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices, promotions, classHistories));
   const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
 
   const monthIncome = sumBy(finance.filter(f => f.type === "income" && withinRange(f.date, "monthly")), f => f.amount);
@@ -1414,6 +1446,7 @@ const emptyStudent = (existingStudents) => {
 };
 
 function StudentsModule({ data, save, remove, config }) {
+  const [tab, setTab] = useState("list");
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
@@ -1421,6 +1454,8 @@ function StudentsModule({ data, save, remove, config }) {
 
   const students = data.students || [];
   const invoices = data.invoices || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filtered = students.filter(s => {
@@ -1435,7 +1470,17 @@ function StudentsModule({ data, save, remove, config }) {
   function openNew() { setEditing(emptyStudent(students)); }
   function openEdit(s) { setEditing({ ...s }); }
   async function handleSave(record) {
+    const isNew = !students.find(s => s.id === record.id);
     const saved = await save("students", record);
+    // Every admission seeds a matching Promotion record — this is the single source of truth
+    // for the student's CURRENT class/roll/section/subject/session from here on.
+    if (isNew && saved) {
+      await save("promotions", {
+        id: saved.id, studentId: saved.id, name: saved.name,
+        roll: saved.roll, className: saved.className, section: saved.section,
+        subjectGroup: saved.subjectGroup, session: saved.session,
+      });
+    }
     setEditing(null);
     return saved;
   }
@@ -1445,13 +1490,24 @@ function StudentsModule({ data, save, remove, config }) {
       <div className="section-head">
         <div>
           <h2>Students</h2>
-          <p>All admissions submitted through the Admission Form.</p>
+          <p>All admissions submitted through the Admission Form, and yearly class promotions.</p>
         </div>
-        <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />New Admission</button>
+        {tab === "list" && <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />New Admission</button>}
       </div>
 
-      <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-        onEdit={openEdit} onDelete={(id) => remove("students", id)} onPrint={(s) => setPrintStudent(s)} feeRules={feeRules} invoices={invoices} config={config} />
+      <div className="tabs no-print">
+        <button className={`tab ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>All Students</button>
+        <button className={`tab ${tab === "promotion" ? "active" : ""}`} onClick={() => setTab("promotion")}>Promotion</button>
+      </div>
+
+      {tab === "list" && (
+        <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
+          onEdit={openEdit} onDelete={(id) => remove("students", id)} onPrint={(s) => setPrintStudent(s)} feeRules={feeRules} invoices={invoices}
+          promotions={promotions} classHistories={classHistories} config={config} />
+      )}
+      {tab === "promotion" && (
+        <PromotionTab students={students} promotions={promotions} save={save} config={config} />
+      )}
 
       {editing && (
         <StudentFormModal student={editing} students={students} onClose={() => setEditing(null)} onSave={handleSave} config={config} />
@@ -1461,7 +1517,7 @@ function StudentsModule({ data, save, remove, config }) {
   );
 }
 
-function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onPrint, feeRules, invoices, config }) {
+function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onPrint, feeRules, invoices, promotions, classHistories, config }) {
   function handlePrint() { window.print(); }
   return (
     <div className="card card-flush">
@@ -1488,7 +1544,7 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
             </thead>
             <tbody>
               {students.map(s => {
-                const due = studentDueFromRules(s, feeRules, invoices);
+                const due = studentDueFromRules(s, feeRules, invoices, promotions, classHistories);
                 return (
                   <tr key={s.id}>
                     <td>
@@ -1518,6 +1574,112 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// Promotion: pick a Class + Year to find every student currently there (via their Promotion
+// record), then bulk-assign each student's New Roll (and, if needed, New Section/Subject) for
+// the target New Class + New Year. Submitting archives each student's pre-promotion status into
+// ClassHistory, then updates their Promotion record to the new values.
+function PromotionTab({ students, promotions, save, config }) {
+  const [fromClass, setFromClass] = useState("One");
+  const [fromYear, setFromYear] = useState(String(CURRENT_YEAR));
+  const [toClass, setToClass] = useState("Two");
+  const [toYear, setToYear] = useState(String(CURRENT_YEAR + 1));
+  const [rowEdits, setRowEdits] = useState({}); // { studentId: { roll, section, subjectGroup } }
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const candidates = students
+    .map(s => ({ student: s, current: getCurrentStatus(s, promotions) }))
+    .filter(({ current }) => current.className === fromClass && yearFromSession(current.session, "") === fromYear);
+
+  function updateRow(studentId, key, val) {
+    setRowEdits(prev => ({ ...prev, [studentId]: { ...prev[studentId], [key]: val } }));
+  }
+  function getRowValue(studentId, key, fallback) {
+    return (rowEdits[studentId] && rowEdits[studentId][key] !== undefined) ? rowEdits[studentId][key] : fallback;
+  }
+
+  async function handlePromote() {
+    if (candidates.length === 0) { toast && toast("No students found for that class/year", "error"); return; }
+    setSaving(true);
+    for (const { student, current } of candidates) {
+      const newRoll = getRowValue(student.id, "roll", "");
+      const newSection = getRowValue(student.id, "section", toClass && SECTIONS.includes(current.section) ? current.section : SECTIONS[0]);
+      const newSubject = getRowValue(student.id, "subjectGroup", current.subjectGroup || SUBJECT_GROUPS[0]);
+
+      // Archive the pre-promotion state into ClassHistory (append-only log).
+      await save("classHistories", {
+        id: null, studentId: student.id, name: student.name,
+        className: current.className, roll: current.roll, section: current.section,
+        subjectGroup: current.subjectGroup, session: current.session,
+      });
+      // Update the Promotion record to the new class/year values.
+      await save("promotions", {
+        id: student.id, studentId: student.id, name: student.name,
+        roll: newRoll, className: toClass, section: newSection,
+        subjectGroup: newSubject, session: toYear,
+      });
+    }
+    setRowEdits({});
+    setSaving(false);
+    toast && toast(`Promoted ${candidates.length} student(s) to ${toClass} (${toYear})`, "success");
+  }
+
+  return (
+    <div>
+      <div className="card no-print" style={{ marginBottom: 16 }}>
+        <div className="form-grid cols-3">
+          <Field label="Current Class"><select value={fromClass} onChange={(e) => setFromClass(e.target.value)}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+          <Field label="Current Year"><input type="number" value={fromYear} onChange={(e) => setFromYear(e.target.value)} /></Field>
+          <div />
+          <Field label="New Class"><select value={toClass} onChange={(e) => setToClass(e.target.value)}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+          <Field label="New Year"><input type="number" value={toYear} onChange={(e) => setToYear(e.target.value)} /></Field>
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <button className="btn btn-primary" style={{ width: "100%" }} disabled={saving || candidates.length === 0} onClick={handlePromote}>
+              {saving ? "Promoting…" : `Promote ${candidates.length ? `(${candidates.length})` : ""}`}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card card-flush">
+        {candidates.length === 0 ? (
+          <EmptyState title="No students found" sub={`No students are currently in ${fromClass} for year ${fromYear}.`} />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>Name</th><th>Current Roll</th><th>Current Section</th><th>Current Subject</th><th>New Roll</th><th>New Section</th><th>New Subject</th></tr>
+              </thead>
+              <tbody>
+                {candidates.map(({ student, current }) => (
+                  <tr key={student.id}>
+                    <td className="mono">{student.studentId}</td>
+                    <td>{student.name}</td>
+                    <td className="mono">{current.roll || "—"}</td>
+                    <td>{current.section || "—"}</td>
+                    <td>{current.subjectGroup || "—"}</td>
+                    <td><input type="text" style={{ width: 80, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "roll", "")} onChange={(e) => updateRow(student.id, "roll", e.target.value)} placeholder="Roll" /></td>
+                    <td>
+                      <select style={{ padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "section", current.section)} onChange={(e) => updateRow(student.id, "section", e.target.value)}>
+                        {SECTIONS.map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td>
+                      <select style={{ padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "subjectGroup", current.subjectGroup || SUBJECT_GROUPS[0])} onChange={(e) => updateRow(student.id, "subjectGroup", e.target.value)}>
+                        {SUBJECT_GROUPS.map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1558,6 +1720,8 @@ function FeeInvoiceModule({ data, save, remove, config }) {
 
   const students = data.students || [];
   const invoices = data.invoices || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filteredInvoices = invoices.filter(inv =>
@@ -1628,13 +1792,13 @@ function FeeInvoiceModule({ data, save, remove, config }) {
       </div>
 
       {formOpen && (
-        <StudentInvoiceModal students={students} config={config} feeRules={feeRules} invoices={invoices}
+        <StudentInvoiceModal students={students} config={config} feeRules={feeRules} invoices={invoices} promotions={promotions} classHistories={classHistories}
           onSave={handleSaveStudent} saveInvoice={handleSaveInvoice} onClose={() => setFormOpen(false)} />
       )}
       {editInvoice && (
         <StudentInvoiceModal students={students}
           initialStudent={students.find(s => s.id === editInvoice.studentId) || null}
-          config={config} feeRules={feeRules} invoices={invoices}
+          config={config} feeRules={feeRules} invoices={invoices} promotions={promotions} classHistories={classHistories}
           onSave={handleSaveStudent} saveInvoice={handleSaveInvoice} onClose={() => setEditInvoice(null)} />
       )}
       {printInvoice && (
@@ -1785,7 +1949,7 @@ function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, wai
 
       <table className="inv-fee-table">
         <thead>
-          <tr><th>Sl</th><th>Description</th><th style={{ textAlign: "right" }}>Amount Due</th><th style={{ textAlign: "right" }}>Waiver</th><th style={{ textAlign: "right" }}>Payment</th></tr>
+          <tr><th>Sl</th><th>Description</th><th>Amount Due</th><th>Waiver</th><th>Payment</th></tr>
         </thead>
         <tbody>
           {rows.map(r => (
@@ -1826,7 +1990,7 @@ function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, wai
   );
 }
 
-function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoices, onSave, saveInvoice, onClose }) {
+function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoices, promotions, classHistories, onSave, saveInvoice, onClose }) {
   const [selected, setSelected] = useState(initialStudent || null);
   const [query, setQuery] = useState("");
   const [payAmounts, setPayAmounts] = useState({}); // { lineKey: amountString }
@@ -1843,7 +2007,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
     || str(s.studentId).toLowerCase().includes(query.toLowerCase())
   ).slice(0, 20) : [];
 
-  const breakdown = selected ? studentFeeBreakdown(selected, feeRules, invoices) : [];
+  const breakdown = selected ? studentFeeBreakdown(selected, feeRules, invoices, promotions, classHistories) : [];
   const lineKey = (r) => `${r.year}::${r.className}::${r.head}`;
   const rows = invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey);
   const subtotal = sumBy(rows, r => r.amountDue);
@@ -1937,7 +2101,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
           ) : (
             <div className="table-wrap">
               <table style={{ width: "100%", marginBottom: 16 }}>
-                <thead><tr><th>Sl</th><th>Description</th><th style={{ textAlign: "right" }}>Amount Due</th><th>Waiver</th><th>Payment</th></tr></thead>
+                <thead><tr><th style={{ textAlign: "center" }}>Sl</th><th style={{ textAlign: "center" }}>Description</th><th style={{ textAlign: "center" }}>Amount Due</th><th style={{ textAlign: "center" }}>Waiver</th><th style={{ textAlign: "center" }}>Payment</th></tr></thead>
                 <tbody>
                   {breakdown.map((r, i) => {
                     const key = lineKey(r);
@@ -1950,12 +2114,12 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
                         <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
                         <td>
                           {r.due > 0 ? (
-                            <input type="number" placeholder="0" value={waiverAmounts[key] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                            <input type="number" placeholder="0" value={waiverAmounts[key] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, textAlign: "center" }} />
                           ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
                         </td>
                         <td>
                           {r.due > 0 ? (
-                            <input type="number" placeholder="0" value={payAmounts[key] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }} />
+                            <input type="number" placeholder="0" value={payAmounts[key] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, textAlign: "center" }} />
                           ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
                         </td>
                       </tr>
@@ -2965,12 +3129,16 @@ function DueModule({ data, config }) {
   const students = data.students || [];
   const teachers = data.teachers || [];
   const invoices = data.invoices || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
   const classFeeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
   const [classFilter, setClassFilter] = useState("");
 
-  const classStudents = students.filter(s => !classFilter || s.className === classFilter);
-  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules, invoices), due: studentDueFromRules(s, classFeeRules, invoices) }));
+  // Filter by CURRENT class (from the Promotion record), not the original admission-time class,
+  // so a promoted student correctly shows up under their new class here.
+  const classStudents = students.filter(s => !classFilter || getCurrentStatus(s, promotions).className === classFilter);
+  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules, invoices, promotions, classHistories), due: studentDueFromRules(s, classFeeRules, invoices, promotions, classHistories) }));
   // union of all fee heads that appear for the selected class (as of today — i.e. current Master Fee setup)
   const allHeadsInView = [...new Set(studentRows.flatMap(s => s.breakdown.map(r => r.head)))];
 
@@ -3415,6 +3583,8 @@ function ReportsModule({ data }) {
   const students = data.students || [];
   const teachers = data.teachers || [];
   const invoices = data.invoices || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
 
@@ -3423,7 +3593,7 @@ function ReportsModule({ data }) {
   const expense = sumBy(filtered.filter(f => f.type === "expense"), f => f.amount);
   const net = income - expense;
 
-  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices));
+  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices, promotions, classHistories));
   const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
 
   const headBreakdown = {};
