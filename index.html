@@ -1582,13 +1582,86 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
 // record), then bulk-assign each student's New Roll (and, if needed, New Section/Subject) for
 // the target New Class + New Year. Submitting archives each student's pre-promotion status into
 // ClassHistory, then updates their Promotion record to the new values.
+// The Promotion tab itself is a browsable list of every student's CURRENT status (from the
+// Promotion sheet) — search box, class filter, and print, mirroring All Students. Actually
+// changing anyone's class/roll happens through the separate Promotion Form (opened via button).
 function PromotionTab({ students, promotions, save, config }) {
+  const [query, setQuery] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+
+  const rows = students.map(s => ({ student: s, current: getCurrentStatus(s, promotions) }));
+  const filtered = rows.filter(({ student, current }) => {
+    const matchQ = !query
+      || str(student.name).toLowerCase().includes(query.toLowerCase())
+      || str(current.roll).toLowerCase().includes(query.toLowerCase())
+      || str(student.studentId).toLowerCase().includes(query.toLowerCase());
+    const matchC = !classFilter || current.className === classFilter;
+    return matchQ && matchC;
+  });
+
+  function handlePrint() { window.print(); }
+
+  return (
+    <div>
+      <div className="no-print" style={{ marginBottom: 14, display: "flex", justifyContent: "flex-end" }}>
+        <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Icon.plus />Open Promotion Form</button>
+      </div>
+
+      <div className="card card-flush">
+        <div className="no-print" style={{ padding: "16px 18px 0" }}>
+          <div className="search-row">
+            <input className="search-input" placeholder="Search by name, roll, or Student ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+              <option value="">All Classes</option>
+              {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print List</button>
+          </div>
+        </div>
+        {filtered.length === 0 ? (
+          <EmptyState title="No students found" sub="Try adjusting filters." />
+        ) : (
+          <div className="table-wrap">
+            <PrintDocHead config={config} headline={`Student Status${classFilter ? ` — ${classFilter}` : ""}`} />
+            <table>
+              <thead><tr><th>Student ID</th><th>Name</th><th>Class</th><th>Section</th><th>Subject</th><th>Roll</th><th>Session</th></tr></thead>
+              <tbody>
+                {filtered.map(({ student, current }) => (
+                  <tr key={student.id}>
+                    <td className="mono">{student.studentId}</td>
+                    <td>{student.name}</td>
+                    <td>{current.className || "—"}</td>
+                    <td>{current.section || "—"}</td>
+                    <td>{current.subjectGroup || "—"}</td>
+                    <td className="mono">{current.roll || "—"}</td>
+                    <td>{current.session || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {formOpen && (
+        <PromotionFormModal students={students} promotions={promotions} save={save} onClose={() => setFormOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+// The actual promotion action: pick Current Class+Year to find matching students, set each
+// one's New Roll (and Section/Subject if needed) for the New Class+Year, then submit. After
+// submitting, shows the updated (post-promotion) info for confirmation before closing.
+function PromotionFormModal({ students, promotions, save, onClose }) {
   const [fromClass, setFromClass] = useState("One");
   const [fromYear, setFromYear] = useState(String(CURRENT_YEAR));
   const [toClass, setToClass] = useState("Two");
   const [toYear, setToYear] = useState(String(CURRENT_YEAR + 1));
   const [rowEdits, setRowEdits] = useState({}); // { studentId: { roll, section, subjectGroup } }
   const [saving, setSaving] = useState(false);
+  const [promoted, setPromoted] = useState(null); // array of updated records, shown after submit
   const toast = useToast();
 
   const candidates = students
@@ -1605,9 +1678,10 @@ function PromotionTab({ students, promotions, save, config }) {
   async function handlePromote() {
     if (candidates.length === 0) { toast && toast("No students found for that class/year", "error"); return; }
     setSaving(true);
+    const updatedRecords = [];
     for (const { student, current } of candidates) {
       const newRoll = getRowValue(student.id, "roll", "");
-      const newSection = getRowValue(student.id, "section", toClass && SECTIONS.includes(current.section) ? current.section : SECTIONS[0]);
+      const newSection = getRowValue(student.id, "section", SECTIONS.includes(current.section) ? current.section : SECTIONS[0]);
       const newSubject = getRowValue(student.id, "subjectGroup", current.subjectGroup || SUBJECT_GROUPS[0]);
 
       // Archive the pre-promotion state into ClassHistory (append-only log).
@@ -1617,70 +1691,100 @@ function PromotionTab({ students, promotions, save, config }) {
         subjectGroup: current.subjectGroup, session: current.session,
       });
       // Update the Promotion record to the new class/year values.
-      await save("promotions", {
+      const updated = {
         id: student.id, studentId: student.id, name: student.name,
         roll: newRoll, className: toClass, section: newSection,
         subjectGroup: newSubject, session: toYear,
-      });
+      };
+      await save("promotions", updated);
+      updatedRecords.push(updated);
     }
     setRowEdits({});
     setSaving(false);
+    setPromoted(updatedRecords);
     toast && toast(`Promoted ${candidates.length} student(s) to ${toClass} (${toYear})`, "success");
   }
 
   return (
-    <div>
-      <div className="card no-print" style={{ marginBottom: 16 }}>
-        <div className="form-grid cols-3">
-          <Field label="Current Class"><select value={fromClass} onChange={(e) => setFromClass(e.target.value)}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-          <Field label="Current Year"><input type="number" value={fromYear} onChange={(e) => setFromYear(e.target.value)} /></Field>
-          <div />
-          <Field label="New Class"><select value={toClass} onChange={(e) => setToClass(e.target.value)}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-          <Field label="New Year"><input type="number" value={toYear} onChange={(e) => setToYear(e.target.value)} /></Field>
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <button className="btn btn-primary" style={{ width: "100%" }} disabled={saving || candidates.length === 0} onClick={handlePromote}>
-              {saving ? "Promoting…" : `Promote ${candidates.length ? `(${candidates.length})` : ""}`}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="card card-flush">
-        {candidates.length === 0 ? (
-          <EmptyState title="No students found" sub={`No students are currently in ${fromClass} for year ${fromYear}.`} />
-        ) : (
+    <Modal title="Promotion Form" onClose={onClose} size="lg"
+      footer={promoted ? (
+        <button className="btn btn-primary" onClick={onClose}>Done</button>
+      ) : (
+        <>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" disabled={saving || candidates.length === 0} onClick={handlePromote}>
+            {saving ? "Promoting…" : `Promote ${candidates.length ? `(${candidates.length})` : ""}`}
+          </button>
+        </>
+      )}>
+      {promoted ? (
+        <div>
+          <EmptyState title="Promotion complete" sub={`${promoted.length} student(s) updated — here is their new status.`} />
           <div className="table-wrap">
             <table>
-              <thead>
-                <tr><th>ID</th><th>Name</th><th>Current Roll</th><th>Current Section</th><th>Current Subject</th><th>New Roll</th><th>New Section</th><th>New Subject</th></tr>
-              </thead>
+              <thead><tr><th>Student ID</th><th>Name</th><th>New Class</th><th>New Section</th><th>New Subject</th><th>New Roll</th><th>New Session</th></tr></thead>
               <tbody>
-                {candidates.map(({ student, current }) => (
-                  <tr key={student.id}>
-                    <td className="mono">{student.studentId}</td>
-                    <td>{student.name}</td>
-                    <td className="mono">{current.roll || "—"}</td>
-                    <td>{current.section || "—"}</td>
-                    <td>{current.subjectGroup || "—"}</td>
-                    <td><input type="text" style={{ width: 80, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "roll", "")} onChange={(e) => updateRow(student.id, "roll", e.target.value)} placeholder="Roll" /></td>
-                    <td>
-                      <select style={{ padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "section", current.section)} onChange={(e) => updateRow(student.id, "section", e.target.value)}>
-                        {SECTIONS.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    </td>
-                    <td>
-                      <select style={{ padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "subjectGroup", current.subjectGroup || SUBJECT_GROUPS[0])} onChange={(e) => updateRow(student.id, "subjectGroup", e.target.value)}>
-                        {SUBJECT_GROUPS.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    </td>
+                {promoted.map(p => (
+                  <tr key={p.id}>
+                    <td className="mono">{p.studentId}</td>
+                    <td>{p.name}</td>
+                    <td>{p.className}</td>
+                    <td>{p.section}</td>
+                    <td>{p.subjectGroup}</td>
+                    <td className="mono">{p.roll || "—"}</td>
+                    <td>{p.session}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      ) : (
+        <div>
+          <div className="form-grid cols-3" style={{ marginBottom: 16 }}>
+            <Field label="Current Class"><select value={fromClass} onChange={(e) => setFromClass(e.target.value)}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+            <Field label="Current Year"><input type="number" value={fromYear} onChange={(e) => setFromYear(e.target.value)} /></Field>
+            <div />
+            <Field label="New Class"><select value={toClass} onChange={(e) => setToClass(e.target.value)}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+            <Field label="New Year"><input type="number" value={toYear} onChange={(e) => setToYear(e.target.value)} /></Field>
+          </div>
+
+          {candidates.length === 0 ? (
+            <EmptyState title="No students found" sub={`No students are currently in ${fromClass} for year ${fromYear}.`} />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>ID</th><th>Name</th><th>Current Roll</th><th>Current Section</th><th>Current Subject</th><th>New Roll</th><th>New Section</th><th>New Subject</th></tr>
+                </thead>
+                <tbody>
+                  {candidates.map(({ student, current }) => (
+                    <tr key={student.id}>
+                      <td className="mono">{student.studentId}</td>
+                      <td>{student.name}</td>
+                      <td className="mono">{current.roll || "—"}</td>
+                      <td>{current.section || "—"}</td>
+                      <td>{current.subjectGroup || "—"}</td>
+                      <td><input type="text" style={{ width: 80, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "roll", "")} onChange={(e) => updateRow(student.id, "roll", e.target.value)} placeholder="Roll" /></td>
+                      <td>
+                        <select style={{ padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "section", current.section)} onChange={(e) => updateRow(student.id, "section", e.target.value)}>
+                          {SECTIONS.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </td>
+                      <td>
+                        <select style={{ padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} value={getRowValue(student.id, "subjectGroup", current.subjectGroup || SUBJECT_GROUPS[0])} onChange={(e) => updateRow(student.id, "subjectGroup", e.target.value)}>
+                          {SUBJECT_GROUPS.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }
 
