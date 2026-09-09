@@ -398,8 +398,15 @@ tbody tr:last-child td{border-bottom:none;}
 }
 
 /* Fee Invoice — its own black-on-white look (no colored header/footer), separate from the Admission Form's. */
-.invoice-doc-print{max-width:480px;color:#000;font-size:11px;}
+.invoice-doc-print{max-width:480px;color:#000;font-size:11px;position:relative;}
 @media print{ .invoice-doc-print{box-shadow:none;border:none;padding:0;} }
+.inv-watermark{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:55%;pointer-events:none;z-index:0;
+}
+.inv-watermark img{width:100%;opacity:0.08;display:block;}
+.inv-header,.inv-meta-grid,.inv-fee-table,.adm-signatures,.inv-credit{position:relative;z-index:1;}
+.invoice-doc-print > div:not(.inv-watermark){position:relative;z-index:1;}
 .inv-header{color:#000;}
 .inv-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
 .inv-header-logo,.inv-header-photo{
@@ -547,6 +554,7 @@ tbody tr:last-child td{border-bottom:none;}
 .id-card-physical .icp-head .icp-school{
   font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;
   color:var(--gold);text-shadow:0 1px 1px rgba(0,0,0,0.25);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .id-card-physical .icp-head .icp-address{font-size:6pt;opacity:0.75;margin-top:1px;}
 .id-card-physical .icp-head .icp-doctype{font-family:'Fraunces',serif;font-size:10.5pt;font-weight:600;margin-top:1px;}
@@ -556,15 +564,16 @@ tbody tr:last-child td{border-bottom:none;}
   display:flex;align-items:center;justify-content:center;
 }
 .id-card-physical .icp-photo img{width:100%;height:100%;object-fit:cover;}
-.id-card-physical .icp-name{font-weight:800;font-size:11pt;text-align:center;padding:0 0.1in;}
+.id-card-physical .icp-name{font-weight:800;font-size:11pt;text-align:center;padding:0 0.1in;margin-bottom:0.08in;}
 .id-card-physical .icp-sub{font-size:7pt;color:var(--slate-soft);text-align:center;margin-bottom:0.06in;}
 .id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;}
 .id-card-physical .icp-footer{
   margin-top:auto;background:#1a2b4a;color:#fff;
-  padding:0.06in 0.12in;text-align:center;
+  padding:0.05in 0.12in;text-align:center;
   border-radius:0.06in 0.06in 0 0;
-  font-size:7pt;font-weight:700;flex-shrink:0;white-space:nowrap;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
 }
+.id-card-physical .icp-qr{width:0.42in;height:0.42in;background:#fff;border-radius:2px;padding:1px;}
 
 .field-row{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;gap:6px;}
 .field-row:last-child{border-bottom:none;}
@@ -593,6 +602,28 @@ tbody tr:last-child td{border-bottom:none;}
   animation:spin 0.8s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg);}}
+
+/* Public Student Status page (opened via ID card QR code) */
+.status-page{
+  min-height:100vh;background:var(--paper);padding:24px 14px;display:flex;justify-content:center;
+}
+.status-card{
+  background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-md);padding:24px 20px;max-width:420px;width:100%;height:fit-content;
+}
+.status-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.status-logo{width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0;}
+.status-school-name{font-family:'Fraunces',serif;font-size:16px;font-weight:700;}
+.status-photo-wrap{display:flex;justify-content:center;margin-bottom:10px;}
+.status-photo{width:84px;height:84px;border-radius:12px;object-fit:cover;border:2px solid var(--line);}
+.status-student-name{text-align:center;font-size:19px;margin-bottom:2px;}
+.status-sub{text-align:center;font-size:12px;color:var(--slate-soft);font-family:'IBM Plex Mono',monospace;margin-bottom:16px;}
+.status-section{margin-bottom:14px;}
+.status-section-title{
+  font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;
+  color:var(--moss-deep);margin:12px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line);
+}
+.status-summary{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);}
 </style>
 </head>
 <body>
@@ -1088,7 +1119,7 @@ const GENDERS = ["Male", "Female", "Other"];
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const DESIGNATIONS = ["Principal", "Vice Principal", "Senior Teacher", "Assistant Teacher", "Librarian", "Accountant", "Office Staff", "Lab Assistant", "Peon/Support Staff"];
 const SUBJECTS = ["Bangla", "English", "Mathematics", "Science", "Social Science", "Religion", "ICT", "Physical Education", "Arts", "General"];
-const INCOME_HEADS = ["Admission Fee", "Tuition Fee", "Exam Fee", "Session Fee", "Transport Fee", "Hostel Fee", "Donation", "Other Income"];
+const INCOME_HEADS = ["Admission Fee", "Tuition Fee", "Semester Exam Fee", "Model Exam Fee", "Session Fee", "Transport Fee", "Hostel Fee", "Donation", "Other Income"];
 const EXPENSE_HEADS = ["Salary", "Utility Bill", "Rent", "Maintenance", "Stationery", "Transport", "Furniture", "Event/Function", "Other Expense"];
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "Mobile Banking (bKash/Nagad)", "Cheque"];
 
@@ -2022,6 +2053,9 @@ function invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey)
 function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, waiverTotal, paymentTotal, dueAfter }) {
   return (
     <div className="doc-preview invoice-doc-print">
+      {config.schoolLogo && (
+        <div className="inv-watermark"><img src={config.schoolLogo} alt="" /></div>
+      )}
       <div className="inv-header">
         <div className="inv-header-row">
           <div className="inv-header-logo">
@@ -2102,7 +2136,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [submittedInvoice, setSubmittedInvoice] = useState(null);
-  usePrintChrome({ hideFooter: true }); // invoice prints its own dashed-line + credit under the signatures
+  usePrintChrome({ hideWatermark: true, hideFooter: true }); // invoice draws its own centered watermark + credit line
   const toast = useToast();
 
   const matches = query.trim() ? students.filter(s =>
@@ -2249,7 +2283,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
 }
 
 function SavedInvoicePrintModal({ invoice, config, onClose }) {
-  usePrintChrome({ hideFooter: true }); // invoice prints its own dashed-line + credit under the signatures
+  usePrintChrome({ hideWatermark: true, hideFooter: true }); // invoice draws its own centered watermark + credit line
   const student = { studentId: invoice.studentDisplayId, name: invoice.studentName, className: invoice.className, roll: invoice.roll, photoUrl: invoice.photoUrl };
   const legacyRows = !Array.isArray(invoice.rows) && Array.isArray(invoice.breakdownSnapshot)
     ? invoice.breakdownSnapshot.map((r, i) => ({ no: i + 1, description: r.head, amountDue: r.due, waiver: r.waived, payment: r.paid }))
@@ -2565,7 +2599,14 @@ function DocShell({ title, onClose, children, filename }) {
   );
 }
 
+function studentStatusUrl(studentId) {
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?sid=${encodeURIComponent(studentId)}`;
+}
+
 function StudentIdCardPhysical({ student, config }) {
+  const phone = (config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "";
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&margin=0&data=${encodeURIComponent(studentStatusUrl(student.studentId))}`;
   return (
     <div className="id-card-physical">
       <div className="icp-head">
@@ -2583,9 +2624,10 @@ function StudentIdCardPhysical({ student, config }) {
         <FieldRow name="Class" value={student.className || "—"} />
         <FieldRow name="Section" value={student.section || "—"} />
         <FieldRow name="Session" value={student.session || "—"} />
+        {phone && <FieldRow name="Mobile" value={phone} />}
       </div>
       <div className="icp-footer">
-        Ins: {(config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "—"}
+        <img className="icp-qr" src={qrUrl} alt="Scan for status" />
       </div>
     </div>
   );
@@ -4006,7 +4048,125 @@ function AppShell() {
   );
 }
 
+// Public, read-only status page — this is what the ID card's QR code links to.
+// No login, no menu: just the student's admission date, current class, and fee status,
+// fetched fresh from the same Google Sheet the admin app uses.
+function StudentStatusPage({ studentId }) {
+  const [state, setState] = useState({ loading: true, error: null, student: null, config: null, breakdown: [] });
+
+  useEffect(() => {
+    const config = loadConfig();
+    if (!config.sheetsUrl) {
+      setState({ loading: false, error: "This school hasn't connected Google Sheets yet.", student: null, config, breakdown: [] });
+      return;
+    }
+    (async () => {
+      try {
+        const res = await SheetsAPI.bulkGet(config, ["Students", "MasterFees", "Invoice", "Promotion", "ClassHistory"]);
+        const students = res.data["Students"] || [];
+        const feeRulesAll = res.data["MasterFees"] || [];
+        const invoices = res.data["Invoice"] || [];
+        const promotions = res.data["Promotion"] || [];
+        const classHistories = res.data["ClassHistory"] || [];
+        const student = students.find(s => s.studentId === studentId || s.id === studentId);
+        if (!student) {
+          setState({ loading: false, error: "No student found for this ID.", student: null, config, breakdown: [] });
+          return;
+        }
+        const feeRules = feeRulesAll.filter(f => f.kind === "class");
+        const breakdown = studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories);
+        const current = getCurrentStatus(student, promotions);
+        setState({ loading: false, error: null, student: { ...student, current }, config, breakdown });
+      } catch (err) {
+        setState({ loading: false, error: "Couldn't load status: " + err.message, student: null, config, breakdown: [] });
+      }
+    })();
+  }, [studentId]);
+
+  if (state.loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <div>Loading student status…</div>
+      </div>
+    );
+  }
+
+  const config = state.config || {};
+
+  if (state.error || !state.student) {
+    return (
+      <div className="status-page">
+        <div className="status-card">
+          <EmptyState title="Couldn't load status" sub={state.error || "Please try again."} />
+        </div>
+      </div>
+    );
+  }
+
+  const { student, breakdown } = state;
+  const totalCharged = sumBy(breakdown, r => r.charged);
+  const totalPaid = sumBy(breakdown, r => r.paid);
+  const totalWaived = sumBy(breakdown, r => r.waived);
+  const totalDue = sumBy(breakdown, r => r.due);
+
+  return (
+    <div className="status-page">
+      <div className="status-card">
+        <div className="status-header">
+          {config.schoolLogo && <img src={config.schoolLogo} alt="" className="status-logo" />}
+          <div className="status-school-name">{config.schoolName || "School"}</div>
+        </div>
+        <div className="status-photo-wrap">
+          {student.photoUrl ? <img src={student.photoUrl} alt="" className="status-photo" /> : null}
+        </div>
+        <h2 className="status-student-name">{student.name}</h2>
+        <div className="status-sub">{student.studentId}</div>
+
+        <div className="status-section">
+          <FieldRow name="Admission Date" value={fmtDate(student.admissionDate)} />
+          <FieldRow name="Current Class" value={`${student.current.className || "—"} — ${student.current.section || "—"}`} />
+          <FieldRow name="Roll" value={student.current.roll || "—"} />
+          <FieldRow name="Session" value={student.current.session || "—"} />
+        </div>
+
+        <div className="status-section-title">Fee Status (Admission to Date)</div>
+        {breakdown.length === 0 ? (
+          <EmptyState title="No fee records yet" sub="" />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
+              <tbody>
+                {breakdown.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.head}{r.year ? ` (${r.year})` : ""}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="status-summary">
+          <FieldRow name="Total Fee" value={"৳" + money(totalCharged)} />
+          <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
+          <FieldRow name="Total Waiver" value={"৳" + money(totalWaived)} />
+          <FieldRow name="Total Due" value={<strong style={{ color: totalDue > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(totalDue)}</strong>} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Root() {
+  const params = new URLSearchParams(window.location.search);
+  const sid = params.get("sid");
+  if (sid) {
+    return <StudentStatusPage studentId={sid} />;
+  }
   return (
     <ToastProvider>
       <AppShell />
