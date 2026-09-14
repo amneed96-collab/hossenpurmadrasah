@@ -224,6 +224,8 @@ input,select,textarea{font-family:inherit;}
 /* ===== Forms ===== */
 .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 16px;}
 .form-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.form-grid.cols-4{grid-template-columns:repeat(4,1fr);}
+@media (max-width:640px){ .form-grid.cols-4{grid-template-columns:repeat(2,1fr);} }
 .form-field{display:flex;flex-direction:column;gap:5px;}
 .form-field.span-2{grid-column:span 2;}
 .form-field label{font-size:12px;font-weight:600;color:var(--slate);}
@@ -339,7 +341,7 @@ tbody tr:last-child td{border-bottom:none;}
   .modal-head,.modal-foot{display:none;}
   .modal-body{padding:0;max-height:none;overflow:visible;position:relative;}
   /* Landscape A4 page for wide tabular data (Due List, Master Fee grid) */
-  @page landscape-a4{size:A4 landscape;margin:12mm;}
+  @page landscape-a4{size:A4 landscape;margin:0.5in;}
   .print-landscape{page:landscape-a4;}
   /* On-screen page titles/descriptions are redundant with PrintDocHead's institution header */
   .section-head{display:none !important;}
@@ -473,12 +475,12 @@ tbody tr:last-child td{border-bottom:none;}
   .id-card-grid{gap:0.2in;}
 }
 
-/* ===== Admit Card — half A4 landscape (≈210mm × 148mm, two per A4 landscape sheet) ===== */
-.admit-card-grid{display:flex;flex-direction:column;gap:6mm;justify-content:flex-start;}
+/* ===== Admit Card — half A4, Portrait (≈148mm × 210mm / A5 portrait, two per A4 sheet) ===== */
+.admit-card-grid{display:flex;flex-wrap:wrap;gap:6mm;justify-content:flex-start;}
 .admit-card-physical{
-  width:210mm;height:148mm;background:#fff;
+  width:148mm;height:210mm;background:#fff;
   border:1px solid var(--line);box-shadow:var(--shadow-sm);
-  break-inside:avoid;page-break-inside:avoid;padding:5mm;
+  break-inside:avoid;page-break-inside:avoid;padding:6mm;
 }
 @media print{
   .admit-card-physical{box-shadow:none;}
@@ -486,21 +488,21 @@ tbody tr:last-child td{border-bottom:none;}
   .admit-card-physical{page-break-after:always;}
   .admit-card-physical:last-child{page-break-after:auto;}
 }
-.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:6mm 10mm;height:100%;display:flex;flex-direction:column;}
-.acp-header{display:flex;align-items:flex-start;gap:4mm;border-bottom:1px solid var(--line);padding-bottom:3mm;margin-bottom:3mm;}
-.acp-logo,.acp-photo{width:20mm;height:24mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
+.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:6mm;height:100%;display:flex;flex-direction:column;}
+.acp-header{display:flex;align-items:flex-start;gap:3mm;border-bottom:1px solid var(--line);padding-bottom:3mm;margin-bottom:3mm;}
+.acp-logo,.acp-photo{width:18mm;height:22mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
 .acp-logo img,.acp-photo img{width:100%;height:100%;object-fit:cover;}
 .acp-center{flex:1;text-align:center;}
-.acp-school-name{font-family:'Fraunces',serif;font-size:17pt;font-weight:700;}
-.acp-school-address{font-size:9pt;color:var(--slate-soft);margin-top:1px;}
-.acp-school-phone{font-size:9pt;color:var(--slate-soft);}
-.acp-exam-line{text-align:center;font-size:11pt;font-weight:600;margin-top:2mm;}
-.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:14pt;font-weight:700;margin:1mm 0 4mm;padding-bottom:2mm;border-bottom:1px dashed var(--line);}
-.acp-fields{font-size:10.5pt;margin-bottom:4mm;column-count:2;column-gap:10mm;}
-.acp-note{font-size:8pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
-.acp-signatures{display:flex;justify-content:space-between;margin-top:8mm;gap:12mm;padding:0 8mm;}
-.acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:8pt;text-align:center;flex:1;line-height:1.5;}
-.acp-credit{text-align:center;font-size:7pt;color:var(--slate-soft);margin-top:3mm;}
+.acp-school-name{font-family:'Fraunces',serif;font-size:15pt;font-weight:700;}
+.acp-school-address{font-size:8.5pt;color:var(--slate-soft);margin-top:1px;}
+.acp-school-phone{font-size:8.5pt;color:var(--slate-soft);}
+.acp-exam-line{text-align:center;font-size:10.5pt;font-weight:600;margin-top:2mm;}
+.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:13.5pt;font-weight:700;margin:1mm 0 4mm;padding-bottom:2mm;border-bottom:1px dashed var(--line);}
+.acp-fields{font-size:10pt;margin-bottom:4mm;}
+.acp-note{font-size:7.8pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
+.acp-signatures{display:flex;justify-content:space-between;margin-top:8mm;gap:6mm;}
+.acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:7.8pt;text-align:center;flex:1;line-height:1.5;}
+.acp-credit{text-align:center;font-size:6.8pt;color:var(--slate-soft);margin-top:3mm;}
 
 /* ===== Seat Plan card — 3in x 2in ===== */
 .seat-card-grid{display:flex;flex-wrap:wrap;gap:0.12in;justify-content:flex-start;}
@@ -589,14 +591,18 @@ tbody tr:last-child td{border-bottom:none;}
 .id-card-physical .icp-name{font-weight:800;font-size:11pt;text-align:center;padding:0 0.1in;margin-bottom:0.08in;}
 .id-card-physical .icp-sub{font-size:7pt;color:var(--slate-soft);text-align:center;margin-bottom:0.06in;}
 .id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;}
-.id-card-physical .icp-footer{
-  margin-top:auto;background:#1a2b4a;color:#fff;
-  padding:0.06in 0.1in;
-  border-radius:0.06in 0.06in 0 0;
-  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.08in;
+.id-card-physical .icp-qr-perch{
+  display:flex;justify-content:flex-end;padding:0 0.14in;margin-top:auto;margin-bottom:-0.12in;
+  position:relative;z-index:1;
 }
-.id-card-physical .icp-footer-phone{font-size:6.6pt;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.id-card-physical .icp-qr{width:0.38in;height:0.38in;background:#fff;border-radius:2px;padding:1px;margin-left:auto;flex-shrink:0;}
+.id-card-physical .icp-footer{
+  margin-top:0.16in;background:#1a2b4a;color:#fff;
+  padding:0.07in 0.1in;text-align:center;
+  border-radius:0.06in 0.06in 0 0;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+}
+.id-card-physical .icp-footer-phone{font-size:6.8pt;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.id-card-physical .icp-qr{width:0.4in;height:0.4in;background:#fff;border-radius:3px;padding:1.5px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.25);}
 
 .field-row{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;gap:6px;}
 .field-row:last-child{border-bottom:none;}
@@ -3111,9 +3117,11 @@ function StudentIdCardPhysical({ student, config }) {
         <FieldRow name="Section" value={student.section || "—"} />
         <FieldRow name="Session" value={student.session || "—"} />
       </div>
+      <div className="icp-qr-perch">
+        <img className="icp-qr" src={qrUrl} alt="Scan for status" />
+      </div>
       <div className="icp-footer">
         {phone && <div className="icp-footer-phone">☎ {phone}</div>}
-        <img className="icp-qr" src={qrUrl} alt="Scan for status" />
       </div>
     </div>
   );
@@ -3188,7 +3196,7 @@ function AdmitCardPhysical({ student, config, examName }) {
 
 const CARD_TYPES = {
   id: { title: "ID Card", needsExam: false, sizeClass: "id-card-grid", cardWidth: "2.2in" },
-  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "210mm" },
+  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "148mm" },
   seat: { title: "Seat Plan", needsExam: true, sizeClass: "seat-card-grid", cardWidth: "3in" },
 };
 
@@ -3273,7 +3281,7 @@ function CardTypeFlow({ type, students, promotions, config, onBack }) {
             </div>
           )}
 
-          <div className={`${meta.sizeClass}${type === "admit" ? " print-landscape" : ""}`} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
+          <div className={meta.sizeClass} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
             {mode === "single" && selected && renderCard(selected)}
             {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
             {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
@@ -3309,7 +3317,7 @@ function AllCardModule({ data, config, initialCardType }) {
         <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("admit")}>
           <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--clay)" }} />
           <h3 style={{ fontSize: 15 }}>Admit Card</h3>
-          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Examination admit card, half A4 landscape</p>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Examination admit card, half A4 portrait</p>
         </button>
         <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("seat")}>
           <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--gold)" }} />
@@ -4115,7 +4123,7 @@ function FeeGroupModal({ group, onClose, onSave }) {
       </div>
       {form.items.map((item, i) => (
         <div key={i} style={{ marginBottom: 10, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 8 }}>
-          <div className="form-grid cols-3" style={{ alignItems: "end" }}>
+          <div className={`form-grid ${form.kind === "class" ? "cols-4" : "cols-3"}`} style={{ alignItems: "end" }}>
             <Field label="Fee Type / Head">
               {form.kind === "class" ? (
                 <select value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)}>
@@ -4126,13 +4134,8 @@ function FeeGroupModal({ group, onClose, onSave }) {
               )}
             </Field>
             <Field label="Amount"><input type="number" value={item.amount} onChange={(e) => updateItem(i, "amount", e.target.value)} /></Field>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeItem(i)}><Icon.trash /></button>
-            </div>
-          </div>
-          {form.kind === "class" && (
-            <div style={{ marginTop: 8 }}>
-              <Field label="Category" hint="how this fee head is counted">
+            {form.kind === "class" && (
+              <Field label="Category">
                 <select value={item.category || "Yearly"} onChange={(e) => updateItem(i, "category", e.target.value)}>
                   <option value="Monthly">Monthly (প্রতি মাসে)</option>
                   <option value="Half Yearly">Half Yearly (বছরে ২ বার)</option>
@@ -4140,23 +4143,26 @@ function FeeGroupModal({ group, onClose, onSave }) {
                   <option value="3 Times">3 Times (নির্দিষ্ট মাস সিলেক্ট করুন)</option>
                 </select>
               </Field>
-              {item.category === "3 Times" && (
-                <div style={{ marginTop: 8 }}>
-                  <label style={{ fontSize: 11.5, color: "var(--slate-soft)", display: "block", marginBottom: 5 }}>যে মাসগুলোতে এই ফি ধার্য হবে তা সিলেক্ট করুন:</label>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {MONTH_NAMES.map((m, idx) => {
-                      const num = idx + 1;
-                      const on = (item.months || []).includes(num);
-                      return (
-                        <button key={m} type="button" className="chip" onClick={() => toggleMonth(i, num)}
-                          style={on ? { background: "var(--moss)", color: "#fff", borderColor: "var(--moss)" } : {}}>
-                          {m}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeItem(i)}><Icon.trash /></button>
+            </div>
+          </div>
+          {form.kind === "class" && item.category === "3 Times" && (
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 11.5, color: "var(--slate-soft)", display: "block", marginBottom: 5 }}>যে মাসগুলোতে এই ফি ধার্য হবে তা সিলেক্ট করুন:</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {MONTH_NAMES.map((m, idx) => {
+                  const num = idx + 1;
+                  const on = (item.months || []).includes(num);
+                  return (
+                    <button key={m} type="button" className="chip" onClick={() => toggleMonth(i, num)}
+                      style={on ? { background: "var(--moss)", color: "#fff", borderColor: "var(--moss)" } : {}}>
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -4466,31 +4472,39 @@ const MODULE_TITLES = {
 
 function MenuBar({ active, subTab, setActive, config, store }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [expanded, setExpanded] = useState(active);
+  const [expanded, setExpanded] = useState("");
 
+  // Picking a final destination (a subitem, or a top-level item with no submenu) always closes
+  // the whole menu panel and resets the accordion — exactly like a normal drill-down menu.
   function pick(key, subKey) {
     setActive(key, subKey);
     setMobileOpen(false);
+    setExpanded("");
   }
 
+  // Clicking a top-level item that HAS submenus only ever expands/collapses its submenu list in
+  // place — it never navigates by itself. Clicking it again while open hides the submenu again.
   function toggleGroup(item) {
     if (item.subitems) {
-      // Clicking an item that has submenus expands/collapses it in place, and also
-      // navigates to that module's first sub-section so the click always does something.
-      const willOpen = expanded !== item.key;
-      setExpanded(willOpen ? item.key : "");
-      if (willOpen) pick(item.key, item.subitems[0].key);
+      setExpanded(prev => (prev === item.key ? "" : item.key));
     } else {
-      setExpanded("");
       pick(item.key);
     }
+  }
+
+  function toggleMenu() {
+    setMobileOpen(o => {
+      const next = !o;
+      if (!next) setExpanded(""); // closing the whole menu also collapses any open submenu
+      return next;
+    });
   }
 
   return (
     <div className="menubar no-print">
       {/* Desktop layout: hamburger (left) — institution name + code (center) — logo (right) */}
       <div className="menubar-row menubar-row-desktop">
-        <button className="menubar-toggle" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
+        <button className="menubar-toggle" onClick={toggleMenu} aria-label="Menu">
           <IconWrap name={mobileOpen ? "x" : "menu"} />
         </button>
         <div className="menubar-desktop-name">
@@ -4516,7 +4530,7 @@ function MenuBar({ active, subTab, setActive, config, store }) {
           </div>
         </div>
 
-        <button className="menubar-toggle" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
+        <button className="menubar-toggle" onClick={toggleMenu} aria-label="Menu">
           <IconWrap name={mobileOpen ? "x" : "menu"} />
         </button>
       </div>
