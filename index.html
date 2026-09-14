@@ -104,7 +104,7 @@ input,select,textarea{font-family:inherit;}
   flex:1;min-width:0;text-align:center;font-family:'Fraunces',serif;font-size:17px;font-weight:700;
   letter-spacing:0.02em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 14px;
 }
-.menubar-desktop-code{font-size:12px;font-weight:400;color:#a9c2b2;}
+.menubar-desktop-code{font-size:15px;font-weight:600;color:#ffffff;}
 .menubar-desktop-logo{
   width:34px;height:34px;border-radius:8px;overflow:hidden;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;background:#fff;
@@ -475,12 +475,12 @@ tbody tr:last-child td{border-bottom:none;}
   .id-card-grid{gap:0.2in;}
 }
 
-/* ===== Admit Card — half A4, Portrait (≈148mm × 210mm / A5 portrait, two per A4 sheet) ===== */
-.admit-card-grid{display:flex;flex-wrap:wrap;gap:6mm;justify-content:flex-start;}
+/* ===== Admit Card — Width 8.5in × Height 5.5in, Margin 0.5in (landscape, half Letter/A4) ===== */
+.admit-card-grid{display:flex;flex-direction:column;gap:0.5in;justify-content:flex-start;}
 .admit-card-physical{
-  width:148mm;height:210mm;background:#fff;
+  width:8.5in;height:5.5in;background:#fff;
   border:1px solid var(--line);box-shadow:var(--shadow-sm);
-  break-inside:avoid;page-break-inside:avoid;padding:6mm;
+  break-inside:avoid;page-break-inside:avoid;padding:0.5in;
 }
 @media print{
   .admit-card-physical{box-shadow:none;}
@@ -488,21 +488,21 @@ tbody tr:last-child td{border-bottom:none;}
   .admit-card-physical{page-break-after:always;}
   .admit-card-physical:last-child{page-break-after:auto;}
 }
-.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:6mm;height:100%;display:flex;flex-direction:column;}
-.acp-header{display:flex;align-items:flex-start;gap:3mm;border-bottom:1px solid var(--line);padding-bottom:3mm;margin-bottom:3mm;}
-.acp-logo,.acp-photo{width:18mm;height:22mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
+.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:5mm 8mm;height:100%;display:flex;flex-direction:column;}
+.acp-header{display:flex;align-items:flex-start;gap:4mm;border-bottom:1px solid var(--line);padding-bottom:3mm;margin-bottom:3mm;}
+.acp-logo,.acp-photo{width:20mm;height:24mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
 .acp-logo img,.acp-photo img{width:100%;height:100%;object-fit:cover;}
 .acp-center{flex:1;text-align:center;}
-.acp-school-name{font-family:'Fraunces',serif;font-size:15pt;font-weight:700;}
-.acp-school-address{font-size:8.5pt;color:var(--slate-soft);margin-top:1px;}
-.acp-school-phone{font-size:8.5pt;color:var(--slate-soft);}
-.acp-exam-line{text-align:center;font-size:10.5pt;font-weight:600;margin-top:2mm;}
-.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:13.5pt;font-weight:700;margin:1mm 0 4mm;padding-bottom:2mm;border-bottom:1px dashed var(--line);}
-.acp-fields{font-size:10pt;margin-bottom:4mm;}
-.acp-note{font-size:7.8pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
-.acp-signatures{display:flex;justify-content:space-between;margin-top:8mm;gap:6mm;}
-.acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:7.8pt;text-align:center;flex:1;line-height:1.5;}
-.acp-credit{text-align:center;font-size:6.8pt;color:var(--slate-soft);margin-top:3mm;}
+.acp-school-name{font-family:'Fraunces',serif;font-size:17pt;font-weight:700;}
+.acp-school-address{font-size:9pt;color:var(--slate-soft);margin-top:1px;}
+.acp-school-phone{font-size:9pt;color:var(--slate-soft);}
+.acp-exam-line{text-align:center;font-size:11pt;font-weight:600;margin-top:2mm;}
+.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:14pt;font-weight:700;margin:1mm 0 4mm;padding-bottom:2mm;border-bottom:1px dashed var(--line);}
+.acp-fields{font-size:10.5pt;margin-bottom:4mm;column-count:2;column-gap:10mm;}
+.acp-note{font-size:8pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
+.acp-signatures{display:flex;justify-content:space-between;margin-top:8mm;gap:12mm;padding:0 8mm;}
+.acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:8pt;text-align:center;flex:1;line-height:1.5;}
+.acp-credit{text-align:center;font-size:7pt;color:var(--slate-soft);margin-top:3mm;}
 
 /* ===== Seat Plan card — 3in x 2in ===== */
 .seat-card-grid{display:flex;flex-wrap:wrap;gap:0.12in;justify-content:flex-start;}
@@ -576,9 +576,9 @@ tbody tr:last-child td{border-bottom:none;}
   padding:0.1in 0.12in 0.08in;flex-shrink:0;
 }
 .id-card-physical .icp-head .icp-school{
-  font-size:clamp(6.5pt,2.6vw,9pt);font-weight:800;text-transform:uppercase;letter-spacing:0.02em;
+  font-weight:800;text-transform:uppercase;letter-spacing:0.02em;
   color:var(--gold);text-shadow:0 1px 1px rgba(0,0,0,0.25);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;display:block;
+  white-space:nowrap;width:100%;display:block;overflow:visible;
 }
 .id-card-physical .icp-head .icp-address{font-size:6pt;opacity:0.75;margin-top:1px;}
 .id-card-physical .icp-head .icp-doctype{font-family:'Fraunces',serif;font-size:10.5pt;font-weight:600;margin-top:1px;}
@@ -598,7 +598,7 @@ tbody tr:last-child td{border-bottom:none;}
 .id-card-physical .icp-footer{
   margin-top:0.16in;background:#1a2b4a;color:#fff;
   padding:0.07in 0.1in;text-align:center;
-  border-radius:0.06in 0.06in 0 0;
+  border-radius:0;
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
 }
 .id-card-physical .icp-footer-phone{font-size:6.8pt;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -3096,13 +3096,22 @@ function studentStatusUrl(studentId) {
   return `${base}?sid=${encodeURIComponent(studentId)}`;
 }
 
+// Shrinks the ID Card school-name font so long names still fit on exactly one line —
+// no ellipsis/truncation, the text itself gets smaller instead.
+function fitSchoolNameSize(name) {
+  const len = (name || "").trim().length || 1;
+  const maxPt = 9, minPt = 4.8, idealChars = 13;
+  if (len <= idealChars) return maxPt;
+  return Math.max(minPt, Math.round((maxPt * (idealChars / len)) * 10) / 10);
+}
+
 function StudentIdCardPhysical({ student, config }) {
   const phone = (config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "";
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&margin=0&data=${encodeURIComponent(studentStatusUrl(student.studentId))}`;
   return (
     <div className="id-card-physical">
       <div className="icp-head">
-        <div className="icp-school" title={config.schoolName || "School Name"}>{config.schoolName || "School Name"}</div>
+        <div className="icp-school" style={{ fontSize: `${fitSchoolNameSize(config.schoolName)}pt` }}>{config.schoolName || "School Name"}</div>
         {config.schoolAddress && <div className="icp-address">{config.schoolAddress}</div>}
         <div className="icp-doctype">Student Identity Card</div>
       </div>
@@ -3196,7 +3205,7 @@ function AdmitCardPhysical({ student, config, examName }) {
 
 const CARD_TYPES = {
   id: { title: "ID Card", needsExam: false, sizeClass: "id-card-grid", cardWidth: "2.2in" },
-  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "148mm" },
+  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "8.5in" },
   seat: { title: "Seat Plan", needsExam: true, sizeClass: "seat-card-grid", cardWidth: "3in" },
 };
 
@@ -3281,7 +3290,7 @@ function CardTypeFlow({ type, students, promotions, config, onBack }) {
             </div>
           )}
 
-          <div className={meta.sizeClass} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
+          <div className={`${meta.sizeClass}${type === "admit" ? " print-landscape" : ""}`} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
             {mode === "single" && selected && renderCard(selected)}
             {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
             {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
@@ -3317,7 +3326,7 @@ function AllCardModule({ data, config, initialCardType }) {
         <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("admit")}>
           <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--clay)" }} />
           <h3 style={{ fontSize: 15 }}>Admit Card</h3>
-          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Examination admit card, half A4 portrait</p>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Examination admit card, 8.5in × 5.5in</p>
         </button>
         <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("seat")}>
           <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--gold)" }} />
@@ -3516,7 +3525,7 @@ function TeacherIdCardModal({ teacher, config, onClose }) {
       <div style={{ display: "flex", justifyContent: "center", padding: "10px 0" }}>
         <div className="id-card-physical">
           <div className="icp-head">
-            <div className="icp-school">{config.schoolName || "School Name"}</div>
+            <div className="icp-school" style={{ fontSize: `${fitSchoolNameSize(config.schoolName)}pt` }}>{config.schoolName || "School Name"}</div>
             <div className="icp-doctype">Staff ID Card</div>
           </div>
           <div className="icp-photo">
