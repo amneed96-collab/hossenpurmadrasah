@@ -1169,9 +1169,16 @@ function ConnectionBanner({ config, onOpenSettings }) {
    ========================================================= */
 
 // Fixed metadata keys on a fee-scale row — every OTHER key on the row is a fee head/column.
-const FEE_META_KEYS = ["id", "kind", "year", "className", "section", "designation", "note", "createdAt", "updatedAt"];
+// `feeCategories` is a single JSON sidecar column: { [feeType]: { category, months } } — set from
+// the Master Fee Form's Category field, kept as ONE extra column rather than one per head.
+const FEE_META_KEYS = ["id", "kind", "year", "className", "section", "designation", "note", "createdAt", "updatedAt", "feeCategories"];
 function feeHeadsOf(row) {
   return Object.keys(row).filter(k => !FEE_META_KEYS.includes(k) && row[k] !== "" && row[k] !== null && row[k] !== undefined);
+}
+function feeCategoriesOf(row) {
+  if (!row.feeCategories) return {};
+  if (typeof row.feeCategories === "object") return row.feeCategories;
+  try { return JSON.parse(row.feeCategories) || {}; } catch (e) { return {}; }
 }
 
 // Returns a student's CURRENT status — class, section, subject, roll, session — sourced from
@@ -1213,16 +1220,19 @@ function getClassHistory(student, promotions, classHistories) {
   return [...past, currentEntry];
 }
 
-// Returns [{feeType, amount}] for one class-history entry (a specific year + class),
+// Returns [{feeType, amount, category, months}] for one class-history entry (a specific year + class),
 // using that year's Master Fee row — a section-specific row overrides "All Sections" for the same year+class.
 function applicableFeeHeadsForEntry(entry, feeRules) {
   const rulesForYearClass = (feeRules || []).filter(f => String(f.year) === String(entry.year) && f.className === entry.className);
   const allSectionsRow = rulesForYearClass.find(f => !f.section);
   const specificRow = rulesForYearClass.find(f => f.section === entry.section);
   const map = {};
-  if (allSectionsRow) feeHeadsOf(allSectionsRow).forEach(h => { map[h] = Number(allSectionsRow[h]) || 0; });
-  if (specificRow) feeHeadsOf(specificRow).forEach(h => { map[h] = Number(specificRow[h]) || 0; });
-  return Object.entries(map).map(([feeType, amount]) => ({ feeType, amount }));
+  const cats = {};
+  if (allSectionsRow) { feeHeadsOf(allSectionsRow).forEach(h => { map[h] = Number(allSectionsRow[h]) || 0; }); Object.assign(cats, feeCategoriesOf(allSectionsRow)); }
+  if (specificRow) { feeHeadsOf(specificRow).forEach(h => { map[h] = Number(specificRow[h]) || 0; }); Object.assign(cats, feeCategoriesOf(specificRow)); }
+  return Object.entries(map).map(([feeType, amount]) => ({
+    feeType, amount, category: (cats[feeType] && cats[feeType].category) || "Yearly", months: (cats[feeType] && cats[feeType].months) || [],
+  }));
 }
 
 /* =========================================================
@@ -1289,12 +1299,58 @@ function activeDayFraction(student, activations, rangeStart, rangeEnd) {
   return Math.max(0, Math.min(1, activeDays / totalDays));
 }
 
-// Fee heads that are one-time charges (not tied to how long the student was actively enrolled
-// during the year) are never prorated by activation status — everything else is.
-const NON_PRORATED_HEAD_HINTS = ["admission", "ভর্তি", "registration", "রেজিস্ট্রেশন", "form", "ফরম", "session", "সেশন চার্জ"];
-function isProratedHead(headName) {
-  const h = String(headName || "").toLowerCase();
-  return !NON_PRORATED_HEAD_HINTS.some(k => h.includes(k));
+// Each Master Fee head now carries a Category (set in the Master Fee Form) that says exactly
+// how it should be counted: "Monthly" (once per active month), "Half Yearly" (once per active
+// half-year term), "3 Times" (once per each of its selected months, if that month was active),
+// or "Yearly" (once for the year, if any month was active — the default/legacy behavior).
+const FEE_CATEGORIES = ["Monthly", "Half Yearly", "Yearly", "3 Times"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Which calendar months (as "YYYY-MM" strings) inside [rangeStart, rangeEnd] the student was
+// Active for at least part of the month, per their Deactivate/Reactivate history. No activation
+// history at all = every month in range counts as active.
+function activeMonthsInRange(student, activations, rangeStart, rangeEnd) {
+  if (!rangeStart || !rangeEnd) return [];
+  const rs = new Date(rangeStart), re = new Date(rangeEnd);
+  if (re < rs) return [];
+  const activeRanges = getActiveRanges(student, activations);
+  const hasActivationHistory = activations && activations.some(a => a.studentId === student.id);
+  const months = [];
+  let cursor = new Date(rs.getFullYear(), rs.getMonth(), 1);
+  const stop = new Date(re.getFullYear(), re.getMonth(), 1);
+  while (cursor <= stop) {
+    const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+    const winStart = monthStart > rs ? monthStart : rs;
+    const winEnd = monthEnd < re ? monthEnd : re;
+    const isActive = !hasActivationHistory || activeRanges.some(r => {
+      const as = new Date(r.start);
+      const ae = r.end ? new Date(r.end) : re;
+      return as <= winEnd && ae >= winStart;
+    });
+    if (isActive) months.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`);
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  return months;
+}
+
+// Counts how many times a fee head is actually payable within [periodStart, periodEnd], per
+// its Category, using the student's active months in that window.
+function occurrencesForHead(h, student, activations, periodStart, periodEnd) {
+  const activeMonths = activeMonthsInRange(student, activations, periodStart, periodEnd);
+  const year = String(periodStart).slice(0, 4);
+  const category = h.category || "Yearly";
+  if (category === "Monthly") return activeMonths.length;
+  if (category === "Half Yearly") {
+    const term1 = activeMonths.some(m => m >= `${year}-01` && m <= `${year}-06`);
+    const term2 = activeMonths.some(m => m >= `${year}-07` && m <= `${year}-12`);
+    return (term1 ? 1 : 0) + (term2 ? 1 : 0);
+  }
+  if (category === "3 Times") {
+    const months = h.months || [];
+    return months.filter(m => activeMonths.includes(`${year}-${String(m).padStart(2, "0")}`)).length;
+  }
+  return activeMonths.length > 0 ? 1 : 0; // Yearly
 }
 
 // Per-year-per-class-per-head breakdown: [{ year, className, section, head, charged, paid, waived, due }].
@@ -1311,12 +1367,10 @@ function studentPaidRows(student, invoices) {
 // Per-year-per-class-per-head breakdown: [{ year, className, section, head, charged, paid, waived, due }].
 // Due is the total charged (per Master Fee, year by year per the student's Promotion/ClassHistory
 // progression) minus everything paid/waived to date across ALL of that student's invoices for that head+year+class.
-// `activations` (optional) enables activation-aware proration: for each year/class line, the
-// charged amount for prorate-able heads is scaled by the fraction of that year the student was
-// Active (per Deactivate/Reactivate history) — admission-to-deactivate + reactivate-to-invoice,
-// excluding the deactivated stretch in between, exactly as the Activation workflow intends.
-// `asOfDate` (optional, defaults to today) is the "Invoice Date" boundary for the still-open
-// active range and for the current (in-progress) year's line.
+// Each head's Category (Monthly/Half Yearly/Yearly/3 Times) decides how many times its amount is
+// charged within the elapsed period, and `activations` (Deactivate/Reactivate history) decides
+// which months count as "active" for that counting — exactly as the Activation workflow intends.
+// `asOfDate` (optional, defaults to today) is the "Invoice Date" boundary for the current year's line.
 function studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories, activations, asOfDate) {
   const history = getClassHistory(student, promotions, classHistories);
   const paidRows = studentPaidRows(student, invoices);
@@ -1332,14 +1386,12 @@ function studentFeeBreakdown(student, feeRules, invoices, promotions, classHisto
       const matching = paidRows.filter(r => r.head === h.feeType && String(r.year) === String(entry.year) && r.className === entry.className);
       const paid = sumBy(matching, r => r.payment);
       const waived = sumBy(matching, r => r.waiver);
-      const fullCharged = Number(h.amount) || 0;
-      const fraction = (activations && activations.length && isProratedHead(h.feeType) && periodStart < yearEnd)
-        ? activeDayFraction(student, activations, periodStart, yearEnd)
-        : 1;
-      const charged = Math.round(fullCharged * fraction);
+      const perOccurrence = Number(h.amount) || 0;
+      const occurrences = periodStart <= yearEnd ? occurrencesForHead(h, student, activations, periodStart, yearEnd) : 0;
+      const charged = perOccurrence * occurrences;
       lines.push({
         year: entry.year, className: entry.className, section: entry.section,
-        head: h.feeType, charged, paid, waived, due: Math.max(0, charged - paid - waived),
+        head: h.feeType, category: h.category || "Yearly", charged, paid, waived, due: Math.max(0, charged - paid - waived),
       });
     });
   });
@@ -1649,11 +1701,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
         {tab === "list" && <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />New Admission</button>}
       </div>
 
-      <div className="tabs no-print">
-        {STUDENTS_SUBTABS.map(t => (
-          <button key={t.key} className={`tab ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>{t.label}</button>
-        ))}
-      </div>
+      {/* Section switching is handled entirely by the sidebar's Students submenu now. */}
 
       {tab === "list" && (
         <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
@@ -1664,7 +1712,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
         <PromotionTab students={students} promotions={promotions} save={save} config={config} />
       )}
       {tab === "classHistory" && (
-        <ClassHistoryTab students={students} classHistories={classHistories} promotions={promotions} config={config} />
+        <ClassHistoryTab students={students} classHistories={classHistories} promotions={promotions} save={save} remove={remove} config={config} />
       )}
       {tab === "activation" && (
         <ActivationTab students={students} promotions={promotions} activations={activations} save={save} config={config} />
@@ -1981,9 +2029,10 @@ function StudentPicker({ students, label, onPick }) {
    CLASS HISTORY TAB — read-only archive of every past promotion,
    one row per (student, year/class) that they have since been promoted OUT of.
    ========================================================= */
-function ClassHistoryTab({ students, classHistories, promotions, config }) {
+function ClassHistoryTab({ students, classHistories, promotions, save, remove, config }) {
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
+  const [editing, setEditing] = useState(null);
   function handlePrint() { window.print(); }
 
   const studentById = {};
@@ -2023,7 +2072,7 @@ function ClassHistoryTab({ students, classHistories, promotions, config }) {
           <PrintDocHead config={config} headline="Student Class History" />
           <table>
             <thead>
-              <tr><th>Student ID</th><th>Name</th><th>Class</th><th>Section</th><th>Subject</th><th>Roll</th><th>Session</th></tr>
+              <tr><th>Student ID</th><th>Name</th><th>Class</th><th>Section</th><th>Subject</th><th>Roll</th><th>Session</th><th className="no-print"></th></tr>
             </thead>
             <tbody>
               {rows.map(({ h, student }, i) => (
@@ -2035,13 +2084,45 @@ function ClassHistoryTab({ students, classHistories, promotions, config }) {
                   <td>{h.subjectGroup || "—"}</td>
                   <td className="mono">{h.roll || "—"}</td>
                   <td>{h.session}</td>
+                  <td className="no-print">
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...h })}><Icon.edit /></button>
+                      <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete this class history record for ${student.name}?`)) remove("classHistories", h.id); }}><Icon.trash /></button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      {editing && (
+        <ClassHistoryEditModal record={editing} studentName={(studentById[editing.studentId] || {}).name}
+          onClose={() => setEditing(null)} onSave={async (rec) => { await save("classHistories", rec); setEditing(null); }} />
+      )}
     </div>
+  );
+}
+
+function ClassHistoryEditModal({ record, studentName, onClose, onSave }) {
+  const [form, setForm] = useState({ ...record });
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  async function handleSave() { setSaving(true); await onSave(form); setSaving(false); }
+  return (
+    <Modal title={`Edit Class History — ${studentName || ""}`} onClose={onClose}
+      footer={<>
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" disabled={saving} onClick={handleSave}>{saving ? "Saving…" : "Save"}</button>
+      </>}>
+      <div className="form-grid cols-2">
+        <Field label="Class"><select value={form.className || ""} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Section"><select value={form.section || ""} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Subject"><select value={form.subjectGroup || ""} onChange={set("subjectGroup")}>{SUBJECT_GROUPS.map(s => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Roll"><input type="text" value={form.roll || ""} onChange={set("roll")} /></Field>
+        <Field label="Session" span2><input type="text" value={form.session || ""} onChange={set("session")} /></Field>
+      </div>
+    </Modal>
   );
 }
 
@@ -2212,7 +2293,7 @@ function OfficeInformationTab({ students, promotions, classHistories, config }) 
       ) : rows.length === 0 ? (
         <EmptyState title="No students found" sub={`No students were in ${className} during ${year}.`} />
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap print-landscape">
           <PrintDocHead config={config} headline="Office Information" />
           <div style={{ textAlign: "center", fontWeight: 700, fontSize: 14, margin: "4px 0 12px" }}>
             Class: {className} &nbsp;·&nbsp; Year: {year}
@@ -2652,17 +2733,17 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
                     const description = multiYear ? `${r.head} (${r.year})` : r.head;
                     return (
                       <tr key={key}>
-                        <td>{i + 1}</td>
-                        <td>{description}</td>
-                        <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
-                        <td>
+                        <td style={{ textAlign: "center" }}>{i + 1}</td>
+                        <td>{description}<span style={{ marginLeft: 6, fontSize: 10.5, color: "var(--slate-soft)" }}>({r.category})</span></td>
+                        <td style={{ textAlign: "center", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
+                        <td style={{ textAlign: "center" }}>
                           {r.due > 0 ? (
-                            <input type="number" placeholder="0" value={waiverAmounts[key] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, textAlign: "center" }} />
+                            <input type="number" placeholder="0" value={waiverAmounts[key] || ""} onChange={(e) => setWaiverAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, textAlign: "center", margin: "0 auto", display: "block" }} />
                           ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
                         </td>
-                        <td>
+                        <td style={{ textAlign: "center" }}>
                           {r.due > 0 ? (
-                            <input type="number" placeholder="0" value={payAmounts[key] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, textAlign: "center" }} />
+                            <input type="number" placeholder="0" value={payAmounts[key] || ""} onChange={(e) => setPayAmounts(p => ({ ...p, [key]: e.target.value }))} style={{ width: 90, padding: "6px 9px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, textAlign: "center", margin: "0 auto", display: "block" }} />
                           ) : <span style={{ color: "var(--slate-soft)", fontSize: 12 }}>—</span>}
                         </td>
                       </tr>
@@ -3276,12 +3357,7 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
         <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />Add Staff</button>
       </div>
 
-      <div className="tabs no-print">
-        <button className={`tab ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>Staff List</button>
-        <button className={`tab ${tab === "letter" ? "active" : ""}`} onClick={() => setTab("letter")}>Join / Resign Letter</button>
-        <button className={`tab ${tab === "idcard" ? "active" : ""}`} onClick={() => setTab("idcard")}>ID Card</button>
-        <button className={`tab ${tab === "salary" ? "active" : ""}`} onClick={() => setTab("salary")}>Salary Invoice</button>
-      </div>
+      {/* Section switching is handled entirely by the sidebar's Teachers submenu now. */}
 
       {tab === "list" && (
         <div className="card card-flush">
@@ -3590,10 +3666,7 @@ function FinanceModule({ data, save, remove, config, initialTab }) {
         <button className="btn btn-primary" onClick={() => setEditing(emptyFinance(tab))}><Icon.plus />New {tab === "income" ? "Income" : "Expense"}</button>
       </div>
 
-      <div className="tabs no-print">
-        <button className={`tab ${tab === "income" ? "active" : ""}`} onClick={() => setTab("income")}>Income Invoices</button>
-        <button className={`tab ${tab === "expense" ? "active" : ""}`} onClick={() => setTab("expense")}>Expense Vouchers</button>
-      </div>
+      {/* Section switching is handled entirely by the sidebar's Finance submenu now. */}
 
       <div className="card card-flush">
         {list.length === 0 ? <EmptyState title={`No ${tab} records`} sub="Add a new entry to get started." /> : (
@@ -3712,11 +3785,7 @@ function DueModule({ data, config, initialTab }) {
   return (
     <div>
       <div className="section-head"><div><h2>Due List</h2><p>Track outstanding student fees, teacher salaries, and other dues.</p></div></div>
-      <div className="tabs no-print">
-        <button className={`tab ${tab === "students" ? "active" : ""}`} onClick={() => setTab("students")}>Student Dues</button>
-        <button className={`tab ${tab === "teachers" ? "active" : ""}`} onClick={() => setTab("teachers")}>Teacher Dues</button>
-        <button className={`tab ${tab === "others" ? "active" : ""}`} onClick={() => setTab("others")}>Other Dues</button>
-      </div>
+      {/* Section switching is handled entirely by the sidebar's Due List submenu now. */}
 
       {tab === "students" && (
         <div className="card card-flush print-landscape">
@@ -3830,17 +3899,20 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
     setEditingGroup({
       id: null, kind: tab, year: String(CURRENT_YEAR),
       className: "One", section: "", designation: "Assistant Teacher",
-      items: [{ feeType: tab === "class" ? INCOME_HEADS[0] : "Basic Salary", amount: "" }],
+      items: [{ feeType: tab === "class" ? INCOME_HEADS[0] : "Basic Salary", amount: "", category: "Yearly", months: [] }],
       note: "",
     });
   }
 
   function editGroup(row) {
     const heads = feeHeadsOf(row);
+    const cats = feeCategoriesOf(row);
     setEditingGroup({
       id: row.id, kind: row.kind, year: String(row.year || CURRENT_YEAR),
       className: row.className || "One", section: row.section || "", designation: row.designation || "Assistant Teacher",
-      items: heads.length > 0 ? heads.map(h => ({ feeType: h, amount: row[h] })) : [{ feeType: row.kind === "class" ? INCOME_HEADS[0] : "Basic Salary", amount: "" }],
+      items: heads.length > 0
+        ? heads.map(h => ({ feeType: h, amount: row[h], category: (cats[h] && cats[h].category) || "Yearly", months: (cats[h] && cats[h].months) || [] }))
+        : [{ feeType: row.kind === "class" ? INCOME_HEADS[0] : "Basic Salary", amount: "", category: "Yearly", months: [] }],
       note: row.note || "",
     });
   }
@@ -3860,9 +3932,14 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
       designation: group.kind === "teacher" ? group.designation : undefined,
       note: group.note,
     };
+    const cats = {};
     group.items.forEach(item => {
-      if (item.feeType && item.amount !== "") row[item.feeType] = item.amount;
+      if (item.feeType && item.amount !== "") {
+        row[item.feeType] = item.amount;
+        cats[item.feeType] = { category: item.category || "Yearly", months: item.category === "3 Times" ? (item.months || []) : [] };
+      }
     });
+    row.feeCategories = JSON.stringify(cats);
     await save("fees", row);
     setEditingGroup(null);
   }
@@ -3889,10 +3966,7 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
         <div><h2>Master Fee Setup</h2><p>Year-wise class fees and salary scales — each year can have its own amounts, since fees change year to year.</p></div>
         <button className="btn btn-primary no-print" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
       </div>
-      <div className="tabs no-print">
-        <button className={`tab ${tab === "class" ? "active" : ""}`} onClick={() => setTab("class")}>Class Fee Rules</button>
-        <button className={`tab ${tab === "teacher" ? "active" : ""}`} onClick={() => setTab("teacher")}>Teacher Fee Scale</button>
-      </div>
+      {/* Section switching is handled entirely by the sidebar's Master Fee submenu now. */}
       <div className="no-print" style={{ marginBottom: 14 }}>
         <select className="filter-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
           <option value="">All Years</option>
@@ -3927,7 +4001,9 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
                         <td>{row.className}</td>
                         <td>{row.section || "All"}</td>
                         {allClassHeads.map(h => (
-                          <td key={h} style={{ textAlign: "right" }} className="mono">{row[h] ? "৳" + money(row[h]) : "—"}</td>
+                          <td key={h} style={{ textAlign: "right" }} className="mono">
+                            {row[h] ? <>৳{money(row[h])}<div style={{ fontSize: 9.5, color: "var(--slate-soft)", fontWeight: 400 }}>{(feeCategoriesOf(row)[h] && feeCategoriesOf(row)[h].category) || "Yearly"}</div></> : "—"}
+                          </td>
                         ))}
                         <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(feeHeadsOf(row), h => row[h]))}</strong></td>
                         <td className="no-print">
@@ -4005,10 +4081,17 @@ function FeeGroupModal({ group, onClose, onSave }) {
     setForm({ ...form, items });
   }
   function addItem() {
-    setForm({ ...form, items: [...form.items, { feeType: form.kind === "class" ? INCOME_HEADS[0] : "", amount: "" }] });
+    setForm({ ...form, items: [...form.items, { feeType: form.kind === "class" ? INCOME_HEADS[0] : "", amount: "", category: "Yearly", months: [] }] });
   }
   function removeItem(i) {
     setForm({ ...form, items: form.items.filter((_, idx) => idx !== i) });
+  }
+  function toggleMonth(i, monthNum) {
+    const items = [...form.items];
+    const cur = items[i].months || [];
+    const months = cur.includes(monthNum) ? cur.filter(m => m !== monthNum) : [...cur, monthNum].sort((a, b) => a - b);
+    items[i] = { ...items[i], months };
+    setForm({ ...form, items });
   }
 
   return (
@@ -4031,20 +4114,51 @@ function FeeGroupModal({ group, onClose, onSave }) {
         <button className="link-btn" onClick={addItem}>+ Add another fee head</button>
       </div>
       {form.items.map((item, i) => (
-        <div key={i} className="form-grid cols-3" style={{ marginBottom: 10, alignItems: "end" }}>
-          <Field label="Fee Type / Head">
-            {form.kind === "class" ? (
-              <select value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)}>
-                {INCOME_HEADS.map(h => <option key={h}>{h}</option>)}
-              </select>
-            ) : (
-              <input type="text" value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)} placeholder="e.g. Basic Salary, House Allowance" />
-            )}
-          </Field>
-          <Field label="Amount"><input type="number" value={item.amount} onChange={(e) => updateItem(i, "amount", e.target.value)} /></Field>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeItem(i)}><Icon.trash /></button>
+        <div key={i} style={{ marginBottom: 10, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 8 }}>
+          <div className="form-grid cols-3" style={{ alignItems: "end" }}>
+            <Field label="Fee Type / Head">
+              {form.kind === "class" ? (
+                <select value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)}>
+                  {INCOME_HEADS.map(h => <option key={h}>{h}</option>)}
+                </select>
+              ) : (
+                <input type="text" value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)} placeholder="e.g. Basic Salary, House Allowance" />
+              )}
+            </Field>
+            <Field label="Amount"><input type="number" value={item.amount} onChange={(e) => updateItem(i, "amount", e.target.value)} /></Field>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeItem(i)}><Icon.trash /></button>
+            </div>
           </div>
+          {form.kind === "class" && (
+            <div style={{ marginTop: 8 }}>
+              <Field label="Category" hint="how this fee head is counted">
+                <select value={item.category || "Yearly"} onChange={(e) => updateItem(i, "category", e.target.value)}>
+                  <option value="Monthly">Monthly (প্রতি মাসে)</option>
+                  <option value="Half Yearly">Half Yearly (বছরে ২ বার)</option>
+                  <option value="Yearly">Yearly (বছরে ১ বার)</option>
+                  <option value="3 Times">3 Times (নির্দিষ্ট মাস সিলেক্ট করুন)</option>
+                </select>
+              </Field>
+              {item.category === "3 Times" && (
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 11.5, color: "var(--slate-soft)", display: "block", marginBottom: 5 }}>যে মাসগুলোতে এই ফি ধার্য হবে তা সিলেক্ট করুন:</label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {MONTH_NAMES.map((m, idx) => {
+                      const num = idx + 1;
+                      const on = (item.months || []).includes(num);
+                      return (
+                        <button key={m} type="button" className="chip" onClick={() => toggleMonth(i, num)}
+                          style={on ? { background: "var(--moss)", color: "#fff", borderColor: "var(--moss)" } : {}}>
+                          {m}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ))}
       <Field label="Note" span2><textarea value={form.note} onChange={set("note")} /></Field>
