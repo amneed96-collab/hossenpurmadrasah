@@ -125,6 +125,23 @@ input,select,textarea{font-family:inherit;}
 .menubar-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
 .menubar-item.active{background:var(--gold);color:var(--moss-deep);font-weight:600;}
 .menubar-item svg{flex-shrink:0;opacity:0.9;}
+.menubar-item-chevron{margin-left:auto;transition:transform .15s ease;opacity:0.75;}
+.menubar-item-chevron.open{transform:rotate(180deg);}
+
+.menubar-submenu{
+  display:none;flex-direction:column;gap:1px;
+  padding:2px 0 4px 30px;
+}
+.menubar-submenu.open{display:flex;}
+.menubar-subitem{
+  display:block;text-align:left;width:100%;
+  padding:8px 12px;border-radius:7px;border:none;background:transparent;
+  font-size:12.5px;color:#b9cabf;cursor:pointer;
+  border-left:2px solid rgba(255,255,255,0.15);
+  transition:background .12s ease,color .12s ease;
+}
+.menubar-subitem:hover{background:rgba(255,255,255,0.07);color:#fff;}
+.menubar-subitem.active{background:rgba(212,175,55,0.16);color:var(--gold);font-weight:600;border-left-color:var(--gold);}
 
 .menubar-toggle{
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
@@ -372,7 +389,7 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-school-address{font-size:10px;opacity:0.9;margin-top:2px;}
 .adm-school-contact{font-size:10px;opacity:0.9;margin-top:1px;}
 .adm-form-title{font-family:'Fraunces',serif;font-size:13px;font-weight:700;letter-spacing:0.06em;margin-top:5px;}
-.adm-divider{border:none;border-top:1px solid var(--gold);margin:7px 0 5px;}
+.adm-divider{border:none;border-top:2px solid var(--gold);margin:7px 0 5px;}
 .adm-form-no{font-size:10.5px;font-weight:600;text-align:left;}
 
 .adm-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--moss-deep);margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid var(--line);}
@@ -456,29 +473,34 @@ tbody tr:last-child td{border-bottom:none;}
   .id-card-grid{gap:0.2in;}
 }
 
-/* ===== Admit Card — half A4 portrait ===== */
-.admit-card-grid{display:flex;flex-wrap:wrap;gap:6mm;justify-content:flex-start;}
+/* ===== Admit Card — half A4 landscape (≈210mm × 148mm, two per A4 landscape sheet) ===== */
+.admit-card-grid{display:flex;flex-direction:column;gap:6mm;justify-content:flex-start;}
 .admit-card-physical{
-  width:99mm;min-height:148mm;background:#fff;
+  width:210mm;height:148mm;background:#fff;
   border:1px solid var(--line);box-shadow:var(--shadow-sm);
-  break-inside:avoid;page-break-inside:avoid;padding:4mm;
+  break-inside:avoid;page-break-inside:avoid;padding:5mm;
 }
-@media print{ .admit-card-physical{box-shadow:none;} }
-.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:5mm;height:100%;display:flex;flex-direction:column;}
-.acp-header{display:flex;align-items:flex-start;gap:3mm;border-bottom:1px solid var(--line);padding-bottom:3mm;margin-bottom:3mm;}
-.acp-logo,.acp-photo{width:16mm;height:19mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
+@media print{
+  .admit-card-physical{box-shadow:none;}
+  .admit-card-grid{gap:0;}
+  .admit-card-physical{page-break-after:always;}
+  .admit-card-physical:last-child{page-break-after:auto;}
+}
+.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:6mm 10mm;height:100%;display:flex;flex-direction:column;}
+.acp-header{display:flex;align-items:flex-start;gap:4mm;border-bottom:1px solid var(--line);padding-bottom:3mm;margin-bottom:3mm;}
+.acp-logo,.acp-photo{width:20mm;height:24mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
 .acp-logo img,.acp-photo img{width:100%;height:100%;object-fit:cover;}
 .acp-center{flex:1;text-align:center;}
-.acp-school-name{font-family:'Fraunces',serif;font-size:14pt;font-weight:700;}
-.acp-school-address{font-size:8pt;color:var(--slate-soft);margin-top:1px;}
-.acp-school-phone{font-size:8pt;color:var(--slate-soft);}
-.acp-exam-line{text-align:center;font-size:10pt;font-weight:600;margin-top:2mm;}
-.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:13pt;font-weight:700;margin:1mm 0 4mm;padding-bottom:2mm;border-bottom:1px dashed var(--line);}
-.acp-fields{font-size:9.5pt;margin-bottom:4mm;}
-.acp-note{font-size:7.5pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
-.acp-signatures{display:flex;justify-content:space-between;margin-top:8mm;gap:4mm;}
-.acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:7.5pt;text-align:center;flex:1;line-height:1.5;}
-.acp-credit{text-align:center;font-size:6.5pt;color:var(--slate-soft);margin-top:3mm;}
+.acp-school-name{font-family:'Fraunces',serif;font-size:17pt;font-weight:700;}
+.acp-school-address{font-size:9pt;color:var(--slate-soft);margin-top:1px;}
+.acp-school-phone{font-size:9pt;color:var(--slate-soft);}
+.acp-exam-line{text-align:center;font-size:11pt;font-weight:600;margin-top:2mm;}
+.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:14pt;font-weight:700;margin:1mm 0 4mm;padding-bottom:2mm;border-bottom:1px dashed var(--line);}
+.acp-fields{font-size:10.5pt;margin-bottom:4mm;column-count:2;column-gap:10mm;}
+.acp-note{font-size:8pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
+.acp-signatures{display:flex;justify-content:space-between;margin-top:8mm;gap:12mm;padding:0 8mm;}
+.acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:8pt;text-align:center;flex:1;line-height:1.5;}
+.acp-credit{text-align:center;font-size:7pt;color:var(--slate-soft);margin-top:3mm;}
 
 /* ===== Seat Plan card — 3in x 2in ===== */
 .seat-card-grid{display:flex;flex-wrap:wrap;gap:0.12in;justify-content:flex-start;}
@@ -552,9 +574,9 @@ tbody tr:last-child td{border-bottom:none;}
   padding:0.1in 0.12in 0.08in;flex-shrink:0;
 }
 .id-card-physical .icp-head .icp-school{
-  font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;
+  font-size:clamp(6.5pt,2.6vw,9pt);font-weight:800;text-transform:uppercase;letter-spacing:0.02em;
   color:var(--gold);text-shadow:0 1px 1px rgba(0,0,0,0.25);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;display:block;
 }
 .id-card-physical .icp-head .icp-address{font-size:6pt;opacity:0.75;margin-top:1px;}
 .id-card-physical .icp-head .icp-doctype{font-family:'Fraunces',serif;font-size:10.5pt;font-weight:600;margin-top:1px;}
@@ -569,11 +591,12 @@ tbody tr:last-child td{border-bottom:none;}
 .id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;}
 .id-card-physical .icp-footer{
   margin-top:auto;background:#1a2b4a;color:#fff;
-  padding:0.05in 0.12in;text-align:center;
+  padding:0.06in 0.1in;
   border-radius:0.06in 0.06in 0 0;
-  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.08in;
 }
-.id-card-physical .icp-qr{width:0.42in;height:0.42in;background:#fff;border-radius:2px;padding:1px;}
+.id-card-physical .icp-footer-phone{font-size:6.6pt;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.id-card-physical .icp-qr{width:0.38in;height:0.38in;background:#fff;border-radius:2px;padding:1px;margin-left:auto;flex-shrink:0;}
 
 .field-row{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;gap:6px;}
 .field-row:last-child{border-bottom:none;}
@@ -781,14 +804,14 @@ function IconWrap({ name, ...rest }) {
    DATA STORE — central hook wrapping Google Sheets as DB
    Collections: students, teachers, finance, fees, committee, seatplans
    ========================================================= */
-const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices", "promotions", "classHistories"];
+const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices", "promotions", "classHistories", "activations"];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 function useDataStore(config) {
-  const [data, setData] = useState({ students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [] });
+  const [data, setData] = useState({ students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [] });
   const [status, setStatus] = useState("idle"); // idle | loading | ready | error | offline
   const toast = useToast();
 
@@ -855,6 +878,7 @@ const SHEET_MAP = {
   invoices: "Invoice",
   promotions: "Promotion",
   classHistories: "ClassHistory",
+  activations: "Activation",
 };
 
 /* =========================================================
@@ -1181,11 +1205,11 @@ function getClassHistory(student, promotions, classHistories) {
   const admissionYear = student.admissionDate ? new Date(student.admissionDate).getFullYear() : CURRENT_YEAR;
   const past = (classHistories || [])
     .filter(h => h.studentId === student.id)
-    .map(h => ({ year: yearFromSession(h.session, String(admissionYear)), className: h.className, section: h.section }))
+    .map(h => ({ year: yearFromSession(h.session, String(admissionYear)), className: h.className, section: h.section, roll: h.roll, subjectGroup: h.subjectGroup }))
     .filter(e => e.className);
   const current = getCurrentStatus(student, promotions);
-  const currentEntry = { year: yearFromSession(current.session, String(CURRENT_YEAR)), className: current.className, section: current.section };
-  if (!currentEntry.className) return past.length ? past : [{ year: String(admissionYear), className: student.className, section: student.section }];
+  const currentEntry = { year: yearFromSession(current.session, String(CURRENT_YEAR)), className: current.className, section: current.section, roll: current.roll, subjectGroup: current.subjectGroup };
+  if (!currentEntry.className) return past.length ? past : [{ year: String(admissionYear), className: student.className, section: student.section, roll: student.roll, subjectGroup: student.subjectGroup }];
   return [...past, currentEntry];
 }
 
@@ -1199,6 +1223,78 @@ function applicableFeeHeadsForEntry(entry, feeRules) {
   if (allSectionsRow) feeHeadsOf(allSectionsRow).forEach(h => { map[h] = Number(allSectionsRow[h]) || 0; });
   if (specificRow) feeHeadsOf(specificRow).forEach(h => { map[h] = Number(specificRow[h]) || 0; });
   return Object.entries(map).map(([feeType, amount]) => ({ feeType, amount }));
+}
+
+/* =========================================================
+   ACTIVATION (Deactivate / Reactivate) HELPERS
+   An "activations" row: { id, studentId, status: "Deactivate"|"Reactivate", date, ... }
+   ========================================================= */
+
+// Builds the student's list of ON (active-enrollment) date ranges, starting from their
+// Admission Date. A Deactivate event closes the current ON range at that date. A Reactivate
+// event opens a new ON range starting at that date. If the student is currently ON (last event
+// was Reactivate, or there is no Deactivate event yet), the final range is left open-ended
+// (end: null) — the caller fills that in with "today" or the Invoice Date as needed.
+function getActiveRanges(student, activations) {
+  const events = (activations || [])
+    .filter(a => a.studentId === student.id && a.date)
+    .slice()
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const ranges = [];
+  const start0 = student.admissionDate || null;
+  if (!start0) return ranges;
+  let start = start0, open = true;
+  events.forEach(ev => {
+    if (ev.status === "Deactivate" && open) {
+      ranges.push({ start, end: ev.date });
+      open = false;
+    } else if (ev.status === "Reactivate" && !open) {
+      start = ev.date;
+      open = true;
+    }
+  });
+  if (open) ranges.push({ start, end: null });
+  return ranges;
+}
+
+// Current Active/Inactive status for a student, plus their most recent activation event —
+// used by the Activation Form/list and the Students list "Status" column.
+function getActivationStatus(student, activations) {
+  const events = (activations || [])
+    .filter(a => a.studentId === student.id && a.date)
+    .slice()
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (events.length === 0) return { status: "Active", lastEvent: null, events };
+  const last = events[events.length - 1];
+  return { status: last.status === "Deactivate" ? "Inactive" : "Active", lastEvent: last, events };
+}
+
+// Fraction (0..1) of days within [rangeStart, rangeEnd] the student was Active, per their
+// activation history — deactivated stretches (month after Deactivate through month before
+// Reactivate) are excluded from the fee period. No activation rows at all = always active (1).
+function activeDayFraction(student, activations, rangeStart, rangeEnd) {
+  if (!rangeStart || !rangeEnd) return 1;
+  const rs = new Date(rangeStart), re = new Date(rangeEnd);
+  const totalDays = Math.max(1, (re - rs) / 86400000);
+  const activeRanges = getActiveRanges(student, activations);
+  if (activeRanges.length === 0) return 1;
+  let activeDays = 0;
+  activeRanges.forEach(r => {
+    const as = new Date(r.start);
+    const ae = r.end ? new Date(r.end) : re;
+    const s = as > rs ? as : rs;
+    const e = ae < re ? ae : re;
+    if (e > s) activeDays += (e - s) / 86400000;
+  });
+  return Math.max(0, Math.min(1, activeDays / totalDays));
+}
+
+// Fee heads that are one-time charges (not tied to how long the student was actively enrolled
+// during the year) are never prorated by activation status — everything else is.
+const NON_PRORATED_HEAD_HINTS = ["admission", "ভর্তি", "registration", "রেজিস্ট্রেশন", "form", "ফরম", "session", "সেশন চার্জ"];
+function isProratedHead(headName) {
+  const h = String(headName || "").toLowerCase();
+  return !NON_PRORATED_HEAD_HINTS.some(k => h.includes(k));
 }
 
 // Per-year-per-class-per-head breakdown: [{ year, className, section, head, charged, paid, waived, due }].
@@ -1215,17 +1311,32 @@ function studentPaidRows(student, invoices) {
 // Per-year-per-class-per-head breakdown: [{ year, className, section, head, charged, paid, waived, due }].
 // Due is the total charged (per Master Fee, year by year per the student's Promotion/ClassHistory
 // progression) minus everything paid/waived to date across ALL of that student's invoices for that head+year+class.
-function studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories) {
+// `activations` (optional) enables activation-aware proration: for each year/class line, the
+// charged amount for prorate-able heads is scaled by the fraction of that year the student was
+// Active (per Deactivate/Reactivate history) — admission-to-deactivate + reactivate-to-invoice,
+// excluding the deactivated stretch in between, exactly as the Activation workflow intends.
+// `asOfDate` (optional, defaults to today) is the "Invoice Date" boundary for the still-open
+// active range and for the current (in-progress) year's line.
+function studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories, activations, asOfDate) {
   const history = getClassHistory(student, promotions, classHistories);
   const paidRows = studentPaidRows(student, invoices);
+  const today = asOfDate || new Date().toISOString().slice(0, 10);
   const lines = [];
   history.forEach(entry => {
     const heads = applicableFeeHeadsForEntry(entry, feeRules);
+    const yearStart = `${entry.year}-01-01`;
+    const yearEndCalendar = `${entry.year}-12-31`;
+    const yearEnd = yearEndCalendar < today ? yearEndCalendar : today;
+    const periodStart = (student.admissionDate && student.admissionDate > yearStart) ? student.admissionDate : yearStart;
     heads.forEach(h => {
       const matching = paidRows.filter(r => r.head === h.feeType && String(r.year) === String(entry.year) && r.className === entry.className);
       const paid = sumBy(matching, r => r.payment);
       const waived = sumBy(matching, r => r.waiver);
-      const charged = Number(h.amount) || 0;
+      const fullCharged = Number(h.amount) || 0;
+      const fraction = (activations && activations.length && isProratedHead(h.feeType) && periodStart < yearEnd)
+        ? activeDayFraction(student, activations, periodStart, yearEnd)
+        : 1;
+      const charged = Math.round(fullCharged * fraction);
       lines.push({
         year: entry.year, className: entry.className, section: entry.section,
         head: h.feeType, charged, paid, waived, due: Math.max(0, charged - paid - waived),
@@ -1235,8 +1346,8 @@ function studentFeeBreakdown(student, feeRules, invoices, promotions, classHisto
   return lines;
 }
 
-function studentDueFromRules(student, feeRules, invoices, promotions, classHistories) {
-  return sumBy(studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories), r => r.due);
+function studentDueFromRules(student, feeRules, invoices, promotions, classHistories, activations, asOfDate) {
+  return sumBy(studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories, activations, asOfDate), r => r.due);
 }
 
 // Legacy fallback (kept for any old records without fee-rule linkage)
@@ -1317,12 +1428,13 @@ function Dashboard({ data, setActiveModule }) {
   const invoices = data.invoices || [];
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
+  const activations = data.activations || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
 
   const totalIncome = sumBy(finance.filter(f => f.type === "income"), f => f.amount);
   const totalExpense = sumBy(finance.filter(f => f.type === "expense"), f => f.amount);
-  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices, promotions, classHistories));
+  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices, promotions, classHistories, activations));
   const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
 
   const monthIncome = sumBy(finance.filter(f => f.type === "income" && withinRange(f.date, "monthly")), f => f.amount);
@@ -1476,17 +1588,28 @@ const emptyStudent = (existingStudents) => {
   };
 };
 
-function StudentsModule({ data, save, remove, config }) {
-  const [tab, setTab] = useState("list");
+const STUDENTS_SUBTABS = [
+  { key: "list", label: "All Students" },
+  { key: "promotion", label: "Promotion" },
+  { key: "classHistory", label: "Class History" },
+  { key: "activation", label: "Activation" },
+  { key: "office", label: "Office Information" },
+];
+
+function StudentsModule({ data, save, remove, config, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "list");
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
   const [printStudent, setPrintStudent] = useState(null);
 
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
+
   const students = data.students || [];
   const invoices = data.invoices || [];
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
+  const activations = data.activations || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filtered = students.filter(s => {
@@ -1494,7 +1617,7 @@ function StudentsModule({ data, save, remove, config }) {
       || str(s.name).toLowerCase().includes(query.toLowerCase())
       || str(s.roll).toLowerCase().includes(query.toLowerCase())
       || str(s.studentId).toLowerCase().includes(query.toLowerCase());
-    const matchC = !classFilter || s.className === classFilter;
+    const matchC = !classFilter || getCurrentStatus(s, promotions).className === classFilter;
     return matchQ && matchC;
   });
 
@@ -1521,23 +1644,33 @@ function StudentsModule({ data, save, remove, config }) {
       <div className="section-head">
         <div>
           <h2>Students</h2>
-          <p>All admissions submitted through the Admission Form, and yearly class promotions.</p>
+          <p>All admissions, yearly class promotions, class history, activation status, and office records.</p>
         </div>
         {tab === "list" && <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />New Admission</button>}
       </div>
 
       <div className="tabs no-print">
-        <button className={`tab ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>All Students</button>
-        <button className={`tab ${tab === "promotion" ? "active" : ""}`} onClick={() => setTab("promotion")}>Promotion</button>
+        {STUDENTS_SUBTABS.map(t => (
+          <button key={t.key} className={`tab ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>{t.label}</button>
+        ))}
       </div>
 
       {tab === "list" && (
         <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
           onEdit={openEdit} onDelete={(id) => remove("students", id)} onPrint={(s) => setPrintStudent(s)} feeRules={feeRules} invoices={invoices}
-          promotions={promotions} classHistories={classHistories} config={config} />
+          promotions={promotions} classHistories={classHistories} activations={activations} config={config} />
       )}
       {tab === "promotion" && (
         <PromotionTab students={students} promotions={promotions} save={save} config={config} />
+      )}
+      {tab === "classHistory" && (
+        <ClassHistoryTab students={students} classHistories={classHistories} promotions={promotions} config={config} />
+      )}
+      {tab === "activation" && (
+        <ActivationTab students={students} promotions={promotions} activations={activations} save={save} config={config} />
+      )}
+      {tab === "office" && (
+        <OfficeInformationTab students={students} promotions={promotions} classHistories={classHistories} config={config} />
       )}
 
       {editing && (
@@ -1548,7 +1681,7 @@ function StudentsModule({ data, save, remove, config }) {
   );
 }
 
-function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onPrint, feeRules, invoices, promotions, classHistories, config }) {
+function StudentListTab({ students, query, setQuery, classFilter, setClassFilter, onEdit, onDelete, onPrint, feeRules, invoices, promotions, classHistories, activations, config }) {
   function handlePrint() { window.print(); }
   return (
     <div className="card card-flush">
@@ -1575,7 +1708,9 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
             </thead>
             <tbody>
               {students.map(s => {
-                const due = studentDueFromRules(s, feeRules, invoices, promotions, classHistories);
+                const due = studentDueFromRules(s, feeRules, invoices, promotions, classHistories, activations);
+                const current = getCurrentStatus(s, promotions);
+                const activationInfo = getActivationStatus(s, activations);
                 return (
                   <tr key={s.id}>
                     <td>
@@ -1584,13 +1719,13 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
                       </div>
                     </td>
                     <td className="mono">{s.studentId || "—"}</td>
-                    <td className="mono">{s.roll || "—"}</td>
+                    <td className="mono">{current.roll || "—"}</td>
                     <td>{s.name}</td>
-                    <td>{s.className}</td>
-                    <td>{s.section}</td>
+                    <td>{current.className || "—"}</td>
+                    <td>{current.section || "—"}</td>
                     <td>{s.guardianPhone || "—"}</td>
                     <td>{due > 0 ? <span className="badge badge-red">৳{money(due)}</span> : <span className="badge badge-green">Paid</span>}</td>
-                    <td><span className={`badge ${s.status === "Active" ? "badge-green" : "badge-slate"}`}>{s.status || "Active"}</span></td>
+                    <td><span className={`badge ${activationInfo.status === "Active" ? "badge-green" : "badge-slate"}`}>{activationInfo.status}</span></td>
                     <td className="no-print">
                       <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
@@ -1843,6 +1978,270 @@ function StudentPicker({ students, label, onPick }) {
 }
 
 /* =========================================================
+   CLASS HISTORY TAB — read-only archive of every past promotion,
+   one row per (student, year/class) that they have since been promoted OUT of.
+   ========================================================= */
+function ClassHistoryTab({ students, classHistories, promotions, config }) {
+  const [query, setQuery] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  function handlePrint() { window.print(); }
+
+  const studentById = {};
+  students.forEach(s => { studentById[s.id] = s; });
+
+  const rows = (classHistories || [])
+    .map(h => ({ h, student: studentById[h.studentId] }))
+    .filter(r => r.student)
+    .filter(r => {
+      const matchQ = !query
+        || str(r.student.name).toLowerCase().includes(query.toLowerCase())
+        || str(r.h.roll).toLowerCase().includes(query.toLowerCase())
+        || str(r.student.studentId).toLowerCase().includes(query.toLowerCase());
+      const matchC = !classFilter || r.h.className === classFilter;
+      return matchQ && matchC;
+    })
+    .sort((a, b) => new Date(b.h.createdAt || 0) - new Date(a.h.createdAt || 0));
+
+  return (
+    <div className="card card-flush">
+      <div className="no-print" style={{ padding: "16px 18px 0" }}>
+        <div className="search-row">
+          <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+            <input className="search-input" placeholder="Search by name, roll, or Student ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+            <option value="">All Classes</option>
+            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState title="No class history yet" sub="Records appear here after a student is promoted through the Promotion Form." />
+      ) : (
+        <div className="table-wrap">
+          <PrintDocHead config={config} headline="Student Class History" />
+          <table>
+            <thead>
+              <tr><th>Student ID</th><th>Name</th><th>Class</th><th>Section</th><th>Subject</th><th>Roll</th><th>Session</th></tr>
+            </thead>
+            <tbody>
+              {rows.map(({ h, student }, i) => (
+                <tr key={h.id || i}>
+                  <td className="mono">{student.studentId}</td>
+                  <td>{student.name}</td>
+                  <td>{h.className}</td>
+                  <td>{h.section}</td>
+                  <td>{h.subjectGroup || "—"}</td>
+                  <td className="mono">{h.roll || "—"}</td>
+                  <td>{h.session}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   ACTIVATION TAB — Deactivate / Reactivate a student, with the
+   Activation Form; each entry is a snapshot of the student's
+   Promotion-sheet status at the moment of the status change.
+   ========================================================= */
+function ActivationTab({ students, promotions, activations, save, config }) {
+  const [query, setQuery] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  function handlePrint() { window.print(); }
+
+  const studentById = {};
+  students.forEach(s => { studentById[s.id] = s; });
+
+  const rows = (activations || [])
+    .map(a => ({ a, student: studentById[a.studentId] }))
+    .filter(r => r.student)
+    .filter(r => !query
+      || str(r.student.name).toLowerCase().includes(query.toLowerCase())
+      || str(r.student.studentId).toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => new Date(b.a.date || 0) - new Date(a.a.date || 0));
+
+  return (
+    <div className="card card-flush">
+      <div className="no-print" style={{ padding: "16px 18px 0" }}>
+        <div className="search-row">
+          <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+            <input className="search-input" placeholder="Search by name or Student ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={() => setFormOpen(true)}><Icon.plus />Activation Form</button>
+          <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState title="No activation records yet" sub="Use the Activation Form to Deactivate or Reactivate a student." />
+      ) : (
+        <div className="table-wrap">
+          <PrintDocHead config={config} headline="Student Activation History" />
+          <table>
+            <thead>
+              <tr><th>Student ID</th><th>Name</th><th>Class</th><th>Section</th><th>Roll</th><th>Session</th><th>Admission Date</th><th>Status</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+              {rows.map(({ a, student }, i) => (
+                <tr key={a.id || i}>
+                  <td className="mono">{student.studentId}</td>
+                  <td>{student.name}</td>
+                  <td>{a.className}</td>
+                  <td>{a.section}</td>
+                  <td className="mono">{a.roll || "—"}</td>
+                  <td>{a.session}</td>
+                  <td>{fmtDate(student.admissionDate)}</td>
+                  <td><span className={`badge ${a.status === "Deactivate" ? "badge-red" : "badge-green"}`}>{a.status}</span></td>
+                  <td>{fmtDate(a.date)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {formOpen && (
+        <ActivationFormModal students={students} promotions={promotions} activations={activations} save={save} onClose={() => setFormOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function ActivationFormModal({ students, promotions, activations, save, onClose }) {
+  const [studentId, setStudentId] = useState("");
+  const [status, setStatus] = useState("Deactivate");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const student = students.find(s => s.id === studentId);
+  const current = student ? getCurrentStatus(student, promotions) : null;
+  const activationInfo = student ? getActivationStatus(student, activations) : null;
+
+  function handlePick(s) {
+    setStudentId(s.id);
+    const info = getActivationStatus(s, activations);
+    setStatus(info.status === "Active" ? "Deactivate" : "Reactivate");
+  }
+
+  async function handleSave() {
+    if (!student) return;
+    setSaving(true);
+    await save("activations", {
+      id: null, studentId: student.id, name: student.name,
+      className: current.className, roll: current.roll, section: current.section,
+      subjectGroup: current.subjectGroup, session: current.session,
+      admissionDate: student.admissionDate, status, date,
+    });
+    setSaving(false);
+    toast && toast(`${status === "Deactivate" ? "Deactivated" : "Reactivated"} ${student.name}`, "success");
+    onClose();
+  }
+
+  return (
+    <Modal title="Activation Form" onClose={onClose} size="lg"
+      footer={<>
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" disabled={!student || saving} onClick={handleSave}>{saving ? "Saving…" : "Save"}</button>
+      </>}>
+      {!student ? (
+        <StudentPicker students={students} label="Select Student ID / Name" onPick={handlePick} />
+      ) : (
+        <div className="form-grid cols-2">
+          <Field label="Student ID"><input type="text" value={student.studentId} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Name"><input type="text" value={student.name} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Class"><input type="text" value={current.className || ""} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Roll"><input type="text" value={current.roll || ""} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Section"><input type="text" value={current.section || ""} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Subject"><input type="text" value={current.subjectGroup || ""} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Session"><input type="text" value={current.session || ""} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Admission Date (Auto)"><input type="text" value={fmtDate(student.admissionDate)} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Status">
+            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="Deactivate" disabled={activationInfo.status === "Inactive"}>Deactivate</option>
+              <option value="Reactivate" disabled={activationInfo.status === "Active"}>Reactivate</option>
+            </select>
+          </Field>
+          <Field label="Date"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+          <div span2 style={{ gridColumn: "1 / -1" }}>
+            <button className="btn btn-sm" onClick={() => setStudentId("")}>← Choose a different student</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/* =========================================================
+   OFFICE INFORMATION TAB — search by Class + Year, print a
+   roster with guardian contact details.
+   ========================================================= */
+function OfficeInformationTab({ students, promotions, classHistories, config }) {
+  const [className, setClassName] = useState(CLASSES[0]);
+  const [year, setYear] = useState(String(CURRENT_YEAR));
+  const [searched, setSearched] = useState(false);
+  function handlePrint() { window.print(); }
+
+  const rows = students
+    .map(s => {
+      const history = getClassHistory(s, promotions, classHistories);
+      const entry = history.find(e => e.className === className && String(e.year) === String(year));
+      return entry ? { student: s, entry } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => (Number(a.entry.roll) || 0) - (Number(b.entry.roll) || 0));
+
+  return (
+    <div className="card card-flush">
+      <div className="no-print" style={{ padding: "16px 18px 0" }}>
+        <div className="search-row">
+          <select className="filter-select" value={className} onChange={(e) => setClassName(e.target.value)}>
+            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input className="search-input" style={{ maxWidth: 140 }} type="number" value={year} onChange={(e) => setYear(e.target.value)} placeholder="Year" />
+          <button className="btn btn-primary btn-sm" onClick={() => setSearched(true)}><Icon.search />Search</button>
+          {searched && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+        </div>
+      </div>
+      {!searched ? (
+        <EmptyState title="Search a class and year" sub="Select a class and year above, then click Search to build the office roster." />
+      ) : rows.length === 0 ? (
+        <EmptyState title="No students found" sub={`No students were in ${className} during ${year}.`} />
+      ) : (
+        <div className="table-wrap">
+          <PrintDocHead config={config} headline="Office Information" />
+          <div style={{ textAlign: "center", fontWeight: 700, fontSize: 14, margin: "4px 0 12px" }}>
+            Class: {className} &nbsp;·&nbsp; Year: {year}
+          </div>
+          <table>
+            <thead>
+              <tr><th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th><th>Guardian Name</th><th>Guardian Relation</th><th>Guardian Mobile No</th></tr>
+            </thead>
+            <tbody>
+              {rows.map(({ student, entry }) => (
+                <tr key={student.id}>
+                  <td className="mono">{student.studentId}</td>
+                  <td>{student.name}</td>
+                  <td className="mono">{entry.roll || "—"}</td>
+                  <td>{entry.section}</td>
+                  <td>{student.guardianName || "—"}</td>
+                  <td>{student.guardianRelation || "—"}</td>
+                  <td>{student.guardianPhone || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
    FEE INVOICE MODULE (top-level) — form button + saved invoice list
    ========================================================= */
 function FeeInvoiceModule({ data, save, remove, config }) {
@@ -1857,6 +2256,7 @@ function FeeInvoiceModule({ data, save, remove, config }) {
   const invoices = data.invoices || [];
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
+  const activations = data.activations || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filteredInvoices = invoices.filter(inv =>
@@ -1927,13 +2327,13 @@ function FeeInvoiceModule({ data, save, remove, config }) {
       </div>
 
       {formOpen && (
-        <StudentInvoiceModal students={students} config={config} feeRules={feeRules} invoices={invoices} promotions={promotions} classHistories={classHistories}
+        <StudentInvoiceModal students={students} config={config} feeRules={feeRules} invoices={invoices} promotions={promotions} classHistories={classHistories} activations={activations}
           onSave={handleSaveStudent} saveInvoice={handleSaveInvoice} onClose={() => setFormOpen(false)} />
       )}
       {editInvoice && (
         <StudentInvoiceModal students={students}
           initialStudent={students.find(s => s.id === editInvoice.studentId) || null}
-          config={config} feeRules={feeRules} invoices={invoices} promotions={promotions} classHistories={classHistories}
+          config={config} feeRules={feeRules} invoices={invoices} promotions={promotions} classHistories={classHistories} activations={activations}
           onSave={handleSaveStudent} saveInvoice={handleSaveInvoice} onClose={() => setEditInvoice(null)} />
       )}
       {printInvoice && (
@@ -2128,7 +2528,7 @@ function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, wai
   );
 }
 
-function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoices, promotions, classHistories, onSave, saveInvoice, onClose }) {
+function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoices, promotions, classHistories, activations, onSave, saveInvoice, onClose }) {
   const [selected, setSelected] = useState(initialStudent || null);
   const [query, setQuery] = useState("");
   const [payAmounts, setPayAmounts] = useState({}); // { lineKey: amountString }
@@ -2145,7 +2545,12 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
     || str(s.studentId).toLowerCase().includes(query.toLowerCase())
   ).slice(0, 20) : [];
 
-  const breakdown = selected ? studentFeeBreakdown(selected, feeRules, invoices, promotions, classHistories) : [];
+  // Student's CURRENT class/roll/section — always sourced from the Promotion sheet, not the
+  // (possibly stale) Admission Form values on the raw student record.
+  const current = selected ? getCurrentStatus(selected, promotions) : null;
+  const displayStudent = selected ? { ...selected, ...current } : null;
+
+  const breakdown = selected ? studentFeeBreakdown(selected, feeRules, invoices, promotions, classHistories, activations) : [];
   const lineKey = (r) => `${r.year}::${r.className}::${r.head}`;
   const rows = invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey);
   const subtotal = sumBy(rows, r => r.amountDue);
@@ -2168,9 +2573,9 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
       studentId: selected.id,
       studentDisplayId: selected.studentId,
       studentName: selected.name,
-      className: selected.className,
-      section: selected.section,
-      roll: selected.roll,
+      className: current.className,
+      section: current.section,
+      roll: current.roll,
       photoUrl: selected.photoUrl,
       date: today,
       rows,
@@ -2206,7 +2611,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
         <button className="btn" onClick={onClose}>Close</button>
       )}>
       {showPrint && submittedInvoice ? (
-        <InvoiceDocPrint config={config} student={selected} invoiceNo={submittedInvoice.invoiceNo} date={submittedInvoice.date}
+        <InvoiceDocPrint config={config} student={displayStudent} invoiceNo={submittedInvoice.invoiceNo} date={submittedInvoice.date}
           rows={submittedInvoice.rows} subtotal={submittedInvoice.subtotal} waiverTotal={submittedInvoice.waiverTotal}
           paymentTotal={submittedInvoice.paymentTotal} dueAfter={submittedInvoice.dueAfter} />
       ) : !selected ? (
@@ -2215,12 +2620,12 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
             <input className="search-input" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Type to search…" />
           </Field>
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-            {matches.map(s => (
+            {matches.map(s => { const c = getCurrentStatus(s, promotions); return (
               <button key={s.id} className="btn" style={{ justifyContent: "flex-start", textAlign: "left" }} onClick={() => setSelected(s)}>
                 <strong style={{ marginRight: 8 }}>{s.name}</strong>
-                <span style={{ color: "var(--slate-soft)", fontSize: 12.5 }}>{s.className}{s.section} · Roll {s.roll || "—"} · <span className="mono">{s.studentId}</span></span>
+                <span style={{ color: "var(--slate-soft)", fontSize: 12.5 }}>{c.className}{c.section} · Roll {c.roll || "—"} · <span className="mono">{s.studentId}</span></span>
               </button>
-            ))}
+            ); })}
             {query.trim() && matches.length === 0 && <EmptyState title="No matching students" sub="Try a different name, roll, or Student ID." />}
             {!query.trim() && <EmptyState title="Search for a student" sub="Type a name, roll number, or Student ID above to load their fee invoice." />}
           </div>
@@ -2230,12 +2635,12 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
           <div className="grid grid-2" style={{ marginBottom: 18 }}>
             <div className="kv-row"><span className="k">Student ID</span><span className="v mono">{selected.studentId || "—"}</span></div>
             <div className="kv-row"><span className="k">Student</span><span className="v">{selected.name}</span></div>
-            <div className="kv-row"><span className="k">Class / Section</span><span className="v">{selected.className} — {selected.section}</span></div>
-            <div className="kv-row"><span className="k">Roll</span><span className="v">{selected.roll || "—"}</span></div>
+            <div className="kv-row"><span className="k">Class / Section</span><span className="v">{current.className} — {current.section}</span></div>
+            <div className="kv-row"><span className="k">Roll</span><span className="v">{current.roll || "—"}</span></div>
           </div>
 
           {rows.length === 0 ? (
-            <EmptyState title="No fee rules set for this class" sub={`Add fee heads for ${selected.className} in Master Fee first.`} />
+            <EmptyState title="No fee rules set for this class" sub={`Add fee heads for ${current.className} in Master Fee first.`} />
           ) : (
             <div className="table-wrap">
               <table style={{ width: "100%", marginBottom: 16 }}>
@@ -2610,7 +3015,7 @@ function StudentIdCardPhysical({ student, config }) {
   return (
     <div className="id-card-physical">
       <div className="icp-head">
-        <div className="icp-school">{config.schoolName || "School Name"}</div>
+        <div className="icp-school" title={config.schoolName || "School Name"}>{config.schoolName || "School Name"}</div>
         {config.schoolAddress && <div className="icp-address">{config.schoolAddress}</div>}
         <div className="icp-doctype">Student Identity Card</div>
       </div>
@@ -2624,9 +3029,9 @@ function StudentIdCardPhysical({ student, config }) {
         <FieldRow name="Class" value={student.className || "—"} />
         <FieldRow name="Section" value={student.section || "—"} />
         <FieldRow name="Session" value={student.session || "—"} />
-        {phone && <FieldRow name="Mobile" value={phone} />}
       </div>
       <div className="icp-footer">
+        {phone && <div className="icp-footer-phone">☎ {phone}</div>}
         <img className="icp-qr" src={qrUrl} alt="Scan for status" />
       </div>
     </div>
@@ -2702,11 +3107,11 @@ function AdmitCardPhysical({ student, config, examName }) {
 
 const CARD_TYPES = {
   id: { title: "ID Card", needsExam: false, sizeClass: "id-card-grid", cardWidth: "2.2in" },
-  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "99mm" },
+  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "210mm" },
   seat: { title: "Seat Plan", needsExam: true, sizeClass: "seat-card-grid", cardWidth: "3in" },
 };
 
-function CardTypeFlow({ type, students, config, onBack }) {
+function CardTypeFlow({ type, students, promotions, config, onBack }) {
   const meta = CARD_TYPES[type];
   const [mode, setMode] = useState("single");
   const [examName, setExamName] = useState("");
@@ -2718,13 +3123,17 @@ function CardTypeFlow({ type, students, config, onBack }) {
   // Admit Card: keep the watermark, but it already prints its own credit line, so skip the shared footer.
   usePrintChrome({ hideWatermark: type === "id" || type === "seat", hideFooter: true });
 
-  const matches = query.trim() ? students.filter(s =>
+  // ID Card / Admit Card / Seat Plan always reflect a student's CURRENT class/roll/section/
+  // subject/session — sourced from the Promotion sheet, not the original Admission Form values.
+  const liveStudents = students.map(s => ({ ...s, ...getCurrentStatus(s, promotions) }));
+
+  const matches = query.trim() ? liveStudents.filter(s =>
     str(s.name).toLowerCase().includes(query.toLowerCase())
     || str(s.roll).toLowerCase().includes(query.toLowerCase())
     || str(s.studentId).toLowerCase().includes(query.toLowerCase())
   ).slice(0, 20) : [];
 
-  const classList = students.filter(s => s.className === classFilter && (!sectionFilter || s.section === sectionFilter));
+  const classList = liveStudents.filter(s => s.className === classFilter && (!sectionFilter || s.section === sectionFilter));
 
   function handlePrint() { window.print(); }
 
@@ -2783,7 +3192,7 @@ function CardTypeFlow({ type, students, config, onBack }) {
             </div>
           )}
 
-          <div className={meta.sizeClass} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
+          <div className={`${meta.sizeClass}${type === "admit" ? " print-landscape" : ""}`} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
             {mode === "single" && selected && renderCard(selected)}
             {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
             {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
@@ -2795,12 +3204,14 @@ function CardTypeFlow({ type, students, config, onBack }) {
   );
 }
 
-function AllCardModule({ data, config }) {
-  const [cardType, setCardType] = useState(null); // 'id' | 'admit' | 'seat' | null
+function AllCardModule({ data, config, initialCardType }) {
+  const [cardType, setCardType] = useState(initialCardType || null); // 'id' | 'admit' | 'seat' | null
+  useEffect(() => { if (initialCardType) setCardType(initialCardType); }, [initialCardType]);
   const students = data.students || [];
+  const promotions = data.promotions || [];
 
   if (cardType) {
-    return <CardTypeFlow type={cardType} students={students} config={config} onBack={() => setCardType(null)} />;
+    return <CardTypeFlow type={cardType} students={students} promotions={promotions} config={config} onBack={() => setCardType(null)} />;
   }
 
   return (
@@ -2817,7 +3228,7 @@ function AllCardModule({ data, config }) {
         <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("admit")}>
           <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--clay)" }} />
           <h3 style={{ fontSize: 15 }}>Admit Card</h3>
-          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Examination admit card, half A4 portrait</p>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Examination admit card, half A4 landscape</p>
         </button>
         <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("seat")}>
           <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--gold)" }} />
@@ -2841,8 +3252,9 @@ const emptyTeacher = (existingTeachers) => {
   };
 };
 
-function TeachersModule({ data, save, remove, config }) {
-  const [tab, setTab] = useState("list");
+function TeachersModule({ data, save, remove, config, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "list");
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState("");
   const [docTarget, setDocTarget] = useState(null);
@@ -3160,8 +3572,9 @@ const emptyFinance = (type) => ({
   description: "", receivedFrom: "", paidTo: "", reference: "",
 });
 
-function FinanceModule({ data, save, remove, config }) {
-  const [tab, setTab] = useState("income");
+function FinanceModule({ data, save, remove, config, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "income");
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
   const [editing, setEditing] = useState(null);
   const [docTarget, setDocTarget] = useState(null);
   const finance = data.finance || [];
@@ -3270,13 +3683,15 @@ function FinanceDocModal({ record, config, onClose }) {
 /* =========================================================
    DUE MODULE
    ========================================================= */
-function DueModule({ data, config }) {
-  const [tab, setTab] = useState("students");
+function DueModule({ data, config, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "students");
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
   const students = data.students || [];
   const teachers = data.teachers || [];
   const invoices = data.invoices || [];
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
+  const activations = data.activations || [];
   const classFeeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
   const [classFilter, setClassFilter] = useState("");
@@ -3284,7 +3699,7 @@ function DueModule({ data, config }) {
   // Filter by CURRENT class (from the Promotion record), not the original admission-time class,
   // so a promoted student correctly shows up under their new class here.
   const classStudents = students.filter(s => !classFilter || getCurrentStatus(s, promotions).className === classFilter);
-  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules, invoices, promotions, classHistories), due: studentDueFromRules(s, classFeeRules, invoices, promotions, classHistories) }));
+  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules, invoices, promotions, classHistories, activations), due: studentDueFromRules(s, classFeeRules, invoices, promotions, classHistories, activations) }));
   // union of all fee heads that appear for the selected class (as of today — i.e. current Master Fee setup)
   const allHeadsInView = [...new Set(studentRows.flatMap(s => s.breakdown.map(r => r.head)))];
 
@@ -3402,8 +3817,9 @@ function feeYearOptions(existingRows) {
   return [...years].sort((a, b) => b - a);
 }
 
-function MasterFeeModule({ data, save, remove, config }) {
-  const [tab, setTab] = useState("class");
+function MasterFeeModule({ data, save, remove, config, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "class");
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
   const [editingGroup, setEditingGroup] = useState(null); // { id, kind, year, className, section, designation, items:[{feeType,amount}], note }
   const fees = data.fees || [];
   const classRows = fees.filter(f => f.kind === "class");
@@ -3731,6 +4147,7 @@ function ReportsModule({ data }) {
   const invoices = data.invoices || [];
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
+  const activations = data.activations || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
 
@@ -3739,7 +4156,7 @@ function ReportsModule({ data }) {
   const expense = sumBy(filtered.filter(f => f.type === "expense"), f => f.amount);
   const net = income - expense;
 
-  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices, promotions, classHistories));
+  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices, promotions, classHistories, activations));
   const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
 
   const headBreakdown = {};
@@ -3883,17 +4300,42 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
 const NAV_GROUPS = [
   { label: "Overview", items: [{ key: "dashboard", label: "Dashboard", icon: "dashboard" }] },
   { label: "People", items: [
-    { key: "students", label: "Students", icon: "students" },
-    { key: "teachers", label: "Teachers", icon: "teachers" },
+    { key: "students", label: "Students", icon: "students", subitems: [
+      { key: "list", label: "All Students" },
+      { key: "promotion", label: "Promotion" },
+      { key: "classHistory", label: "Class History" },
+      { key: "activation", label: "Activation" },
+      { key: "office", label: "Office Information" },
+    ]},
+    { key: "teachers", label: "Teachers", icon: "teachers", subitems: [
+      { key: "list", label: "Staff List" },
+      { key: "letter", label: "Join / Resign Letter" },
+      { key: "idcard", label: "ID Card" },
+      { key: "salary", label: "Salary Invoice" },
+    ]},
   ]},
   { label: "Cards & Forms", items: [
-    { key: "allcard", label: "All Card", icon: "idcard" },
+    { key: "allcard", label: "All Card", icon: "idcard", subitems: [
+      { key: "id", label: "ID Card" },
+      { key: "admit", label: "Admit Card" },
+      { key: "seat", label: "Seat Plan" },
+    ]},
     { key: "invoice", label: "Fee Invoice", icon: "fee" },
   ]},
   { label: "Money", items: [
-    { key: "finance", label: "Finance", icon: "finance" },
-    { key: "due", label: "Due List", icon: "due" },
-    { key: "fees", label: "Master Fee", icon: "fee" },
+    { key: "finance", label: "Finance", icon: "finance", subitems: [
+      { key: "income", label: "Income Invoices" },
+      { key: "expense", label: "Expense Vouchers" },
+    ]},
+    { key: "due", label: "Due List", icon: "due", subitems: [
+      { key: "students", label: "Student Dues" },
+      { key: "teachers", label: "Teacher Dues" },
+      { key: "others", label: "Other Dues" },
+    ]},
+    { key: "fees", label: "Master Fee", icon: "fee", subitems: [
+      { key: "class", label: "Class Fee Rules" },
+      { key: "teacher", label: "Teacher Fee Scale" },
+    ]},
   ]},
   { label: "Organization", items: [
     { key: "committee", label: "Committee", icon: "committee" },
@@ -3908,13 +4350,26 @@ const MODULE_TITLES = {
   allcard: "All Card", invoice: "Fee Invoice",
 };
 
-function MenuBar({ active, setActive, config, store }) {
+function MenuBar({ active, subTab, setActive, config, store }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const flatItems = NAV_GROUPS.flatMap(g => g.items);
+  const [expanded, setExpanded] = useState(active);
 
-  function pick(key) {
-    setActive(key);
+  function pick(key, subKey) {
+    setActive(key, subKey);
     setMobileOpen(false);
+  }
+
+  function toggleGroup(item) {
+    if (item.subitems) {
+      // Clicking an item that has submenus expands/collapses it in place, and also
+      // navigates to that module's first sub-section so the click always does something.
+      const willOpen = expanded !== item.key;
+      setExpanded(willOpen ? item.key : "");
+      if (willOpen) pick(item.key, item.subitems[0].key);
+    } else {
+      setExpanded("");
+      pick(item.key);
+    }
   }
 
   return (
@@ -3957,10 +4412,31 @@ function MenuBar({ active, setActive, config, store }) {
           <div key={group.label}>
             <div className="menubar-group-label">{group.label}</div>
             {group.items.map(item => (
-              <button key={item.key} className={`menubar-item ${active === item.key ? "active" : ""}`} onClick={() => pick(item.key)}>
-                <IconWrap name={item.icon} />
-                {item.label}
-              </button>
+              <div key={item.key}>
+                <button
+                  className={`menubar-item ${active === item.key ? "active" : ""}`}
+                  onClick={() => toggleGroup(item)}
+                >
+                  <IconWrap name={item.icon} />
+                  {item.label}
+                  {item.subitems && (
+                    <IconWrap name="chevronDown" className={`menubar-item-chevron ${expanded === item.key ? "open" : ""}`} />
+                  )}
+                </button>
+                {item.subitems && (
+                  <div className={`menubar-submenu ${expanded === item.key ? "open" : ""}`}>
+                    {item.subitems.map(sub => (
+                      <button
+                        key={sub.key}
+                        className={`menubar-subitem ${active === item.key && subTab === sub.key ? "active" : ""}`}
+                        onClick={() => pick(item.key, sub.key)}
+                      >
+                        {sub.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         ))}
@@ -3971,8 +4447,20 @@ function MenuBar({ active, setActive, config, store }) {
 
 function AppShell() {
   const [config, setConfigState] = useState(loadConfig());
-  const [active, setActive] = useState("dashboard");
+  const [active, setActiveRaw] = useState("dashboard");
+  const [subTab, setSubTab] = useState("");
+  const [navSeq, setNavSeq] = useState(0);
   const store = useDataStore(config);
+
+  // Nav clicks always pass through here: `key` is the module, `subKey` (optional) is which
+  // internal section/tab of that module to land on — this is what powers the menu's submenus.
+  // navSeq is bumped on every click so the target module remounts fresh, even if you click the
+  // same submenu item twice in a row after navigating away inside the module.
+  function setActive(key, subKey) {
+    setActiveRaw(key);
+    setSubTab(subKey || "");
+    setNavSeq(n => n + 1);
+  }
 
   function setConfig(c) { setConfigState(c); }
 
@@ -4016,7 +4504,7 @@ function AppShell() {
   return (
     <div className="app-shell">
       <GlobalPrintChrome config={config} />
-      <MenuBar active={active} setActive={setActive} config={config} store={store} />
+      <MenuBar active={active} subTab={subTab} setActive={setActive} config={config} store={store} />
 
       <div className="main-col">
         <div className="topbar no-print">
@@ -4029,16 +4517,16 @@ function AppShell() {
             <button className="btn btn-sm btn-icon" title="Sync now" onClick={store.refresh}><IconWrap name="refresh" /></button>
           </div>
         </div>
-        <div className="content">
+        <div className="content" key={`${active}-${subTab}-${navSeq}`}>
           <ConnectionBanner config={config} onOpenSettings={() => setActive("settings")} />
           {active === "dashboard" && <Dashboard data={store.data} setActiveModule={setActive} />}
-          {active === "students" && <StudentsModule data={store.data} save={store.save} remove={store.remove} config={config} />}
-          {active === "allcard" && <AllCardModule data={store.data} config={config} />}
+          {active === "students" && <StudentsModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
+          {active === "allcard" && <AllCardModule data={store.data} config={config} initialCardType={subTab} />}
           {active === "invoice" && <FeeInvoiceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
-          {active === "teachers" && <TeachersModule data={store.data} save={store.save} remove={store.remove} config={config} />}
-          {active === "finance" && <FinanceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
-          {active === "due" && <DueModule data={store.data} config={config} />}
-          {active === "fees" && <MasterFeeModule data={store.data} save={store.save} remove={store.remove} config={config} />}
+          {active === "teachers" && <TeachersModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
+          {active === "finance" && <FinanceModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
+          {active === "due" && <DueModule data={store.data} config={config} initialTab={subTab} />}
+          {active === "fees" && <MasterFeeModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "committee" && <CommitteeModule data={store.data} save={store.save} remove={store.remove} />}
           {active === "reports" && <ReportsModule data={store.data} />}
           {active === "settings" && <SettingsModule config={config} setConfig={setConfig} data={store.data} save={store.save} remove={store.remove} />}
@@ -4062,19 +4550,20 @@ function StudentStatusPage({ studentId }) {
     }
     (async () => {
       try {
-        const res = await SheetsAPI.bulkGet(config, ["Students", "MasterFees", "Invoice", "Promotion", "ClassHistory"]);
+        const res = await SheetsAPI.bulkGet(config, ["Students", "MasterFees", "Invoice", "Promotion", "ClassHistory", "Activation"]);
         const students = res.data["Students"] || [];
         const feeRulesAll = res.data["MasterFees"] || [];
         const invoices = res.data["Invoice"] || [];
         const promotions = res.data["Promotion"] || [];
         const classHistories = res.data["ClassHistory"] || [];
+        const activations = res.data["Activation"] || [];
         const student = students.find(s => s.studentId === studentId || s.id === studentId);
         if (!student) {
           setState({ loading: false, error: "No student found for this ID.", student: null, config, breakdown: [] });
           return;
         }
         const feeRules = feeRulesAll.filter(f => f.kind === "class");
-        const breakdown = studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories);
+        const breakdown = studentFeeBreakdown(student, feeRules, invoices, promotions, classHistories, activations);
         const current = getCurrentStatus(student, promotions);
         setState({ loading: false, error: null, student: { ...student, current }, config, breakdown });
       } catch (err) {
