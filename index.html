@@ -500,7 +500,7 @@ tbody tr:last-child td{border-bottom:none;}
 .acp-title{text-align:center;font-family:'Fraunces',serif;font-size:14pt;font-weight:700;margin:1mm 0 4mm;padding-bottom:2mm;border-bottom:1px dashed var(--line);}
 .acp-fields{font-size:10.5pt;margin-bottom:4mm;column-count:2;column-gap:10mm;}
 .acp-note{font-size:8pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
-.acp-signatures{display:flex;justify-content:space-between;margin-top:8mm;gap:12mm;padding:0 8mm;}
+.acp-signatures{display:flex;justify-content:space-between;margin-top:16mm;gap:12mm;padding:0 8mm;}
 .acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:8pt;text-align:center;flex:1;line-height:1.5;}
 .acp-credit{text-align:center;font-size:7pt;color:var(--slate-soft);margin-top:3mm;}
 
@@ -591,18 +591,23 @@ tbody tr:last-child td{border-bottom:none;}
 .id-card-physical .icp-name{font-weight:800;font-size:11pt;text-align:center;padding:0 0.1in;margin-bottom:0.08in;}
 .id-card-physical .icp-sub{font-size:7pt;color:var(--slate-soft);text-align:center;margin-bottom:0.06in;}
 .id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;}
-.id-card-physical .icp-qr-perch{
-  display:flex;justify-content:flex-end;padding:0 0.14in;margin-top:auto;margin-bottom:-0.12in;
-  position:relative;z-index:1;
+.id-card-physical .icp-body .field-row{padding:2px 0;font-size:6.8pt;gap:3px;}
+.id-card-physical .icp-perch-row{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  padding:0 0.12in;margin-top:auto;margin-bottom:-0.15in;
+  position:relative;z-index:2;
 }
 .id-card-physical .icp-footer{
-  margin-top:0.16in;background:#1a2b4a;color:#fff;
+  margin-top:0.2in;background:#1a2b4a;color:#fff;
   padding:0.07in 0.1in;text-align:center;
   border-radius:0;
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
 }
 .id-card-physical .icp-footer-phone{font-size:6.8pt;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .id-card-physical .icp-qr{width:0.4in;height:0.4in;background:#fff;border-radius:3px;padding:1.5px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.25);}
+.id-card-physical .icp-principal-sign{background:#fff;border-radius:3px;padding:2px 5px 3px;box-shadow:0 1px 3px rgba(0,0,0,0.25);text-align:center;flex-shrink:0;}
+.id-card-physical .icp-sign-line{width:0.5in;border-top:1px solid var(--ink);margin:0 auto 1px;}
+.id-card-physical .icp-sign-label{font-size:5.3pt;color:var(--ink);font-weight:700;white-space:nowrap;}
 
 .field-row{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;gap:6px;}
 .field-row:last-child{border-bottom:none;}
@@ -1420,28 +1425,54 @@ function teacherDue(teacher) {
   return Math.max(0, totalSalary - paid);
 }
 
-// Per-head breakdown for a teacher's payable amounts.
-// Uses the Master Fee "Teacher Fee Scale" row matching their designation (heads as columns) when available;
-// otherwise falls back to the two legacy components (Basic Salary, Allowance).
-function teacherFeeBreakdown(teacher, teacherFeeRules) {
+// Per-head breakdown for a teacher's payable amounts, from their Join Date through `asOfDate`
+// (defaults to today), minus every salary payment made so far — same Category-aware (Monthly/
+// Half Yearly/Yearly/3 Times) occurrence counting as student fees, applied year by year across
+// however many years the teacher has been employed. If resigned, stops counting at Resign Date.
+// Uses the Master Fee "Teacher Fee Scale" row matching their designation (heads as columns) when
+// available; otherwise falls back to the two legacy components (Basic Salary, Allowance) as a flat total.
+function teacherFeeBreakdown(teacher, teacherFeeRules, asOfDate) {
   const rowsForDesignation = (teacherFeeRules || []).filter(f => f.designation === teacher.designation);
-  // Prefer the current year's salary scale; fall back to the most recent year available for this designation.
-  const row = rowsForDesignation.find(f => String(f.year) === String(CURRENT_YEAR))
-    || [...rowsForDesignation].sort((a, b) => Number(b.year || 0) - Number(a.year || 0))[0];
   const payments = teacher.payments || [];
+  const today = asOfDate || new Date().toISOString().slice(0, 10);
+  const periodEndOverall = (teacher.status === "Resigned" && teacher.resignDate && teacher.resignDate < today) ? teacher.resignDate : today;
+  const periodStartOverall = teacher.joinDate || periodEndOverall;
 
-  if (row) {
-    const heads = feeHeadsOf(row);
-    if (heads.length > 0) {
-      return heads.map(h => {
-        const paid = sumBy(payments.filter(p => p.head === h && (p.year ? String(p.year) === String(row.year) : true)), p => p.amount);
-        const charged = Number(row[h]) || 0;
-        return { head: h, year: row.year, charged, paid, due: Math.max(0, charged - paid) };
+  if (rowsForDesignation.length > 0 && periodStartOverall && periodStartOverall <= periodEndOverall) {
+    const startYear = Number(periodStartOverall.slice(0, 4));
+    const endYear = Number(periodEndOverall.slice(0, 4));
+    const totals = {}; // head -> { charged, year (most recent used, for display) }
+    for (let y = startYear; y <= endYear; y++) {
+      const row = rowsForDesignation.find(f => String(f.year) === String(y))
+        || rowsForDesignation.find(f => String(f.year) === String(CURRENT_YEAR))
+        || [...rowsForDesignation].sort((a, b) => Number(b.year || 0) - Number(a.year || 0))[0];
+      if (!row) continue;
+      const heads = feeHeadsOf(row);
+      if (heads.length === 0) continue;
+      const cats = feeCategoriesOf(row);
+      const yearStart = `${y}-01-01`, yearEndCal = `${y}-12-31`;
+      const periodStart = periodStartOverall > yearStart ? periodStartOverall : yearStart;
+      const periodEnd = periodEndOverall < yearEndCal ? periodEndOverall : yearEndCal;
+      if (periodStart > periodEnd) continue;
+      heads.forEach(h => {
+        const category = (cats[h] && cats[h].category) || "Monthly"; // salaries default to Monthly, unlike student fees
+        const months = (cats[h] && cats[h].months) || [];
+        const occurrences = occurrencesForHead({ category, months }, teacher, [], periodStart, periodEnd);
+        const charged = (Number(row[h]) || 0) * occurrences;
+        if (!totals[h]) totals[h] = { charged: 0, year: y };
+        totals[h].charged += charged;
+        totals[h].year = y;
       });
     }
+    const results = Object.entries(totals).map(([head, t]) => {
+      const paid = sumBy(payments.filter(p => p.head === head), p => p.amount);
+      return { head, year: t.year, charged: t.charged, paid, due: Math.max(0, t.charged - paid) };
+    });
+    if (results.length > 0) return results;
   }
 
   // Fallback: legacy basicSalary/allowance/paidAmount fields, paidAmount applied to Basic first.
+  // (No date-based counting available for this fallback — it's a flat one-time total.)
   const basic = Number(teacher.basicSalary) || 0;
   const allowance = Number(teacher.allowance) || 0;
   const totalPaid = Number(teacher.paidAmount) || 0;
@@ -1453,8 +1484,8 @@ function teacherFeeBreakdown(teacher, teacherFeeRules) {
   ].filter(r => r.charged > 0);
 }
 
-function teacherDueFromRules(teacher, teacherFeeRules) {
-  return sumBy(teacherFeeBreakdown(teacher, teacherFeeRules), r => r.due);
+function teacherDueFromRules(teacher, teacherFeeRules, asOfDate) {
+  return sumBy(teacherFeeBreakdown(teacher, teacherFeeRules, asOfDate), r => r.due);
 }
 
 function sumBy(arr, fn) { return arr.reduce((s, x) => s + (Number(fn(x)) || 0), 0); }
@@ -3126,8 +3157,12 @@ function StudentIdCardPhysical({ student, config }) {
         <FieldRow name="Section" value={student.section || "—"} />
         <FieldRow name="Session" value={student.session || "—"} />
       </div>
-      <div className="icp-qr-perch">
+      <div className="icp-perch-row">
         <img className="icp-qr" src={qrUrl} alt="Scan for status" />
+        <div className="icp-principal-sign">
+          <div className="icp-sign-line"></div>
+          <div className="icp-sign-label">Principal</div>
+        </div>
       </div>
       <div className="icp-footer">
         {phone && <div className="icp-footer-phone">☎ {phone}</div>}
@@ -3784,24 +3819,31 @@ function DueModule({ data, config, initialTab }) {
   const activations = data.activations || [];
   const classFeeRules = (data.fees || []).filter(f => f.kind === "class");
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
+  const todayIso = new Date().toISOString().slice(0, 10);
   const [classFilter, setClassFilter] = useState("");
+  const [studentAsOf, setStudentAsOf] = useState(todayIso);
+  const [teacherAsOf, setTeacherAsOf] = useState(todayIso);
+  const [teacherFilter, setTeacherFilter] = useState(""); // "" = all teachers, else a teacher id
 
   // Filter by CURRENT class (from the Promotion record), not the original admission-time class,
-  // so a promoted student correctly shows up under their new class here.
+  // so a promoted student correctly shows up under their new class here. Dues are computed from
+  // each student's Admission Date through the selected date, minus every payment made to date.
   const classStudents = students.filter(s => !classFilter || getCurrentStatus(s, promotions).className === classFilter);
-  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules, invoices, promotions, classHistories, activations), due: studentDueFromRules(s, classFeeRules, invoices, promotions, classHistories, activations) }));
-  // union of all fee heads that appear for the selected class (as of today — i.e. current Master Fee setup)
+  const studentRows = classStudents.map(s => ({ ...s, breakdown: studentFeeBreakdown(s, classFeeRules, invoices, promotions, classHistories, activations, studentAsOf), due: studentDueFromRules(s, classFeeRules, invoices, promotions, classHistories, activations, studentAsOf) }));
+  // union of all fee heads that appear for the selected class as of the selected date
   const allHeadsInView = [...new Set(studentRows.flatMap(s => s.breakdown.map(r => r.head)))];
 
-  const teacherDues = teachers
-    .map(t => ({ ...t, breakdown: teacherFeeBreakdown(t, teacherFeeRules), due: teacherDueFromRules(t, teacherFeeRules) }))
-    .filter(t => t.due > 0);
+  // Teacher dues, from each teacher's Join Date through the selected date, minus salary payments.
+  const teacherBase = teacherFilter ? teachers.filter(t => t.id === teacherFilter) : teachers;
+  const teacherDues = teacherBase
+    .map(t => ({ ...t, breakdown: teacherFeeBreakdown(t, teacherFeeRules, teacherAsOf), due: teacherDueFromRules(t, teacherFeeRules, teacherAsOf) }))
+    .filter(t => teacherFilter || t.due > 0); // when a specific teacher is picked, show them even if fully paid
 
   function handlePrint() { window.print(); }
 
   return (
     <div>
-      <div className="section-head"><div><h2>Due List</h2><p>Track outstanding student fees, teacher salaries, and other dues.</p></div></div>
+      <div className="section-head"><div><h2>Due List</h2><p>Track outstanding student fees and teacher salaries.</p></div></div>
       {/* Section switching is handled entirely by the sidebar's Due List submenu now. */}
 
       {tab === "students" && (
@@ -3811,13 +3853,14 @@ function DueModule({ data, config, initialTab }) {
               <option value="">Select a Class</option>
               {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+            <input type="date" className="filter-select" style={{ maxWidth: 170 }} value={studentAsOf} onChange={(e) => setStudentAsOf(e.target.value)} />
             {classFilter && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
           <div style={{ padding: "12px 18px 0" }}>
-            <PrintDocHead config={config} headline={`Student Dues — ${classFilter || "All Classes"} (as of ${fmtDate(new Date().toISOString())})`} />
+            <PrintDocHead config={config} headline={`Student Dues — ${classFilter || "All Classes"} (as of ${fmtDate(studentAsOf)})`} />
           </div>
           {!classFilter ? (
-            <EmptyState title="Select a class" sub="Choose a class above to see every student's fee-head-wise dues, one row per student." />
+            <EmptyState title="Select a class and date" sub="Choose a class and an as-of date above to see every student's fee-head-wise dues (Admission Date → selected date, minus payments)." />
           ) : studentRows.length === 0 ? (
             <EmptyState title="No students in this class" sub="Try a different class." />
           ) : allHeadsInView.length === 0 ? (
@@ -3855,37 +3898,41 @@ function DueModule({ data, config, initialTab }) {
 
       {tab === "teachers" && (
         <div className="card card-flush print-landscape">
-          <div className="no-print" style={{ textAlign: "right", padding: "16px 18px 0" }}>
+          <div style={{ padding: "16px 18px 0" }} className="search-row no-print">
+            <select className="filter-select" value={teacherFilter} onChange={(e) => setTeacherFilter(e.target.value)}>
+              <option value="">All Teachers</option>
+              {teachers.map(t => <option key={t.id} value={t.id}>{t.name} — {t.staffId || t.designation}</option>)}
+            </select>
+            <input type="date" className="filter-select" style={{ maxWidth: 170 }} value={teacherAsOf} onChange={(e) => setTeacherAsOf(e.target.value)} />
             {teacherDues.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
           </div>
           <div style={{ padding: "12px 18px 0" }}>
-            <PrintDocHead config={config} headline={`Teacher Dues (as of ${fmtDate(new Date().toISOString())})`} />
+            <PrintDocHead config={config} headline={`Teacher Dues (as of ${fmtDate(teacherAsOf)})`} />
           </div>
-          {teacherDues.length === 0 ? <EmptyState title="No outstanding teacher dues" sub="All salaries are cleared." /> : (
+          {teacherDues.length === 0 ? <EmptyState title="No outstanding teacher dues" sub="All salaries are cleared up to this date." /> : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Name</th><th>Designation</th><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
+                <thead><tr><th>Staff ID</th><th>Name</th><th>Designation</th><th>Join Date</th><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
                 <tbody>
-                  {teacherDues.flatMap(t => t.breakdown.filter(r => r.due > 0).map((r, i) => (
-                    <tr key={t.id + r.head}>
-                      {i === 0 ? <td rowSpan={t.breakdown.filter(x => x.due > 0).length}>{t.name}</td> : null}
-                      {i === 0 ? <td rowSpan={t.breakdown.filter(x => x.due > 0).length}>{t.designation}</td> : null}
-                      <td>{r.head}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
-                      <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
-                      <td style={{ textAlign: "right", color: "var(--red)" }} className="mono">৳{money(r.due)}</td>
-                    </tr>
-                  )))}
+                  {teacherDues.flatMap(t => {
+                    const rows = teacherFilter ? t.breakdown : t.breakdown.filter(r => r.due > 0);
+                    return rows.map((r, i) => (
+                      <tr key={t.id + r.head}>
+                        {i === 0 ? <td rowSpan={rows.length} className="mono">{t.staffId || "—"}</td> : null}
+                        {i === 0 ? <td rowSpan={rows.length}>{t.name}</td> : null}
+                        {i === 0 ? <td rowSpan={rows.length}>{t.designation}</td> : null}
+                        {i === 0 ? <td rowSpan={rows.length}>{fmtDate(t.joinDate)}</td> : null}
+                        <td>{r.head}</td>
+                        <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                        <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                        <td style={{ textAlign: "right", color: r.due > 0 ? "var(--red)" : "var(--moss)" }} className="mono">৳{money(r.due)}</td>
+                      </tr>
+                    ));
+                  })}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
-      )}
-
-      {tab === "others" && (
-        <div className="card">
-          <EmptyState title="No other dues tracked" sub="Other dues (vendor bills, utilities pending) can be logged as Expense Vouchers in Finance and will appear once marked unpaid." />
         </div>
       )}
     </div>
@@ -4064,7 +4111,9 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
                       <tr key={row.id}>
                         <td>{row.designation}</td>
                         {allTeacherHeads.map(h => (
-                          <td key={h} style={{ textAlign: "right" }} className="mono">{row[h] ? "৳" + money(row[h]) : "—"}</td>
+                          <td key={h} style={{ textAlign: "right" }} className="mono">
+                            {row[h] ? <>৳{money(row[h])}<div style={{ fontSize: 9.5, color: "var(--slate-soft)", fontWeight: 400 }}>{(feeCategoriesOf(row)[h] && feeCategoriesOf(row)[h].category) || "Yearly"}</div></> : "—"}
+                          </td>
                         ))}
                         <td style={{ textAlign: "right" }} className="mono"><strong>৳{money(sumBy(feeHeadsOf(row), h => row[h]))}</strong></td>
                         <td className="no-print">
@@ -4132,7 +4181,7 @@ function FeeGroupModal({ group, onClose, onSave }) {
       </div>
       {form.items.map((item, i) => (
         <div key={i} style={{ marginBottom: 10, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 8 }}>
-          <div className={`form-grid ${form.kind === "class" ? "cols-4" : "cols-3"}`} style={{ alignItems: "end" }}>
+          <div className="form-grid cols-4" style={{ alignItems: "end" }}>
             <Field label="Fee Type / Head">
               {form.kind === "class" ? (
                 <select value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)}>
@@ -4143,23 +4192,21 @@ function FeeGroupModal({ group, onClose, onSave }) {
               )}
             </Field>
             <Field label="Amount"><input type="number" value={item.amount} onChange={(e) => updateItem(i, "amount", e.target.value)} /></Field>
-            {form.kind === "class" && (
-              <Field label="Category">
-                <select value={item.category || "Yearly"} onChange={(e) => updateItem(i, "category", e.target.value)}>
-                  <option value="Monthly">Monthly (প্রতি মাসে)</option>
-                  <option value="Half Yearly">Half Yearly (বছরে ২ বার)</option>
-                  <option value="Yearly">Yearly (বছরে ১ বার)</option>
-                  <option value="3 Times">3 Times (নির্দিষ্ট মাস সিলেক্ট করুন)</option>
-                </select>
-              </Field>
-            )}
+            <Field label="Category">
+              <select value={item.category || "Yearly"} onChange={(e) => updateItem(i, "category", e.target.value)}>
+                <option value="Monthly">Monthly (প্রতি মাসে)</option>
+                <option value="Half Yearly">Half Yearly (বছরে ২ বার)</option>
+                <option value="Yearly">Yearly (বছরে ১ বার)</option>
+                <option value="3 Times">3 Times (নির্দিষ্ট মাস সিলেক্ট করুন)</option>
+              </select>
+            </Field>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeItem(i)}><Icon.trash /></button>
             </div>
           </div>
-          {form.kind === "class" && item.category === "3 Times" && (
+          {item.category === "3 Times" && (
             <div style={{ marginTop: 8 }}>
-              <label style={{ fontSize: 11.5, color: "var(--slate-soft)", display: "block", marginBottom: 5 }}>যে মাসগুলোতে এই ফি ধার্য হবে তা সিলেক্ট করুন:</label>
+              <label style={{ fontSize: 11.5, color: "var(--slate-soft)", display: "block", marginBottom: 5 }}>যে মাসগুলোতে এই ফি/বেতন ধার্য হবে তা সিলেক্ট করুন:</label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {MONTH_NAMES.map((m, idx) => {
                   const num = idx + 1;
@@ -4459,7 +4506,6 @@ const NAV_GROUPS = [
     { key: "due", label: "Due List", icon: "due", subitems: [
       { key: "students", label: "Student Dues" },
       { key: "teachers", label: "Teacher Dues" },
-      { key: "others", label: "Other Dues" },
     ]},
     { key: "fees", label: "Master Fee", icon: "fee", subitems: [
       { key: "class", label: "Class Fee Rules" },
