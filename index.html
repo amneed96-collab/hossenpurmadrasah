@@ -3227,9 +3227,10 @@ function AdmitCardPhysical({ student, config, examName }) {
             <div className="acp-school-name">{config.schoolName || "School Name"}</div>
             {config.schoolAddress && <div className="acp-school-address">{config.schoolAddress}</div>}
             {phones[0] && <div className="acp-school-phone">☎ {phones[0]}</div>}
-          </div>
+
         <div className="acp-title">Admit Card</div>
         <div className="acp-exam-line">{examName || "Examination"}</div>
+        </div>
           <div className="acp-photo">
             {student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
           </div>
