@@ -475,12 +475,14 @@ tbody tr:last-child td{border-bottom:none;}
   .id-card-grid{gap:0.2in;}
 }
 
-/* ===== Admit Card — Width 8.5in × Height 5.5in, Margin 0.5in (landscape, half Letter/A4) ===== */
-.admit-card-grid{display:flex;flex-direction:column;gap:0.5in;justify-content:flex-start;}
+/* ===== Admit Card — Width 8.5in × Height 5.5in, custom page sized exactly to the card + 0.4in margin ===== */
+@page admit-card-page{size:9.3in 6.3in;margin:0.4in;}
+.print-admit-card{page:admit-card-page;}
+.admit-card-grid{display:flex;flex-direction:column;gap:0.4in;justify-content:flex-start;}
 .admit-card-physical{
-  width:8.5in;height:5.5in;background:#fff;
+  width:8.5in;height:5.5in;background:#fff;position:relative;overflow:hidden;
   border:1px solid var(--line);box-shadow:var(--shadow-sm);
-  break-inside:avoid;page-break-inside:avoid;padding:0.5in;
+  break-inside:avoid;page-break-inside:avoid;padding:0.35in;
 }
 @media print{
   .admit-card-physical{box-shadow:none;}
@@ -488,7 +490,12 @@ tbody tr:last-child td{border-bottom:none;}
   .admit-card-physical{page-break-after:always;}
   .admit-card-physical:last-child{page-break-after:auto;}
 }
-.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:5mm 8mm;height:100%;display:flex;flex-direction:column;}
+.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:5mm 8mm;height:100%;display:flex;flex-direction:column;position:relative;z-index:1;}
+.acp-watermark{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:2.4in;height:2.4in;object-fit:contain;opacity:0.07;z-index:0;pointer-events:none;
+}
+.acp-header,.acp-exam-line,.acp-title,.acp-fields,.acp-note,.acp-signatures,.acp-credit{position:relative;z-index:1;}
 .acp-header{display:flex;align-items:flex-start;gap:4mm;border-bottom:1px solid var(--line);padding-bottom:3mm;margin-bottom:3mm;}
 .acp-logo,.acp-photo{width:20mm;height:24mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
 .acp-logo img,.acp-photo img{width:100%;height:100%;object-fit:cover;}
@@ -509,13 +516,17 @@ tbody tr:last-child td{border-bottom:none;}
 .seat-card-physical{
   width:3in;height:2in;background:#fff;border:1.2px solid var(--moss-deep);border-radius:0.08in;
   padding:0.1in;break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;
-  box-shadow:var(--shadow-sm);
+  box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
 }
 @media print{ .seat-card-physical{box-shadow:none;} }
-.scp-school{font-family:'Fraunces',serif;font-size:9.5pt;font-weight:700;text-align:center;}
-.scp-address{font-size:6pt;color:var(--slate-soft);text-align:center;}
-.scp-exam{font-size:7.5pt;font-weight:600;text-align:center;margin:0.04in 0;padding-bottom:0.04in;border-bottom:1px dashed var(--line);}
-.scp-body{display:flex;gap:0.08in;flex:1;margin-top:0.04in;}
+.scp-watermark{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:1.3in;height:1.3in;object-fit:contain;opacity:0.08;z-index:0;pointer-events:none;
+}
+.scp-school{font-family:'Fraunces',serif;font-size:9.5pt;font-weight:700;text-align:center;position:relative;z-index:1;}
+.scp-address{font-size:6pt;color:var(--slate-soft);text-align:center;position:relative;z-index:1;}
+.scp-exam{font-size:7.5pt;font-weight:600;text-align:center;margin:0.04in 0;padding-bottom:0.04in;border-bottom:1px dashed var(--line);position:relative;z-index:1;}
+.scp-body{display:flex;gap:0.08in;flex:1;margin-top:0.04in;position:relative;z-index:1;}
 .scp-photo{width:0.62in;height:0.75in;flex-shrink:0;border:1px solid var(--line);border-radius:0.03in;overflow:hidden;background:var(--paper);display:flex;align-items:center;justify-content:center;}
 .scp-photo img{width:100%;height:100%;object-fit:cover;}
 .scp-fields{flex:1;font-size:6.6pt;}
@@ -573,7 +584,7 @@ tbody tr:last-child td{border-bottom:none;}
 }
 .id-card-physical .icp-head{
   background:#1a2b4a;color:#fff;text-align:center;
-  padding:0.1in 0.12in 0.08in;flex-shrink:0;
+  padding:0.1in 0.12in 0.08in;flex-shrink:0;position:relative;z-index:1;
 }
 .id-card-physical .icp-head .icp-school{
   font-weight:800;text-transform:uppercase;letter-spacing:0.02em;
@@ -582,16 +593,24 @@ tbody tr:last-child td{border-bottom:none;}
 }
 .id-card-physical .icp-head .icp-address{font-size:6pt;opacity:0.75;margin-top:1px;}
 .id-card-physical .icp-head .icp-doctype{font-family:'Fraunces',serif;font-size:10.5pt;font-weight:600;margin-top:1px;}
+.id-card-physical .icp-watermark{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:1.4in;height:1.4in;object-fit:contain;opacity:0.08;z-index:0;pointer-events:none;
+}
 .id-card-physical .icp-photo{
   width:0.85in;height:0.85in;border-radius:0.1in;overflow:hidden;margin:0.12in auto 0.06in;
   border:1.5px solid var(--line);background:var(--paper);
   display:flex;align-items:center;justify-content:center;
+  position:relative;z-index:1;
 }
 .id-card-physical .icp-photo img{width:100%;height:100%;object-fit:cover;}
-.id-card-physical .icp-name{font-weight:800;font-size:11pt;text-align:center;padding:0 0.1in;margin-bottom:0.08in;}
+.id-card-physical .icp-name{font-weight:800;font-size:11pt;text-align:center;padding:0 0.1in;margin-bottom:0.08in;position:relative;z-index:1;}
 .id-card-physical .icp-sub{font-size:7pt;color:var(--slate-soft);text-align:center;margin-bottom:0.06in;}
-.id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;}
+.id-card-physical .icp-body{flex:1;padding:0 0.14in;font-size:6.8pt;overflow:hidden;position:relative;z-index:1;}
 .id-card-physical .icp-body .field-row{padding:2px 0;font-size:6.8pt;gap:3px;}
+.id-card-physical .icp-body .fr-name,
+.id-card-physical .icp-body .fr-colon,
+.id-card-physical .icp-body .fr-value{color:#000;}
 .id-card-physical .icp-perch-row{
   display:flex;justify-content:space-between;align-items:flex-end;
   padding:0 0.12in;margin-top:auto;margin-bottom:-0.15in;
@@ -602,10 +621,11 @@ tbody tr:last-child td{border-bottom:none;}
   padding:0.07in 0.1in;text-align:center;
   border-radius:0;
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  position:relative;z-index:1;
 }
 .id-card-physical .icp-footer-phone{font-size:6.8pt;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.id-card-physical .icp-qr{width:0.4in;height:0.4in;background:#fff;border-radius:3px;padding:1.5px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.25);}
-.id-card-physical .icp-principal-sign{background:#fff;border-radius:3px;padding:2px 5px 3px;box-shadow:0 1px 3px rgba(0,0,0,0.25);text-align:center;flex-shrink:0;}
+.id-card-physical .icp-qr{width:0.42in;height:0.42in;background:#fff;border-radius:0.06in;padding:2px;flex-shrink:0;border:1.5px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,0.2);}
+.id-card-physical .icp-principal-sign{background:#fff;padding:2px 5px 3px;text-align:center;flex-shrink:0;}
 .id-card-physical .icp-sign-line{width:0.5in;border-top:1px solid var(--ink);margin:0 auto 1px;}
 .id-card-physical .icp-sign-label{font-size:5.3pt;color:var(--ink);font-weight:700;white-space:nowrap;}
 
@@ -1691,6 +1711,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
   const [printStudent, setPrintStudent] = useState(null);
+  const [promotionFormOpen, setPromotionFormOpen] = useState(false);
 
   useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
 
@@ -1736,6 +1757,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
           <p>All admissions, yearly class promotions, class history, activation status, and office records.</p>
         </div>
         {tab === "list" && <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />New Admission</button>}
+        {tab === "promotion" && <button className="btn btn-primary no-print" onClick={() => setPromotionFormOpen(true)}><Icon.plus />Open Promotion Form</button>}
       </div>
 
       {/* Section switching is handled entirely by the sidebar's Students submenu now. */}
@@ -1746,7 +1768,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
           promotions={promotions} classHistories={classHistories} activations={activations} config={config} />
       )}
       {tab === "promotion" && (
-        <PromotionTab students={students} promotions={promotions} save={save} config={config} />
+        <PromotionTab students={students} promotions={promotions} save={save} config={config} formOpen={promotionFormOpen} setFormOpen={setPromotionFormOpen} />
       )}
       {tab === "classHistory" && (
         <ClassHistoryTab students={students} classHistories={classHistories} promotions={promotions} save={save} remove={remove} config={config} />
@@ -1836,10 +1858,9 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
 // The Promotion tab itself is a browsable list of every student's CURRENT status (from the
 // Promotion sheet) — search box, class filter, and print, mirroring All Students. Actually
 // changing anyone's class/roll happens through the separate Promotion Form (opened via button).
-function PromotionTab({ students, promotions, save, config }) {
+function PromotionTab({ students, promotions, save, config, formOpen, setFormOpen }) {
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
 
   const rows = students.map(s => ({ student: s, current: getCurrentStatus(s, promotions) }));
   const filtered = rows.filter(({ student, current }) => {
@@ -1855,10 +1876,6 @@ function PromotionTab({ students, promotions, save, config }) {
 
   return (
     <div>
-      <div className="no-print" style={{ marginBottom: 14, display: "flex", justifyContent: "flex-end" }}>
-        <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Icon.plus />Open Promotion Form</button>
-      </div>
-
       <div className="card card-flush">
         <div className="no-print" style={{ padding: "16px 18px 0" }}>
           <div className="search-row">
@@ -3131,7 +3148,7 @@ function studentStatusUrl(studentId) {
 // no ellipsis/truncation, the text itself gets smaller instead.
 function fitSchoolNameSize(name) {
   const len = (name || "").trim().length || 1;
-  const maxPt = 9, minPt = 4.8, idealChars = 13;
+  const maxPt = 12, minPt = 6, idealChars = 12;
   if (len <= idealChars) return maxPt;
   return Math.max(minPt, Math.round((maxPt * (idealChars / len)) * 10) / 10);
 }
@@ -3141,6 +3158,7 @@ function StudentIdCardPhysical({ student, config }) {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&margin=0&data=${encodeURIComponent(studentStatusUrl(student.studentId))}`;
   return (
     <div className="id-card-physical">
+      {config.schoolLogo && <img className="icp-watermark" src={config.schoolLogo} alt="" />}
       <div className="icp-head">
         <div className="icp-school" style={{ fontSize: `${fitSchoolNameSize(config.schoolName)}pt` }}>{config.schoolName || "School Name"}</div>
         {config.schoolAddress && <div className="icp-address">{config.schoolAddress}</div>}
@@ -3174,6 +3192,7 @@ function StudentIdCardPhysical({ student, config }) {
 function SeatCardPhysical({ student, config, examName }) {
   return (
     <div className="seat-card-physical">
+      {config.schoolLogo && <img className="scp-watermark" src={config.schoolLogo} alt="" />}
       <div className="scp-school">{config.schoolName || "School Name"}</div>
       {config.schoolAddress && <div className="scp-address">{config.schoolAddress}</div>}
       <div className="scp-exam">{examName || "Examination"}</div>
@@ -3199,6 +3218,7 @@ function AdmitCardPhysical({ student, config, examName }) {
   return (
     <div className="admit-card-physical">
       <div className="acp-border">
+        {config.schoolLogo && <img className="acp-watermark" src={config.schoolLogo} alt="" />}
         <div className="acp-header">
           <div className="acp-logo">
             {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
@@ -3244,10 +3264,18 @@ const CARD_TYPES = {
   seat: { title: "Seat Plan", needsExam: true, sizeClass: "seat-card-grid", cardWidth: "3in" },
 };
 
+const EXAM_NAME_OPTIONS = [
+  "1st Model Examination", "1st Semester Examination",
+  "2nd Model Examination", "2nd Semester Examination",
+  "3rd Model Examination", "3rd Semester Examination",
+];
+
 function CardTypeFlow({ type, students, promotions, config, onBack }) {
   const meta = CARD_TYPES[type];
   const [mode, setMode] = useState("single");
-  const [examName, setExamName] = useState("");
+  const [examChoice, setExamChoice] = useState(EXAM_NAME_OPTIONS[0]);
+  const [examYear, setExamYear] = useState(String(CURRENT_YEAR));
+  const examName = `${examChoice} - ${examYear}`;
   const [selected, setSelected] = useState(null);
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("One");
@@ -3276,7 +3304,7 @@ function CardTypeFlow({ type, students, promotions, config, onBack }) {
     return <SeatCardPhysical key={student.id} student={student} config={config} examName={examName} />;
   }
 
-  const readyToShow = !meta.needsExam || examName.trim();
+  const readyToShow = !meta.needsExam || examChoice;
 
   return (
     <Modal title={meta.title} onClose={onBack} size="lg"
@@ -3290,8 +3318,13 @@ function CardTypeFlow({ type, students, promotions, config, onBack }) {
       </div>
 
       {meta.needsExam && (
-        <div className="no-print" style={{ marginBottom: 16 }}>
-          <Field label="Exam Name" hint="e.g. Half-Yearly Exam 2026"><input type="text" value={examName} onChange={(e) => setExamName(e.target.value)} placeholder="Type exam name and year…" /></Field>
+        <div className="no-print form-grid cols-2" style={{ marginBottom: 16 }}>
+          <Field label="Exam Name">
+            <select value={examChoice} onChange={(e) => setExamChoice(e.target.value)}>
+              {EXAM_NAME_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </Field>
+          <Field label="Year"><input type="number" value={examYear} onChange={(e) => setExamYear(e.target.value)} /></Field>
         </div>
       )}
 
@@ -3325,7 +3358,7 @@ function CardTypeFlow({ type, students, promotions, config, onBack }) {
             </div>
           )}
 
-          <div className={`${meta.sizeClass}${type === "admit" ? " print-landscape" : ""}`} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
+          <div className={`${meta.sizeClass}${type === "admit" ? " print-admit-card" : ""}`} style={{ justifyContent: mode === "single" ? "center" : "flex-start" }}>
             {mode === "single" && selected && renderCard(selected)}
             {mode === "single" && !selected && <EmptyState title="No student selected" sub="Search and select a student above." />}
             {mode === "class" && classList.length === 0 && <EmptyState title="No students in this class/section" sub="Try a different class or section." />}
