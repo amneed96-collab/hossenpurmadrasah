@@ -142,16 +142,36 @@ function parseCell(val) {
   return val;
 }
 
+// Results are cached (Apps Script's built-in CacheService) so that repeat loads — which is
+// what "Sync now" and every screen that reads data does — come back almost instantly instead
+// of re-reading the spreadsheet every time. The cache is invalidated for a sheet the moment a
+// row in it is saved or deleted (see upsertRow/deleteRow), so nobody ever sees stale data —
+// they just don't pay the full Sheets-read cost on every single load.
+const LIST_CACHE_SECONDS = 300; // 5 minutes
+function listCacheKey(sheetName) { return "list_" + sheetName; }
+
 function listRows(sheetName) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = listCacheKey(sheetName);
+  try {
+    const cached = cache.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch (e) {
+    // corrupt/unreadable cache entry — fall through and read fresh from the sheet
+  }
+
   const sheet = getSheet(sheetName);
   const lastRow = sheet.getLastRow();
   const lastCol = sheet.getLastColumn();
   if (lastRow < 2 || lastCol === 0) return { rows: [] };
-  const headers = getHeaders(sheet);
-  const values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  // One single getValues() call for header + all data rows together, instead of two
+  // separate range reads (header, then data) — halves the number of slow Sheets API calls.
+  const all = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const headers = all[0];
   const rows = [];
-  for (let i = 0; i < values.length; i++) {
-    const rowArr = values[i];
+  for (let i = 1; i < all.length; i++) {
+    const rowArr = all[i];
     if (!rowArr[0]) continue; // skip rows without id
     const obj = {};
     headers.forEach((h, idx) => {
@@ -159,7 +179,20 @@ function listRows(sheetName) {
     });
     rows.push(obj);
   }
-  return { rows };
+  const result = { rows };
+
+  try {
+    const json = JSON.stringify(result);
+    // CacheService caps each value at 100KB; only cache if it comfortably fits.
+    if (json.length < 95000) cache.put(cacheKey, json, LIST_CACHE_SECONDS);
+  } catch (e) {
+    // if a row contains something unstringify-able, just skip caching it — not fatal
+  }
+  return result;
+}
+
+function invalidateListCache(sheetName) {
+  try { CacheService.getScriptCache().remove(listCacheKey(sheetName)); } catch (e) {}
 }
 
 function bulkGet(sheetsCsv) {
@@ -202,6 +235,7 @@ function upsertRow(sheetName, rowJson) {
   } else {
     sheet.getRange(sheet.getLastRow() + 1, 1, 1, headers.length).setValues([rowValues]);
   }
+  invalidateListCache(sheetName);
   return { success: true, id: row.id };
 }
 
@@ -213,6 +247,7 @@ function deleteRow(sheetName, id) {
   for (let i = 0; i < ids.length; i++) {
     if (ids[i][0] === id) {
       sheet.deleteRow(i + 2);
+      invalidateListCache(sheetName);
       return { success: true };
     }
   }

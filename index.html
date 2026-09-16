@@ -475,8 +475,11 @@ tbody tr:last-child td{border-bottom:none;}
   .id-card-grid{gap:0.2in;}
 }
 
-/* ===== Admit Card — Width 8.5in × Height 5.5in, custom page sized exactly to the card + 0.4in margin ===== */
-@page admit-card-page{size:9.3in 6.3in;margin:0.4in;}
+/* ===== Admit Card — Width 8.5in × Height 5.5in, custom page sized to the card + 0.4in margin =====
+   The usable print area is made very slightly larger than the card itself (a small buffer, not an
+   exact match) — when a box is sized EXACTLY to the printable area, sub-pixel rounding in the
+   print engine can push it a hair over and silently spill an extra, near-blank page after it. */
+@page admit-card-page{size:9.36in 6.36in;margin:0.4in;}
 .print-admit-card{page:admit-card-page;}
 .admit-card-grid{display:flex;flex-direction:column;gap:0.4in;justify-content:flex-start;}
 .admit-card-physical{
@@ -496,7 +499,7 @@ tbody tr:last-child td{border-bottom:none;}
   width:2.4in;height:2.4in;object-fit:contain;opacity:0.07;z-index:0;pointer-events:none;
 }
 .acp-header,.acp-exam-line,.acp-title,.acp-fields,.acp-note,.acp-signatures,.acp-credit{position:relative;z-index:1;}
-.acp-header{display:flex;align-items:flex-start;gap:4mm;border-bottom:1px solid #000; padding-bottom:3mm;margin-bottom:3mm;}
+.acp-header{display:flex;align-items:flex-start;gap:4mm;border-bottom:1px dashed #000; padding-bottom:2mm;margin-bottom:2mm;}
 .acp-logo,.acp-photo{width:20mm;height:24mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
 .acp-logo img,.acp-photo img{width:100%;height:100%;object-fit:cover;}
 .acp-center{flex:1;text-align:center;}
@@ -505,9 +508,14 @@ tbody tr:last-child td{border-bottom:none;}
 .acp-school-phone{font-size:9pt; color:#010e06;}
 .acp-exam-line{text-align:center;font-size:11pt;font-weight:600;margin-top:2mm;}
 .acp-title{text-align:center;font-family:'Fraunces',serif;font-size:14pt;font-weight:700;margin:1mm 0 2mm;padding-bottom:2mm;border-bottom:1px dashed #000;}
-.acp-fields{font-size:10.5pt;margin-bottom:4mm;column-count:2;column-gap:10mm; padding-top: 10px; }
-.acp-note{font-size:8pt;color:var(--slate-soft);margin-top:auto;padding-top:3mm;line-height:1.5;}
-.acp-signatures{display:flex;justify-content:space-between;margin-top:16mm;gap:60mm;padding:0 8mm;}
+/* Date sits above the student fields, right-aligned */
+.acp-date-row{text-align:right;font-size:9pt;font-weight:600;color:var(--ink);margin-bottom:1.5mm;}
+.acp-fields{font-size:10.5pt;margin-bottom:2mm;column-count:2;column-gap:10mm;}
+.acp-note{font-size:7.6pt;color:var(--slate-soft);margin-top:auto;padding-top:2mm;line-height:1.4;}
+.acp-note-title{font-weight:700;color:var(--ink);margin-bottom:1mm;}
+.acp-note-list{margin:0;padding-left:3.5mm;}
+.acp-note-list li{margin-bottom:0.5mm;}
+.acp-signatures{display:flex;justify-content:space-between;margin-top:5mm;gap:60mm;padding:0 8mm;}
 .acp-sig{border-top:1px solid var(--ink);padding-top:2mm;font-size:8pt;text-align:center;flex:1;line-height:1.5;}
 .acp-credit{text-align:right;font-size:7pt;color:var(--slate-soft);margin-top:1mm; padding-right: 15px;}
 
@@ -612,19 +620,25 @@ tbody tr:last-child td{border-bottom:none;}
 .id-card-physical .icp-body .fr-colon,
 .id-card-physical .icp-body .fr-value{color:#000;}
 .id-card-physical .icp-perch-row{
-  display:flex;justify-content:space-between;align-items:flex-end;
-  padding:0 0.12in;margin-top:auto;margin-bottom:-0.15in;
+  display:flex;justify-content:center;align-items:flex-end;
+  padding:0 0.12in;margin-top:auto;
   position:relative;z-index:2;
 }
 .id-card-physical .icp-footer{
-  margin-top:0.2in;background:#1a2b4a;color:#fff;
+  margin-top:0.14in;height:0.32in;background:#1a2b4a;color:#fff;
   padding:0.07in 0.1in;text-align:center;
-  border-radius:0;
+  border-radius:0;box-sizing:border-box;
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
   position:relative;z-index:1;
 }
 .id-card-physical .icp-footer-phone{font-size:6.8pt;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.id-card-physical .icp-qr{width:0.42in;height:0.42in;background:#fff;border-radius:0.06in;padding:2px;flex-shrink:0;border:1.5px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,0.2);}
+/* QR sits on its own, straddling the boundary between the white body and the navy footer band —
+   not on the same line as the Principal's signature anymore. */
+.id-card-physical .icp-qr{
+  width:0.42in;height:0.42in;background:#fff;border-radius:0.06in;padding:2px;
+  border:1.5px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,0.2);
+  position:absolute;left:50%;bottom:0.11in;transform:translateX(-50%);z-index:3;
+}
 .id-card-physical .icp-principal-sign{background:#fff;padding:2px 5px 3px;text-align:center;flex-shrink:0;}
 .id-card-physical .icp-sign-line{width:0.5in;border-top:1px solid var(--ink);margin:0 auto 1px;}
 .id-card-physical .icp-sign-label{font-size:5.3pt;color:var(--ink);font-weight:700;white-space:nowrap;}
@@ -841,24 +855,59 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+// Local stale-while-revalidate cache: the last successful sync is saved here so the very next
+// time the app opens, it can paint instantly with that data while a fresh sync happens quietly
+// in the background — instead of showing empty lists for however long the Sheets round-trip
+// takes. The cache is per-Sheets-URL so switching schools/URLs doesn't show stale mixed data.
+const DATA_CACHE_PREFIX = "sms_data_cache_v1:";
+function loadCachedData(sheetsUrl) {
+  if (!sheetsUrl) return null;
+  try {
+    const raw = localStorage.getItem(DATA_CACHE_PREFIX + sheetsUrl);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+function saveCachedData(sheetsUrl, data) {
+  if (!sheetsUrl) return;
+  try { localStorage.setItem(DATA_CACHE_PREFIX + sheetsUrl, JSON.stringify(data)); } catch (e) {}
+}
+
+const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [] };
+
 function useDataStore(config) {
-  const [data, setData] = useState({ students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [] });
-  const [status, setStatus] = useState("idle"); // idle | loading | ready | error | offline
+  const cached = loadCachedData(config.sheetsUrl);
+  const [data, setData] = useState(cached || EMPTY_STORE_DATA);
+  // idle | loading | ready | error | offline — when a cached copy exists we start at "ready"
+  // (showing stale-but-usable data immediately) instead of "loading" (which would show a blank/
+  // syncing state even though the screen already has something useful to display).
+  const [status, setStatus] = useState(cached ? "ready" : "idle");
+  // Separate from `status`: true while a background sync is in flight even though cached data
+  // is already on screen, so the sync pill can still say "Syncing…" without blanking the UI.
+  const [syncing, setSyncing] = useState(false);
   const toast = useToast();
 
   const refresh = useCallback(async () => {
     if (!config.sheetsUrl) { setStatus("offline"); return; }
-    setStatus("loading");
+    // Only show the blocking "loading" state when there's nothing on screen yet; if we already
+    // have cached data displayed, keep showing it and just sync quietly in the background.
+    setStatus((s) => (s === "ready" ? "ready" : "loading"));
+    setSyncing(true);
     try {
       const res = await SheetsAPI.bulkGet(config, COLLECTIONS.map(c => SHEET_MAP[c]));
       const mapped = {};
       COLLECTIONS.forEach(c => { mapped[c] = res.data[SHEET_MAP[c]] || []; });
       setData(mapped);
       setStatus("ready");
+      saveCachedData(config.sheetsUrl, mapped);
     } catch (err) {
       console.error(err);
-      setStatus("error");
+      // If we still have cached data on screen, don't flip the whole app into an error state —
+      // just surface the toast and keep showing what we have.
+      setStatus((s) => (s === "ready" ? "ready" : "error"));
       toast && toast("Couldn't reach Google Sheets. Check Settings.", "error");
+    } finally {
+      setSyncing(false);
     }
   }, [config.sheetsUrl]);
 
@@ -872,7 +921,9 @@ function useDataStore(config) {
       const list = d[collection] || [];
       const idx = list.findIndex((r) => r.id === withId.id);
       const next = idx > -1 ? list.map((r, i) => (i === idx ? { ...r, ...withId } : r)) : [withId, ...list];
-      return { ...d, [collection]: next };
+      const updated = { ...d, [collection]: next };
+      saveCachedData(config.sheetsUrl, updated);
+      return updated;
     });
     if (!config.sheetsUrl) { toast && toast("Saved locally (offline mode)"); return withId; }
     try {
@@ -886,7 +937,11 @@ function useDataStore(config) {
 
   const remove = useCallback(async (collection, id) => {
     const sheet = SHEET_MAP[collection];
-    setData((d) => ({ ...d, [collection]: (d[collection] || []).filter((r) => r.id !== id) }));
+    setData((d) => {
+      const updated = { ...d, [collection]: (d[collection] || []).filter((r) => r.id !== id) };
+      saveCachedData(config.sheetsUrl, updated);
+      return updated;
+    });
     if (!config.sheetsUrl) return;
     try {
       await SheetsAPI.remove(config, sheet, id);
@@ -896,7 +951,7 @@ function useDataStore(config) {
     }
   }, [config.sheetsUrl]);
 
-  return { data, status, refresh, save, remove };
+  return { data, status, syncing, refresh, save, remove };
 }
 
 const SHEET_MAP = {
@@ -3176,7 +3231,6 @@ function StudentIdCardPhysical({ student, config }) {
         <FieldRow name="Session" value={student.session || "—"} />
       </div>
       <div className="icp-perch-row">
-        <img className="icp-qr" src={qrUrl} alt="Scan for status" />
         <div className="icp-principal-sign">
           <div className="icp-sign-line"></div>
           <div className="icp-sign-label">Principal</div>
@@ -3185,6 +3239,7 @@ function StudentIdCardPhysical({ student, config }) {
       <div className="icp-footer">
         {phone && <div className="icp-footer-phone">☎ {phone}</div>}
       </div>
+      <img className="icp-qr" src={qrUrl} alt="Scan for status" />
     </div>
   );
 }
@@ -3237,6 +3292,8 @@ function AdmitCardPhysical({ student, config, examName }) {
         </div>
       
 
+        <div className="acp-date-row">Date: {fmtDate(new Date())}</div>
+
         <div className="acp-fields">
           <FieldRow name="ID No" value={<span className="mono">{student.studentId || "—"}</span>} />
           <FieldRow name="Name" value={student.name} />
@@ -3246,7 +3303,15 @@ function AdmitCardPhysical({ student, config, examName }) {
           <FieldRow name="Session" value={student.session || "—"} />
         </div>
 
-        <div className="acp-note">Note: This admit card must be brought to every exam. Valid only with school seal &amp; signature.</div>
+        <div className="acp-note">
+          <div className="acp-note-title">Note: Instructions for the examination hall:</div>
+          <ul className="acp-note-list">
+            <li>Candidates must arrive at the hall at least 30 minutes before the exam begins.</li>
+            <li>Bring the admit card, pen, writing board, pencil, eraser, and necessary materials.</li>
+            <li>No books, notes, or electronic devices are permitted.</li>
+            <li>Guardians are strictly prohibited from entering the examination hall.</li>
+          </ul>
+        </div>
 
         <div className="acp-signatures">
           <div className="acp-sig">Student's Signature</div>
@@ -4727,8 +4792,8 @@ function AppShell() {
           <div className="topbar-title">{MODULE_TITLES[active]}</div>
           <div className="topbar-actions">
             <div className="sync-pill">
-              <span className={`sync-dot ${store.status === "loading" ? "pending" : store.status === "error" ? "error" : ""}`}></span>
-              {store.status === "loading" ? "Syncing…" : store.status === "error" ? "Sync error" : store.status === "offline" ? "Offline mode" : "Synced"}
+              <span className={`sync-dot ${store.syncing ? "pending" : store.status === "error" ? "error" : ""}`}></span>
+              {store.syncing ? "Syncing…" : store.status === "error" ? "Sync error" : store.status === "offline" ? "Offline mode" : "Synced"}
             </div>
             <button className="btn btn-sm btn-icon" title="Sync now" onClick={store.refresh}><IconWrap name="refresh" /></button>
           </div>
