@@ -12,15 +12,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
-  --ink:#1c2521;
-  --paper:#f6f4ee;
+  --ink:#1b232c;
+  --paper:#f4f6f8;
   --paper-raised:#ffffff;
-  --slate:#3d4a45;
-  --slate-soft:#6b7770;
-  --line:#dcd8cc;
-  --moss:#3f6b52;
-  --moss-deep:#2c4d3a;
-  --moss-tint:#e7efe8;
+  --slate:#3c4a58;
+  --slate-soft:#65747f;
+  --line:#d8dee4;
+  --moss:#4682b4;
+  --moss-deep:#2f5f85;
+  --moss-tint:#e7f0f7;
   --clay:#b8562f;
   --clay-tint:#f7e9e0;
   --gold:#c8963e;
@@ -30,9 +30,9 @@
   --radius-sm:6px;
   --radius:10px;
   --radius-lg:16px;
-  --shadow-sm:0 1px 2px rgba(28,37,33,0.06);
-  --shadow-md:0 4px 16px rgba(28,37,33,0.08);
-  --shadow-lg:0 12px 40px rgba(28,37,33,0.14);
+  --shadow-sm:0 1px 2px rgba(27,35,44,0.06);
+  --shadow-md:0 4px 16px rgba(27,35,44,0.08);
+  --shadow-lg:0 12px 40px rgba(27,35,44,0.14);
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
@@ -296,7 +296,7 @@ tbody tr:last-child td{border-bottom:none;}
 
 /* ===== Modal ===== */
 .modal-overlay{
-  position:fixed;inset:0;background:rgba(28,37,33,0.5);
+  position:fixed;inset:0;background:rgba(27,35,44,0.5);
   display:flex;align-items:flex-start;justify-content:center;
   padding:40px 20px;overflow-y:auto;z-index:100;
 }
@@ -597,7 +597,8 @@ tbody tr:last-child td{border-bottom:none;}
 .id-card-physical .icp-head .icp-school{
   font-weight:800;text-transform:uppercase;letter-spacing:0.02em;
   color:var(--gold);text-shadow:0 1px 1px rgba(0,0,0,0.25);
-  white-space:nowrap;width:100%;display:block;overflow:visible;
+  white-space:nowrap;width:100%;display:block;overflow:hidden;
+  max-width:100%;
 }
 .id-card-physical .icp-head .icp-address{font-size:6pt;opacity:0.75;margin-top:1px;}
 .id-card-physical .icp-head .icp-doctype{font-family:'Fraunces',serif;font-size:10.5pt;font-weight:600;margin-top:1px;}
@@ -660,6 +661,31 @@ tbody tr:last-child td{border-bottom:none;}
 .chip{padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;background:var(--paper);border:1px solid var(--line);cursor:pointer;}
 .chip.active{background:var(--moss);color:#fff;border-color:var(--moss);}
 
+/* Editable line-item table used in the Invoice / Expense Voucher forms. This table is the
+   ONLY element in those forms that carries a decorative border — every other field keeps
+   the app's normal plain input look. */
+.item-table-wrap{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:4px 0 12px;}
+.item-form-table{width:100%;border-collapse:collapse;font-size:13px;}
+.item-form-table th{background:var(--paper);font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--slate-soft);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);}
+.item-form-table td{padding:4px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+.item-form-table tbody tr:last-child td{border-bottom:none;}
+.item-form-table td.itf-sl{width:38px;text-align:center;color:var(--slate-soft);font-size:12.5px;}
+.item-form-table td.itf-amt{width:130px;}
+.item-form-table td.itf-remove{width:34px;text-align:center;padding:4px 6px;}
+.item-form-table input,.item-form-table select{
+  width:100%;border:none;background:transparent;padding:6px 2px;font-size:13px;font-family:inherit;color:var(--ink);
+}
+.item-form-table input:focus,.item-form-table select:focus{outline:none;background:var(--moss-tint);border-radius:4px;}
+.item-form-table td.itf-amt input{text-align:right;}
+.item-table-add-row{margin-bottom:16px;}
+.item-table-foot-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:13px;gap:10px;}
+.item-table-foot-row.total{font-weight:700;font-size:14.5px;border-top:1px dashed var(--line);margin-top:5px;padding-top:8px;}
+.item-table-foot-row input[type=number]{
+  width:130px;text-align:right;border:1px solid var(--line);border-radius:6px;
+  padding:6px 9px;font-size:13px;font-family:'IBM Plex Mono',monospace;background:var(--paper-raised);
+}
+.item-table-foot-row input[type=number]:focus{outline:none;border-color:var(--moss);}
+
 .loading-screen{
   min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;
   background:var(--paper);
@@ -703,7 +729,7 @@ tbody tr:last-child td{border-bottom:none;}
   });
 </script>
 <script type="text/babel" data-presets="react-classic">
-const { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } = React;
+const { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, createContext, useContext } = React;
 
 /* =========================================================
    CONFIG / SETTINGS STORAGE (localStorage — client config only,
@@ -1229,7 +1255,14 @@ const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const DESIGNATIONS = ["Principal", "Vice Principal", "Senior Teacher", "Assistant Teacher", "Librarian", "Accountant", "Office Staff", "Lab Assistant", "Peon/Support Staff"];
 const SUBJECTS = ["Bangla", "English", "Mathematics", "Science", "Social Science", "Religion", "ICT", "Physical Education", "Arts", "General"];
 const INCOME_HEADS = ["Admission Fee", "Tuition Fee", "Semester Exam Fee", "Model Exam Fee", "Session Fee", "Transport Fee", "Hostel Fee", "Donation", "Other Income"];
-const EXPENSE_HEADS = ["Salary", "Utility Bill", "Rent", "Maintenance", "Stationery", "Transport", "Furniture", "Event/Function", "Other Expense"];
+const EXPENSE_HEADS = [
+  "House bill", "Electricity bill", "Gas bill", "Water bill", "Dustbin bill",
+  "Night Guard bill", "Vehicles bill", "Fuel bill", "Mobile bill", "Internet bill",
+  "Treatment bill", "Honorarium", "Salary", "Breakfast/Snack bill", "Food bill",
+  "Humanitarian assistance", "Furniture bill", "Repair bill", "Instruments bill",
+  "Stationery bill", "Printing bill", "Rent", "Transport bill", "Advertisement bill",
+  "Exam expense", "Others"
+];
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "Mobile Banking (bKash/Nagad)", "Cheque"];
 
 function ConnectionBanner({ config, onOpenSettings }) {
@@ -1660,14 +1693,14 @@ function Dashboard({ data, setActiveModule }) {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Type</th><th>Head</th><th>Description</th><th>Amount</th></tr></thead>
+              <thead><tr><th>Date</th><th>Type</th><th>Doc No</th><th>{"Provider / Spender"}</th><th>Amount</th></tr></thead>
               <tbody>
                 {recentFinance.map(f => (
                   <tr key={f.id}>
                     <td>{fmtDate(f.date)}</td>
                     <td><span className={`badge ${f.type === "income" ? "badge-green" : "badge-red"}`}>{f.type}</span></td>
-                    <td>{f.head}</td>
-                    <td>{f.description || "—"}</td>
+                    <td className="mono">{f.docNo || "—"}</td>
+                    <td>{(f.type === "income" ? f.provider : f.spender) || "—"}</td>
                     <td className="mono">৳{money(f.amount)}</td>
                   </tr>
                 ))}
@@ -1724,6 +1757,20 @@ function generateInvoiceNo(existingInvoices) {
   return `INV-STU-${String(next).padStart(4, "0")}`;
 }
 
+// Auto-numbers Finance documents — "INV-0001", "INV-0002"… for Invoices (income) and
+// "EXP-0001", "EXP-0002"… for Expense Vouchers — each series counted independently.
+function generateFinanceDocNo(financeList, type) {
+  const prefix = type === "income" ? "INV" : "EXP";
+  const nums = (financeList || [])
+    .filter(f => f.type === type)
+    .map(f => f.docNo || "")
+    .filter(id => id.startsWith(prefix + "-"))
+    .map(id => parseInt(id.split("-")[1], 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `${prefix}-${String(next).padStart(4, "0")}`;
+}
+
 function nextRollForClass(students, className, excludeId) {
   const rolls = (students || [])
     .filter(s => s.className === className && s.id !== excludeId)
@@ -1752,7 +1799,7 @@ const emptyStudent = (existingStudents) => {
 };
 
 const STUDENTS_SUBTABS = [
-  { key: "list", label: "All Students" },
+  { key: "list", label: "All Admission" },
   { key: "promotion", label: "Promotion" },
   { key: "classHistory", label: "Class History" },
   { key: "activation", label: "Activation" },
@@ -3199,12 +3246,26 @@ function studentStatusUrl(studentId) {
 }
 
 // Shrinks the ID Card school-name font so long names still fit on exactly one line —
-// no ellipsis/truncation, the text itself gets smaller instead.
-function fitSchoolNameSize(name) {
-  const len = (name || "").trim().length || 1;
-  const maxPt = 12, minPt = 6, idealChars = 12;
-  if (len <= idealChars) return maxPt;
-  return Math.max(minPt, Math.round((maxPt * (idealChars / len)) * 10) / 10);
+// no ellipsis/truncation, the text itself gets smaller instead. Uses the actual rendered
+// width (scrollWidth vs clientWidth) rather than a character-count guess, so it's correct
+// for every name/font/zoom combination and can never spill outside the card.
+function AutoFitLine({ text, className, minPt = 5, maxPt = 12, style }) {
+  const ref = useRef(null);
+  const [fontSize, setFontSize] = useState(maxPt);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let size = maxPt;
+    el.style.fontSize = size + "pt";
+    let guard = 0;
+    while (el.scrollWidth > el.clientWidth + 0.5 && size > minPt && guard < 60) {
+      size -= 0.25;
+      el.style.fontSize = size + "pt";
+      guard++;
+    }
+    setFontSize(size);
+  }, [text, minPt, maxPt]);
+  return <div ref={ref} className={className} style={{ ...style, fontSize: fontSize + "pt" }}>{text}</div>;
 }
 
 function StudentIdCardPhysical({ student, config }) {
@@ -3214,7 +3275,7 @@ function StudentIdCardPhysical({ student, config }) {
     <div className="id-card-physical">
       {config.schoolLogo && <img className="icp-watermark" src={config.schoolLogo} alt="" />}
       <div className="icp-head">
-        <div className="icp-school" style={{ fontSize: `${fitSchoolNameSize(config.schoolName)}pt` }}>{config.schoolName || "School Name"}</div>
+        <AutoFitLine className="icp-school" text={config.schoolName || "School Name"} />
         {config.schoolAddress && <div className="icp-address">{config.schoolAddress}</div>}
         <div className="icp-doctype">Student Identity Card</div>
       </div>
@@ -3657,7 +3718,7 @@ function TeacherIdCardModal({ teacher, config, onClose }) {
       <div style={{ display: "flex", justifyContent: "center", padding: "10px 0" }}>
         <div className="id-card-physical">
           <div className="icp-head">
-            <div className="icp-school" style={{ fontSize: `${fitSchoolNameSize(config.schoolName)}pt` }}>{config.schoolName || "School Name"}</div>
+            <AutoFitLine className="icp-school" text={config.schoolName || "School Name"} />
             <div className="icp-doctype">Staff ID Card</div>
           </div>
           <div className="icp-photo">
@@ -3789,12 +3850,23 @@ function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, o
 }
 
 /* =========================================================
-   FINANCE MODULE — Income Invoice, Expense Voucher
+   FINANCE MODULE — Invoice (income), Expense Voucher
    ========================================================= */
-const emptyFinance = (type) => ({
-  id: null, type, head: type === "income" ? INCOME_HEADS[0] : EXPENSE_HEADS[0],
-  amount: "", date: new Date().toISOString().slice(0,10), method: "Cash",
-  description: "", receivedFrom: "", paidTo: "", reference: "",
+const emptyFinanceRow = (descriptionMode) => ({ description: descriptionMode === "select" ? EXPENSE_HEADS[0] : "", amount: "" });
+
+const emptyFinance = (type, financeList) => type === "income" ? ({
+  id: null, type: "income",
+  docNo: generateFinanceDocNo(financeList, "income"),
+  date: new Date().toISOString().slice(0, 10),
+  provider: "",
+  rows: [emptyFinanceRow("text")],
+}) : ({
+  id: null, type: "expense",
+  docNo: generateFinanceDocNo(financeList, "expense"),
+  date: new Date().toISOString().slice(0, 10),
+  spender: "",
+  rows: [emptyFinanceRow("select")],
+  paid: "",
 });
 
 function FinanceModule({ data, save, remove, config, initialTab }) {
@@ -3803,37 +3875,51 @@ function FinanceModule({ data, save, remove, config, initialTab }) {
   const [editing, setEditing] = useState(null);
   const [docTarget, setDocTarget] = useState(null);
   const finance = data.finance || [];
-  const list = finance.filter(f => f.type === tab).sort((a,b) => new Date(b.date) - new Date(a.date));
+  const list = finance.filter(f => f.type === tab).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const isIncome = tab === "income";
 
   return (
     <div>
       <div className="section-head">
         <div>
           <h2>Finance</h2>
-          <p>Record income invoices and expense vouchers for full financial tracking.</p>
+          <p>Record invoices and expense vouchers for full financial tracking.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setEditing(emptyFinance(tab))}><Icon.plus />New {tab === "income" ? "Income" : "Expense"}</button>
+        <button className="btn btn-primary" onClick={() => setEditing(emptyFinance(tab, finance))}><Icon.plus />New {isIncome ? "Invoice" : "Expense"}</button>
       </div>
 
       {/* Section switching is handled entirely by the sidebar's Finance submenu now. */}
 
       <div className="card card-flush">
-        {list.length === 0 ? <EmptyState title={`No ${tab} records`} sub="Add a new entry to get started." /> : (
+        {list.length === 0 ? <EmptyState title={`No ${isIncome ? "invoices" : "expense vouchers"} yet`} sub="Add a new entry to get started." /> : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Head</th><th>{tab === "income" ? "Received From" : "Paid To"}</th><th>Method</th><th>Amount</th><th></th></tr></thead>
+              <thead>
+                {isIncome ? (
+                  <tr><th>Invoice No</th><th>Date</th><th>Provider</th><th style={{ textAlign: "right" }}>Amount</th><th></th></tr>
+                ) : (
+                  <tr><th>Voucher No</th><th>Date</th><th>Spender</th><th style={{ textAlign: "right" }}>Subtotal</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th></th></tr>
+                )}
+              </thead>
               <tbody>
                 {list.map(f => (
                   <tr key={f.id}>
+                    <td className="mono">{f.docNo || "—"}</td>
                     <td>{fmtDate(f.date)}</td>
-                    <td>{f.head}</td>
-                    <td>{tab === "income" ? (f.receivedFrom || "—") : (f.paidTo || "—")}</td>
-                    <td>{f.method}</td>
-                    <td className="mono">৳{money(f.amount)}</td>
+                    <td>{isIncome ? (f.provider || "—") : (f.spender || "—")}</td>
+                    {isIncome ? (
+                      <td className="mono" style={{ textAlign: "right" }}>৳{money(f.amount)}</td>
+                    ) : (
+                      <>
+                        <td className="mono" style={{ textAlign: "right" }}>৳{money(f.subtotal != null ? f.subtotal : f.amount)}</td>
+                        <td className="mono" style={{ textAlign: "right" }}>৳{money(f.paid)}</td>
+                        <td className="mono" style={{ textAlign: "right", color: Number(f.due) > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(f.due)}</td>
+                      </>
+                    )}
                     <td>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-sm btn-icon" title="View/Print" onClick={() => setDocTarget(f)}><Icon.print /></button>
-                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...f })}><Icon.edit /></button>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...f, rows: (f.rows && f.rows.length ? f.rows : [emptyFinanceRow(isIncome ? "text" : "select")]) })}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setDocTarget(f)}><Icon.print /></button>
                         <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this record?")) remove("finance", f.id); }}><Icon.trash /></button>
                       </div>
                     </td>
@@ -3845,58 +3931,252 @@ function FinanceModule({ data, save, remove, config, initialTab }) {
         )}
       </div>
 
-      {editing && <FinanceFormModal record={editing} onClose={() => setEditing(null)} onSave={async (r) => { await save("finance", r); setEditing(null); }} />}
-      {docTarget && <FinanceDocModal record={docTarget} config={config} onClose={() => setDocTarget(null)} />}
+      {editing && (isIncome
+        ? <InvoiceFormModal record={editing} financeList={finance} onClose={() => setEditing(null)} onSave={async (r) => { await save("finance", r); setEditing(null); }} />
+        : <ExpenseFormModal record={editing} financeList={finance} onClose={() => setEditing(null)} onSave={async (r) => { await save("finance", r); setEditing(null); }} />
+      )}
+      {docTarget && (docTarget.type === "income"
+        ? <InvoiceDocModal record={docTarget} config={config} onClose={() => setDocTarget(null)} />
+        : <ExpenseDocModal record={docTarget} config={config} onClose={() => setDocTarget(null)} />
+      )}
     </div>
   );
 }
 
-function FinanceFormModal({ record, onClose, onSave }) {
+// Shared editable line-item table for both the Invoice and the Expense Voucher forms.
+// This <table> is the only bordered element the two forms introduce — every other field
+// keeps the app's normal plain-input look.
+function FinanceItemRows({ rows, onChange, descriptionMode }) {
+  function updateRow(i, key, val) {
+    const next = [...rows];
+    next[i] = { ...next[i], [key]: val };
+    onChange(next);
+  }
+  function addRow() { onChange([...rows, emptyFinanceRow(descriptionMode)]); }
+  function removeRow(i) { if (rows.length > 1) onChange(rows.filter((_, idx) => idx !== i)); }
+
+  return (
+    <>
+      <div className="item-table-wrap">
+        <table className="item-form-table">
+          <thead>
+            <tr><th style={{ width: 38 }}>Sl No</th><th>Description</th><th style={{ width: 130 }}>Amount</th><th style={{ width: 34 }}></th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td className="itf-sl">{i + 1}</td>
+                <td>
+                  {descriptionMode === "select" ? (
+                    <select value={r.description} onChange={(e) => updateRow(i, "description", e.target.value)}>
+                      {EXPENSE_HEADS.map(h => <option key={h}>{h}</option>)}
+                    </select>
+                  ) : (
+                    <input type="text" value={r.description} placeholder="Item / description" onChange={(e) => updateRow(i, "description", e.target.value)} />
+                  )}
+                </td>
+                <td className="itf-amt"><input type="number" value={r.amount} onChange={(e) => updateRow(i, "amount", e.target.value)} /></td>
+                <td className="itf-remove">
+                  <button type="button" className="btn btn-sm btn-icon" disabled={rows.length <= 1} onClick={() => removeRow(i)} title="Remove row"><Icon.trash /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button type="button" className="link-btn item-table-add-row" onClick={addRow}>+ Add row</button>
+    </>
+  );
+}
+
+function InvoiceFormModal({ record, financeList, onClose, onSave }) {
   const [form, setForm] = useState(record);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const heads = form.type === "income" ? INCOME_HEADS : EXPENSE_HEADS;
+  const subtotal = sumBy(form.rows, r => r.amount);
+
+  function handleSave() {
+    const rows = form.rows.filter(r => str(r.description).trim() || Number(r.amount) > 0);
+    if (rows.length === 0) { alert("Add at least one item row."); return; }
+    const docNo = form.docNo || generateFinanceDocNo(financeList, "income");
+    onSave({ ...form, rows, docNo, amount: sumBy(rows, r => r.amount), head: "Invoice" });
+  }
+
   return (
-    <Modal title={`${form.type === "income" ? "Income Invoice" : "Expense Voucher"}`} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
-      <div className="form-grid">
-        <Field label="Head / Category"><select value={form.head} onChange={set("head")}>{heads.map(h => <option key={h}>{h}</option>)}</select></Field>
-        <Field label="Amount"><input type="number" value={form.amount} onChange={set("amount")} /></Field>
+    <Modal title="Invoice" onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>}>
+      <div className="form-grid" style={{ marginBottom: 18 }}>
+        <Field label="Invoice No"><input type="text" className="mono" value={form.docNo} readOnly /></Field>
         <Field label="Date"><input type="date" value={form.date} onChange={set("date")} /></Field>
-        <Field label="Payment Method"><select value={form.method} onChange={set("method")}>{PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}</select></Field>
-        {form.type === "income" ? (
-          <Field label="Received From" span2><input type="text" value={form.receivedFrom} onChange={set("receivedFrom")} /></Field>
-        ) : (
-          <Field label="Paid To" span2><input type="text" value={form.paidTo} onChange={set("paidTo")} /></Field>
-        )}
-        <Field label="Reference No."><input type="text" value={form.reference} onChange={set("reference")} /></Field>
-        <Field label="Description" span2><textarea value={form.description} onChange={set("description")} /></Field>
+        <Field label="Provider" span2><input type="text" value={form.provider} onChange={set("provider")} placeholder="Name of the provider" /></Field>
+      </div>
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", display: "block", marginBottom: 8 }}>Items</label>
+      <FinanceItemRows rows={form.rows} onChange={(rows) => setForm({ ...form, rows })} descriptionMode="text" />
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div className="item-table-foot-row total" style={{ minWidth: 220 }}>
+          <span>Total</span><span className="mono">৳{money(subtotal)}</span>
+        </div>
       </div>
     </Modal>
   );
 }
 
-function FinanceDocModal({ record, config, onClose }) {
-  const isIncome = record.type === "income";
+function ExpenseFormModal({ record, financeList, onClose, onSave }) {
+  const [form, setForm] = useState(record);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const subtotal = sumBy(form.rows, r => r.amount);
+  const paid = Number(form.paid) || 0;
+  const due = Math.max(0, subtotal - paid);
+
+  function handleSave() {
+    const rows = form.rows.filter(r => str(r.description).trim() || Number(r.amount) > 0);
+    if (rows.length === 0) { alert("Add at least one item row."); return; }
+    const sub = sumBy(rows, r => r.amount);
+    const docNo = form.docNo || generateFinanceDocNo(financeList, "expense");
+    const uniqueDesc = [...new Set(rows.map(r => r.description).filter(Boolean))];
+    const head = uniqueDesc.length === 1 ? uniqueDesc[0] : (uniqueDesc.length > 1 ? "Mixed" : "Expense");
+    onSave({ ...form, rows, docNo, subtotal: sub, paid: form.paid, due: Math.max(0, sub - (Number(form.paid) || 0)), amount: sub, head });
+  }
+
   return (
-    <DocShell title={`${isIncome ? "Income Invoice" : "Expense Voucher"}`} onClose={onClose}>
-      <div className="doc-preview">
-        <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
-          <div>
-            <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
-            <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>{isIncome ? "Income Invoice" : "Expense Voucher"}</div>
+    <Modal title="Expense Voucher" onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>}>
+      <div className="form-grid" style={{ marginBottom: 18 }}>
+        <Field label="Voucher No"><input type="text" className="mono" value={form.docNo} readOnly /></Field>
+        <Field label="Date"><input type="date" value={form.date} onChange={set("date")} /></Field>
+        <Field label="Spender" span2><input type="text" value={form.spender} onChange={set("spender")} placeholder="Who is spending / requesting" /></Field>
+      </div>
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", display: "block", marginBottom: 8 }}>Items</label>
+      <FinanceItemRows rows={form.rows} onChange={(rows) => setForm({ ...form, rows })} descriptionMode="select" />
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ minWidth: 240 }}>
+          <div className="item-table-foot-row"><span>Subtotal</span><span className="mono">৳{money(subtotal)}</span></div>
+          <div className="item-table-foot-row">
+            <span>Paid</span>
+            <input type="number" value={form.paid} onChange={set("paid")} />
           </div>
-          <div style={{ textAlign: "right", fontSize: 12.5 }}>Date: {fmtDate(record.date)}</div>
-        </div>
-        <FieldRow name="Head" value={record.head} />
-        <FieldRow name={isIncome ? "Received From" : "Paid To"} value={isIncome ? record.receivedFrom : record.paidTo || "—"} />
-        <FieldRow name="Payment Method" value={record.method} />
-        <FieldRow name="Reference" value={record.reference || "—"} />
-        <FieldRow name="Description" value={record.description || "—"} />
-        <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ minWidth: 220 }}>
-            <FieldRow name="Amount" value={<strong>৳{money(record.amount)}</strong>} />
+          <div className="item-table-foot-row total">
+            <span>Due</span><span className="mono" style={{ color: due > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(due)}</span>
           </div>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+// Shared black-on-white printable layout, reusing the Fee Invoice's look (see InvoiceDocPrint) —
+// only the Table carries a visible border/rule; everything else is plain type.
+function FinanceDocHeader({ config, docTitle }) {
+  return (
+    <div className="inv-header">
+      <div className="inv-header-row">
+        <div className="inv-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
+        <div className="inv-header-center">
+          <div className="inv-school-name">
+            {config.schoolName || "School Name"}
+            {config.instituteCode && <span className="inv-school-code"> ({config.instituteCode})</span>}
+          </div>
+          {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
+          <div className="inv-title">{docTitle}</div>
+        </div>
+        <div className="inv-header-logo" style={{ visibility: "hidden" }} />
+      </div>
+      <hr className="adm-divider inv-divider" />
+    </div>
+  );
+}
+
+function InvoiceDocModal({ record, config, onClose }) {
+  usePrintChrome({ hideWatermark: true, hideFooter: true });
+  const rows = record.rows || [];
+  const subtotal = sumBy(rows, r => r.amount);
+  return (
+    <DocShell title={`Invoice — ${record.docNo || ""}`} onClose={onClose}>
+      <div className="doc-preview invoice-doc-print">
+        {config.schoolLogo && <div className="inv-watermark"><img src={config.schoolLogo} alt="" /></div>}
+        <FinanceDocHeader config={config} docTitle="INVOICE" />
+
+        <div className="inv-meta-grid">
+          <FieldRow name="Invoice No" value={<span className="mono">{record.docNo}</span>} />
+          <FieldRow name="Date" value={fmtDate(record.date)} />
+          <FieldRow name="Provider" value={record.provider || "—"} />
+        </div>
+
+        <table className="inv-fee-table">
+          <thead><tr><th>Sl</th><th>Description</th><th>Amount</th></tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td style={{ textAlign: "center" }}>{i + 1}</td>
+                <td>{r.description}</td>
+                <td style={{ textAlign: "right" }} className="mono">৳{money(r.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="inv-summary">
+            <FieldRow name="Total" value={<strong>৳{money(subtotal)}</strong>} />
+          </div>
+        </div>
+
+        <hr className="adm-divider inv-divider" style={{ marginTop: 14 }} />
+        <div className="inv-credit">@Poweredby: AM Shahed: 01605721296</div>
+      </div>
+    </DocShell>
+  );
+}
+
+function ExpenseDocModal({ record, config, onClose }) {
+  usePrintChrome({ hideWatermark: true, hideFooter: true });
+  const rows = record.rows || [];
+  const subtotal = record.subtotal != null ? Number(record.subtotal) : sumBy(rows, r => r.amount);
+  const paid = Number(record.paid) || 0;
+  const due = record.due != null ? Number(record.due) : Math.max(0, subtotal - paid);
+  return (
+    <DocShell title={`Expense Voucher — ${record.docNo || ""}`} onClose={onClose}>
+      <div className="doc-preview invoice-doc-print">
+        {config.schoolLogo && <div className="inv-watermark"><img src={config.schoolLogo} alt="" /></div>}
+        <FinanceDocHeader config={config} docTitle="EXPENSE VOUCHER" />
+
+        <div className="inv-meta-grid">
+          <FieldRow name="Voucher No" value={<span className="mono">{record.docNo}</span>} />
+          <FieldRow name="Date" value={fmtDate(record.date)} />
+          <FieldRow name="Spender" value={record.spender || "—"} />
+        </div>
+
+        <table className="inv-fee-table">
+          <thead><tr><th>Sl</th><th>Description</th><th>Amount</th></tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td style={{ textAlign: "center" }}>{i + 1}</td>
+                <td>{r.description}</td>
+                <td style={{ textAlign: "right" }} className="mono">৳{money(r.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div className="inv-summary">
+            <FieldRow name="Subtotal" value={"৳" + money(subtotal)} />
+            <FieldRow name="Paid" value={"৳" + money(paid)} />
+            <FieldRow name="Due" value={<strong>৳{money(due)}</strong>} />
+          </div>
+        </div>
+
+        <div className="adm-signatures" style={{ marginTop: 40 }}>
+          <div className="adm-sig">Cashier</div>
+          <div className="adm-sig">Spender</div>
+        </div>
+
+        <hr className="adm-divider inv-divider" style={{ marginTop: 14 }} />
+        <div className="inv-credit">@Poweredby: AM Shahed: 01605721296</div>
       </div>
     </DocShell>
   );
@@ -4574,7 +4854,7 @@ const NAV_GROUPS = [
   { label: "Overview", items: [{ key: "dashboard", label: "Dashboard", icon: "dashboard" }] },
   { label: "People", items: [
     { key: "students", label: "Students", icon: "students", subitems: [
-      { key: "list", label: "All Students" },
+      { key: "list", label: "All Admission" },
       { key: "promotion", label: "Promotion" },
       { key: "classHistory", label: "Class History" },
       { key: "activation", label: "Activation" },
