@@ -578,6 +578,7 @@ tbody tr:last-child td{border-bottom:none;}
 .section-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;gap:14px;flex-wrap:wrap;}
 .section-head h2{font-size:22px;}
 .section-head p{font-size:13px;color:var(--slate-soft);margin-top:4px;max-width:520px;}
+.section-actions{display:flex;justify-content:flex-end;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
 
 .id-card-preview{
   width:320px;border-radius:14px;overflow:hidden;box-shadow:var(--shadow-md);
@@ -1507,7 +1508,20 @@ function studentsInClassYear(students, promotions, classHistories, className, ye
 // Returns [{feeType, amount, category, months}] for one class-history entry (a specific year + class),
 // using that year's Master Fee row — a section-specific row overrides "All Sections" for the same year+class.
 function applicableFeeHeadsForEntry(entry, feeRules) {
-  const rulesForYearClass = (feeRules || []).filter(f => String(f.year) === String(entry.year) && f.className === entry.className);
+  const sameClassRules = (feeRules || []).filter(f => f.className === entry.className);
+  let rulesForYearClass = sameClassRules.filter(f => String(f.year) === String(entry.year));
+  // No fee rule was entered for this exact year (e.g. the year field on the Master Fee row
+  // doesn't line up with the year computed from the student's session/class history) — rather
+  // than showing "No fee rules set for this class", fall back to the closest year that DOES
+  // have a rule for this class: prefer the latest year at or before this one, otherwise the
+  // earliest year after it, so a class already set up in Master Fee is never treated as empty.
+  if (rulesForYearClass.length === 0 && sameClassRules.length > 0) {
+    const years = [...new Set(sameClassRules.map(f => Number(f.year) || 0))];
+    const entryYearNum = Number(entry.year) || 0;
+    const atOrBefore = years.filter(y => y <= entryYearNum);
+    const fallbackYear = atOrBefore.length ? Math.max(...atOrBefore) : Math.min(...years);
+    rulesForYearClass = sameClassRules.filter(f => (Number(f.year) || 0) === fallbackYear);
+  }
   const allSectionsRow = rulesForYearClass.find(f => !f.section);
   const specificRow = rulesForYearClass.find(f => f.section === entry.section);
   const map = {};
@@ -1809,13 +1823,6 @@ function Dashboard({ data, setActiveModule }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Dashboard</h2>
-          <p>A live snapshot of enrollment, staffing, and finances across your institution.</p>
-        </div>
-      </div>
-
       <div className="grid grid-4" style={{ marginBottom: 20 }}>
         <StatCard label="Total Students" value={students.length} sub={`${Object.keys(classCounts).length} active classes`} accent="var(--moss)" />
         <StatCard label="Total Teachers & Staff" value={teachers.length} sub="Active roster" accent="var(--clay)" />
@@ -2018,11 +2025,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Students</h2>
-          <p>All admissions, yearly class promotions, class history, activation status, and office records.</p>
-        </div>
+      <div className="section-actions">
         {tab === "list" && <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />New Admission</button>}
         {tab === "promotion" && <button className="btn btn-primary no-print" onClick={() => setPromotionFormOpen(true)}><Icon.plus />Open Promotion Form</button>}
       </div>
@@ -2675,15 +2678,9 @@ function FeeInvoiceModule({ data, save, remove, config }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Fee Invoice</h2>
-          <p>Create fee invoices and review every invoice that has been submitted so far.</p>
-        </div>
-        <div className="no-print" style={{ display: "flex", gap: 10 }}>
-          <button className="btn" onClick={() => setShowPaymentSheet(true)}><Icon.print />Print List</button>
-          <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Icon.fee />Open Fee Invoice Form</button>
-        </div>
+      <div className="section-actions no-print">
+        <button className="btn" onClick={() => setShowPaymentSheet(true)}><Icon.print />Print List</button>
+        <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Icon.fee />Open Fee Invoice Form</button>
       </div>
 
       <div className="card card-flush">
@@ -3223,8 +3220,17 @@ function AdmissionFormPrintModal({ student, config, onClose }) {
 }
 
 function StudentFormModal({ student, students, onClose, onSave, config }) {
-  const [form, setForm] = useState(student);
+  // Defensive normalization: a date-like field can come back from the sheet as a full
+  // ISO datetime (or even a native Date once JSON-serialized) instead of the plain
+  // "YYYY-MM-DD" a date input needs — trim it so Admission Date/DOB never show blank.
+  const normalizeDates = (s) => ({
+    ...s,
+    admissionDate: s.admissionDate ? String(s.admissionDate).slice(0, 10) : s.admissionDate,
+    dob: s.dob ? String(s.dob).slice(0, 10) : s.dob,
+  });
+  const [form, setForm] = useState(normalizeDates(student));
   const [showPrint, setShowPrint] = useState(false);
+  const [saving, setSaving] = useState(false);
   usePrintChrome({ hideFooter: true }); // admission form prints its own footer with slogan + credit
   const set = (k) => (e) => setForm({ ...form, [k]: e && e.target ? e.target.value : e });
 
@@ -3235,13 +3241,6 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
       // Auto-fill next roll for the newly selected class — only for brand-new admissions,
       // so editing an existing student's class never silently overwrites their roll.
       if (!f.id) next.roll = String(nextRollForClass(students, className, f.id));
-      // Keep this year's class-history entry in sync with the "current class" dropdown,
-      // so fee calculation automatically uses the right year+class without extra steps.
-      const history = Array.isArray(f.classHistory) ? [...f.classHistory] : [];
-      const idx = history.findIndex(h => String(h.year) === String(CURRENT_YEAR));
-      if (idx > -1) history[idx] = { ...history[idx], className, section: f.section };
-      else history.push({ year: String(CURRENT_YEAR), className, section: f.section });
-      next.classHistory = history;
       return next;
     });
   }
@@ -3261,25 +3260,16 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
     setForm(f => ({ ...f, sameAsPresent: checked, permanentAddress: checked ? f.presentAddress : f.permanentAddress }));
   }
 
-  async function handleSaveAndPreview() {
+  // Single Save action: saves the record, confirms it actually persisted, then shows the
+  // print preview so there's always a clear on-screen confirmation that the update went through.
+  async function handleSave() {
+    setSaving(true);
     const saved = await onSave(form);
-    if (saved) setForm(saved);
-    setShowPrint(true);
-  }
-
-  const history = Array.isArray(form.classHistory) && form.classHistory.length > 0
-    ? form.classHistory
-    : [{ year: String(CURRENT_YEAR), className: form.className, section: form.section }];
-
-  function updateHistoryRow(i, key, val) {
-    const next = history.map((h, idx) => idx === i ? { ...h, [key]: val } : h);
-    setForm(f => ({ ...f, classHistory: next }));
-  }
-  function addHistoryRow() {
-    setForm(f => ({ ...f, classHistory: [...history, { year: String(CURRENT_YEAR), className: "One", section: SECTIONS[0] }] }));
-  }
-  function removeHistoryRow(i) {
-    setForm(f => ({ ...f, classHistory: history.filter((_, idx) => idx !== i) }));
+    setSaving(false);
+    if (saved) {
+      setForm(normalizeDates(saved));
+      setShowPrint(true);
+    }
   }
 
   const present = form.presentAddress && typeof form.presentAddress === "object" ? form.presentAddress : emptyAddress();
@@ -3295,8 +3285,7 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
       ) : (
         <>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn" onClick={() => onSave(form)}>Save</button>
-          <button className="btn btn-primary" onClick={handleSaveAndPreview}>Save &amp; Preview / Print</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
         </>
       )}>
       {showPrint ? (
@@ -3306,7 +3295,7 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
       <div className="form-grid">
         <Field label="Student ID" hint="auto-generated"><input type="text" value={form.studentId} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
         <Field label="Form No." hint="auto-generated"><input type="text" value={form.admissionFormNo || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
-        <Field label="Admission Date"><input type="date" value={form.admissionDate} onChange={set("admissionDate")} /></Field>
+        <Field label="Admission Date"><input type="date" value={(form.admissionDate || "").slice(0, 10)} onChange={set("admissionDate")} /></Field>
         <Field label="Class" hint="current class"><select value={form.className} onChange={handleClassChange}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
         <Field label="Section"><select value={form.section} onChange={set("section")}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
         <Field label="Subject"><select value={form.subjectGroup || SUBJECT_GROUPS[0]} onChange={set("subjectGroup")}>{SUBJECT_GROUPS.map(s => <option key={s}>{s}</option>)}</select></Field>
@@ -3314,7 +3303,7 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
         <Field label="Student Name"><input type="text" value={form.name} onChange={set("name")} placeholder="Student's full name" /></Field>
         <Field label="Father's Name"><input type="text" value={form.fatherName} onChange={set("fatherName")} /></Field>
         <Field label="Mother's Name"><input type="text" value={form.motherName} onChange={set("motherName")} /></Field>
-        <Field label="Date of Birth"><input type="date" value={form.dob} onChange={set("dob")} /></Field>
+        <Field label="Date of Birth"><input type="date" value={(form.dob || "").slice(0, 10)} onChange={set("dob")} /></Field>
         <Field label="Age" hint="auto-calculated"><input type="text" value={calcAge(form.dob, form.admissionDate)} readOnly style={{ background: "var(--paper)" }} /></Field>
         <Field label="Gender"><select value={form.gender} onChange={set("gender")}>{GENDERS.map(g => <option key={g}>{g}</option>)}</select></Field>
         <Field label="Session" hint="e.g. 2025-2026"><input type="text" value={form.session || ""} onChange={set("session")} /></Field>
@@ -3361,25 +3350,6 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16, background: "var(--paper)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)" }}>Class History (Year-wise)</div>
-            <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>Which class this student was in each year — fees are calculated per year using this history.</div>
-          </div>
-          <button className="link-btn" onClick={addHistoryRow}>+ Add year</button>
-        </div>
-        {history.map((h, i) => (
-          <div key={i} className="form-grid cols-3" style={{ marginBottom: 8, alignItems: "end" }}>
-            <Field label="Year"><input type="number" value={h.year} onChange={(e) => updateHistoryRow(i, "year", e.target.value)} /></Field>
-            <Field label="Class"><select value={h.className} onChange={(e) => updateHistoryRow(i, "className", e.target.value)}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Field label="Section"><select value={h.section} onChange={(e) => updateHistoryRow(i, "section", e.target.value)}>{SECTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-              <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeHistoryRow(i)}><Icon.trash /></button>
-            </div>
-          </div>
-        ))}
-      </div>
       </div>
       )}
     </Modal>
@@ -3673,9 +3643,6 @@ function AllCardModule({ data, config, initialCardType }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div><h2>All Card</h2><p>Choose a card type, then print for a single student or an entire class.</p></div>
-      </div>
       <div className="grid grid-3">
         <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("id")}>
           <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--moss)" }} />
@@ -3725,11 +3692,7 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Teachers & Staff</h2>
-          <p>Manage staff records, letters, ID cards, salary invoices, and dues.</p>
-        </div>
+      <div className="section-actions">
         <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />Add Staff</button>
       </div>
 
@@ -3814,9 +3777,9 @@ function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules })
         <Field label="Full Name" span2><input type="text" value={form.name} onChange={set("name")} /></Field>
         <Field label="Designation"><select value={form.designation} onChange={set("designation")}>{DESIGNATIONS.map(d => <option key={d}>{d}</option>)}</select></Field>
         <Field label="Subject"><select value={form.subject} onChange={set("subject")}><option value="">—</option>{SUBJECTS.map(s => <option key={s}>{s}</option>)}</select></Field>
-        <Field label="Join Date"><input type="date" value={form.joinDate} onChange={set("joinDate")} /></Field>
+        <Field label="Join Date"><input type="date" value={(form.joinDate || "").slice(0, 10)} onChange={set("joinDate")} /></Field>
         <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Resigned</option><option>On Leave</option></select></Field>
-        {form.status === "Resigned" && <Field label="Resign Date"><input type="date" value={form.resignDate} onChange={set("resignDate")} /></Field>}
+        {form.status === "Resigned" && <Field label="Resign Date"><input type="date" value={(form.resignDate || "").slice(0, 10)} onChange={set("resignDate")} /></Field>}
         <Field label="Phone"><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
         <Field label="Email"><input type="email" value={form.email} onChange={set("email")} /></Field>
         <Field label="NID Number"><input type="text" value={form.nid} onChange={set("nid")} /></Field>
@@ -4046,11 +4009,7 @@ function FinanceModule({ data, save, remove, config, initialTab }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Finance</h2>
-          <p>Record invoices and expense vouchers for full financial tracking.</p>
-        </div>
+      <div className="section-actions">
         <button className="btn btn-primary" onClick={() => setEditing(emptyFinance(tab, finance))}><Icon.plus />New {isIncome ? "Invoice" : "Expense"}</button>
       </div>
 
@@ -4172,7 +4131,7 @@ function InvoiceFormModal({ record, financeList, onClose, onSave }) {
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>}>
       <div className="form-grid" style={{ marginBottom: 18 }}>
         <Field label="Invoice No"><input type="text" className="mono" value={form.docNo} readOnly /></Field>
-        <Field label="Date"><input type="date" value={form.date} onChange={set("date")} /></Field>
+        <Field label="Date"><input type="date" value={(form.date || "").slice(0, 10)} onChange={set("date")} /></Field>
         <Field label="Provider" span2><input type="text" value={form.provider} onChange={set("provider")} placeholder="Name of the provider" /></Field>
       </div>
 
@@ -4210,7 +4169,7 @@ function ExpenseFormModal({ record, financeList, onClose, onSave }) {
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>}>
       <div className="form-grid" style={{ marginBottom: 18 }}>
         <Field label="Voucher No"><input type="text" className="mono" value={form.docNo} readOnly /></Field>
-        <Field label="Date"><input type="date" value={form.date} onChange={set("date")} /></Field>
+        <Field label="Date"><input type="date" value={(form.date || "").slice(0, 10)} onChange={set("date")} /></Field>
         <Field label="Spender" span2><input type="text" value={form.spender} onChange={set("spender")} placeholder="Who is spending / requesting" /></Field>
       </div>
 
@@ -4386,7 +4345,7 @@ function DueModule({ data, config, initialTab }) {
 
   return (
     <div>
-      <div className="section-head"><div><h2>Due List</h2><p>Track outstanding student fees and teacher salaries.</p></div></div>
+
       {/* Section switching is handled entirely by the sidebar's Due List submenu now. */}
 
       {tab === "students" && (
@@ -4569,8 +4528,7 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div><h2>Master Fee Setup</h2><p>Year-wise class fees and salary scales — each year can have its own amounts, since fees change year to year.</p></div>
+      <div className="section-actions">
         <button className="btn btn-primary no-print" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
       </div>
       {/* Section switching is handled entirely by the sidebar's Master Fee submenu now. */}
@@ -4784,9 +4742,6 @@ function CommitteeModule({ data, save, remove }) {
   const committees = data.committee || [];
   return (
     <div>
-      <div className="section-head">
-        <div><h2>Committee</h2><p>School committees and member details. Add new committees from Settings.</p></div>
-      </div>
       {committees.length === 0 ? (
         <div className="card"><EmptyState title="No committees formed yet" sub={`Go to Settings → Committee to create one.`} /></div>
       ) : (
@@ -4834,7 +4789,7 @@ function CommitteeFormModal({ committee, onClose, onSave }) {
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save Committee</button></>}>
       <div className="form-grid" style={{ marginBottom: 16 }}>
         <Field label="Committee Name" span2><input type="text" value={form.committeeName} onChange={set("committeeName")} placeholder="e.g. School Managing Committee" /></Field>
-        <Field label="Formed Date"><input type="date" value={form.formedDate} onChange={set("formedDate")} /></Field>
+        <Field label="Formed Date"><input type="date" value={(form.formedDate || "").slice(0, 10)} onChange={set("formedDate")} /></Field>
         <Field label="Purpose" span2><textarea value={form.purpose} onChange={set("purpose")} /></Field>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -5612,7 +5567,6 @@ function ReportsModule({ data }) {
 
   return (
     <div>
-      <div className="section-head"><div><h2>Reports</h2><p>Income, expense, and due summaries — daily, monthly, or yearly.</p></div></div>
       <div className="chip-row no-print" style={{ marginBottom: 18 }}>
         {["daily","monthly","yearly"].map(r => (
           <button key={r} className={`chip ${range === r ? "active" : ""}`} onClick={() => setRange(r)} style={{ textTransform: "capitalize" }}>{r}</button>
@@ -5657,6 +5611,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
   const [form, setForm] = useState({ ...config, schoolPhones: config.schoolPhones && config.schoolPhones.length ? config.schoolPhones : ["", "", ""] });
   const [saving, setSaving] = useState(false);
   const [committeeEditing, setCommitteeEditing] = useState(null);
+  const [profileEditing, setProfileEditing] = useState(false);
   const toast = useToast();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const committees = (data && data.committee) || [];
@@ -5665,6 +5620,11 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
     const phones = [...form.schoolPhones];
     phones[i] = val;
     setForm({ ...form, schoolPhones: phones });
+  }
+
+  function openProfileEditor() {
+    setForm({ ...config, schoolPhones: config.schoolPhones && config.schoolPhones.length ? config.schoolPhones : ["", "", ""] });
+    setProfileEditing(true);
   }
 
   async function handleSave() {
@@ -5682,30 +5642,34 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
     } else {
       toast("Settings saved locally (connect Google Sheets to sync across devices)");
     }
+    setProfileEditing(false);
   }
 
   return (
     <div>
-      <div className="section-head"><div><h2>Settings</h2><p>Institution profile shown on ID cards, invoices, and documents.</p></div></div>
+      <div className="section-actions">
+        <button className="btn btn-primary" onClick={openProfileEditor}><Icon.edit />Edit Institution Profile</button>
+      </div>
 
       <div className="card" style={{ maxWidth: 560, marginBottom: 20 }}>
-        <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-          <Field label="Institution Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
-          <Field label="Institute Code No." hint="shown on Admission Form"><input type="text" value={form.instituteCode || ""} onChange={set("instituteCode")} /></Field>
-          <Field label="Address"><textarea value={form.schoolAddress || ""} onChange={set("schoolAddress")} placeholder="Full address" /></Field>
-          <Field label="Email"><input type="email" value={form.schoolEmail || ""} onChange={set("schoolEmail")} placeholder="school@example.com" /></Field>
-          <Field label="Mobile Number 1"><input type="tel" value={form.schoolPhones[0] || ""} onChange={(e) => setPhone(0, e.target.value)} placeholder="e.g. 01XXXXXXXXX" /></Field>
-          <Field label="Mobile Number 2" hint="optional"><input type="tel" value={form.schoolPhones[1] || ""} onChange={(e) => setPhone(1, e.target.value)} /></Field>
-          <Field label="Mobile Number 3" hint="optional"><input type="tel" value={form.schoolPhones[2] || ""} onChange={(e) => setPhone(2, e.target.value)} /></Field>
-          <PhotoBox label="Logo" folder="logo" config={form} existingUrl={form.schoolLogo} onUploaded={(url) => setForm(f => ({ ...f, schoolLogo: url }))} />
-          <Field label="Facebook Page URL"><input type="text" value={form.facebookUrl || ""} onChange={set("facebookUrl")} placeholder="https://facebook.com/…" /></Field>
-          <Field label="YouTube Channel URL"><input type="text" value={form.youtubeUrl || ""} onChange={set("youtubeUrl")} placeholder="https://youtube.com/…" /></Field>
-          <Field label="Cashier Name" hint="shown on Fee Invoice"><input type="text" value={form.cashierName || ""} onChange={set("cashierName")} /></Field>
-          <PhotoBox label="Cashier Signature Image" folder="signatures" config={form} existingUrl={form.cashierSignUrl} onUploaded={(url) => setForm(f => ({ ...f, cashierSignUrl: url }))} />
-          <Field label="Principal Name" hint="shown on Fee Invoice / Admission Form"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
-          <PhotoBox label="Principal Signature Image" folder="signatures" config={form} existingUrl={form.principalSignUrl} onUploaded={(url) => setForm(f => ({ ...f, principalSignUrl: url }))} />
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {config.schoolLogo ? (
+            <img src={config.schoolLogo} alt="" style={{ width: 56, height: 56, borderRadius: 8, objectFit: "cover", border: "1px solid var(--line)" }} />
+          ) : (
+            <div style={{ width: 56, height: 56, borderRadius: 8, background: "var(--paper)", border: "1px solid var(--line)" }} />
+          )}
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15.5 }}>{config.schoolName || "Institution name not set"}</div>
+            <div style={{ fontSize: 12.5, color: "var(--slate-soft)" }}>{config.schoolAddress || "No address set yet"}</div>
+          </div>
         </div>
-        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Settings"}</button>
+        <div style={{ marginTop: 14 }}>
+          <div className="kv-row"><span className="k">Email</span><span className="v">{config.schoolEmail || "—"}</span></div>
+          <div className="kv-row"><span className="k">Phone</span><span className="v">{(config.schoolPhones || []).filter(Boolean).join(", ") || "—"}</span></div>
+          <div className="kv-row"><span className="k">Institute Code</span><span className="v">{config.instituteCode || "—"}</span></div>
+          <div className="kv-row"><span className="k">Principal</span><span className="v">{config.principalName || "—"}</span></div>
+          <div className="kv-row"><span className="k">Cashier</span><span className="v">{config.cashierName || "—"}</span></div>
+        </div>
       </div>
 
       <div className="card" style={{ maxWidth: 560 }}>
@@ -5733,6 +5697,28 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           </div>
         )}
       </div>
+
+      {profileEditing && (
+        <Modal title="Edit Institution Profile" onClose={() => setProfileEditing(false)} size="lg"
+          footer={<><button className="btn" onClick={() => setProfileEditing(false)}>Cancel</button><button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Settings"}</button></>}>
+          <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+            <Field label="Institution Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
+            <Field label="Institute Code No." hint="shown on Admission Form"><input type="text" value={form.instituteCode || ""} onChange={set("instituteCode")} /></Field>
+            <Field label="Address"><textarea value={form.schoolAddress || ""} onChange={set("schoolAddress")} placeholder="Full address" /></Field>
+            <Field label="Email"><input type="email" value={form.schoolEmail || ""} onChange={set("schoolEmail")} placeholder="school@example.com" /></Field>
+            <Field label="Mobile Number 1"><input type="tel" value={form.schoolPhones[0] || ""} onChange={(e) => setPhone(0, e.target.value)} placeholder="e.g. 01XXXXXXXXX" /></Field>
+            <Field label="Mobile Number 2" hint="optional"><input type="tel" value={form.schoolPhones[1] || ""} onChange={(e) => setPhone(1, e.target.value)} /></Field>
+            <Field label="Mobile Number 3" hint="optional"><input type="tel" value={form.schoolPhones[2] || ""} onChange={(e) => setPhone(2, e.target.value)} /></Field>
+            <PhotoBox label="Logo" folder="logo" config={form} existingUrl={form.schoolLogo} onUploaded={(url) => setForm(f => ({ ...f, schoolLogo: url }))} />
+            <Field label="Facebook Page URL"><input type="text" value={form.facebookUrl || ""} onChange={set("facebookUrl")} placeholder="https://facebook.com/…" /></Field>
+            <Field label="YouTube Channel URL"><input type="text" value={form.youtubeUrl || ""} onChange={set("youtubeUrl")} placeholder="https://youtube.com/…" /></Field>
+            <Field label="Cashier Name" hint="shown on Fee Invoice"><input type="text" value={form.cashierName || ""} onChange={set("cashierName")} /></Field>
+            <PhotoBox label="Cashier Signature Image" folder="signatures" config={form} existingUrl={form.cashierSignUrl} onUploaded={(url) => setForm(f => ({ ...f, cashierSignUrl: url }))} />
+            <Field label="Principal Name" hint="shown on Fee Invoice / Admission Form"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
+            <PhotoBox label="Principal Signature Image" folder="signatures" config={form} existingUrl={form.principalSignUrl} onUploaded={(url) => setForm(f => ({ ...f, principalSignUrl: url }))} />
+          </div>
+        </Modal>
+      )}
 
       {committeeEditing && <CommitteeFormModal committee={committeeEditing} onClose={() => setCommitteeEditing(null)} onSave={async (r) => { await save("committee", r); setCommitteeEditing(null); }} />}
     </div>

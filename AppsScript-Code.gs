@@ -135,7 +135,26 @@ function cellValue(val) {
   return out;
 }
 
+// Sheets auto-detects date-looking text (e.g. "2026-01-10") typed via setValues() and silently
+// stores it as a real Date cell, exactly like typing it into the UI would. When that happens,
+// getValues() hands back a native Date object instead of the original string, and by the time
+// it's JSON-stringified for the client it becomes a full ISO datetime (e.g.
+// "2026-01-10T00:00:00.000Z") instead of the plain "yyyy-MM-dd" the app's date inputs expect —
+// which is why an edited record could appear to be missing its Admission Date. This restores
+// any such Date cell back into plain text before it ever leaves the server.
+function normalizeCellForOutput(val) {
+  if (Object.prototype.toString.call(val) === "[object Date]" && !isNaN(val.getTime())) {
+    const tz = Session.getScriptTimeZone() || "UTC";
+    const hasTime = val.getHours() !== 0 || val.getMinutes() !== 0 || val.getSeconds() !== 0;
+    return hasTime
+      ? Utilities.formatDate(val, tz, "yyyy-MM-dd'T'HH:mm:ss")
+      : Utilities.formatDate(val, tz, "yyyy-MM-dd");
+  }
+  return val;
+}
+
 function parseCell(val) {
+  val = normalizeCellForOutput(val);
   if (typeof val === "string" && (val.startsWith("[") || val.startsWith("{"))) {
     try { return JSON.parse(val); } catch (e) { return val; }
   }
@@ -230,11 +249,13 @@ function upsertRow(sheetName, rowJson) {
 
   const rowValues = headers.map(h => cellValue(row[h]));
 
-  if (foundRowIndex > -1) {
-    sheet.getRange(foundRowIndex, 1, 1, headers.length).setValues([rowValues]);
-  } else {
-    sheet.getRange(sheet.getLastRow() + 1, 1, 1, headers.length).setValues([rowValues]);
-  }
+  const targetRow = foundRowIndex > -1 ? foundRowIndex : sheet.getLastRow() + 1;
+  const range = sheet.getRange(targetRow, 1, 1, headers.length);
+  // Plain-text format BEFORE writing — otherwise Sheets auto-detects date/number-looking
+  // strings (like Admission Date "2026-01-10") and silently converts the cell to a real
+  // Date/Number type, which breaks the app's <input type="date"> fields on the next edit.
+  range.setNumberFormat("@");
+  range.setValues([rowValues]);
   invalidateListCache(sheetName);
   return { success: true, id: row.id };
 }
