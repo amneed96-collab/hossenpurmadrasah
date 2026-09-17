@@ -1275,10 +1275,13 @@ const EXPENSE_HEADS = [
   "Exam expense", "Others"
 ];
 
-// Subject category, used for GPA rules: "Main" subjects (Compulsory or Elective/MCQ) are
-// averaged into Main GPA and any F among them fails the whole result; "Optional" subjects
-// (the 4th/additional subject) only ever ADD bonus GPA points, they never fail the result.
-const SUBJECT_CATEGORIES = ["Main - Compulsory", "Main - Elective (MCQ)", "Optional"];
+// Subject category, used for GPA rules AND for how many mark-boxes that subject gets:
+//  - Main Compulsory → one mark box (full marks)
+//  - Main Elective   → two mark boxes, MCQ + CQ, which together make up the 100 full marks
+//  - Optional        → one mark box (the 4th/additional subject — only ever ADDS bonus GPA
+//                       points, it never fails the result)
+// Any F among the Main subjects (Compulsory or Elective) fails the whole result.
+const SUBJECT_CATEGORIES = ["Main Compulsory", "Main Elective", "Optional"];
 
 // Bangladesh-board-style letter-grade / grade-point scale — used for every subject, and for
 // the overall Final GPA on Result sheets and Marksheets.
@@ -1307,6 +1310,30 @@ function gradeFromPoint(pt) {
   return GRADE_SCALE.find(g => p >= g.point) || GRADE_SCALE[GRADE_SCALE.length - 1];
 }
 
+// A "Main Elective" subject has two mark boxes (MCQ + CQ, summing to its full marks); every
+// other category has just one. These two helpers keep that rule in exactly one place.
+function subjectFullMarks(subject) {
+  return subject.category === "Main Elective"
+    ? (Number(subject.mcq) || 0) + (Number(subject.cq) || 0)
+    : (Number(subject.marks) || 100);
+}
+function subjectObtainedMarks(subject, cell) {
+  if (subject.category === "Main Elective") {
+    const c = cell || {};
+    return (Number(c.mcq) || 0) + (Number(c.cq) || 0);
+  }
+  return Number(cell) || 0;
+}
+
+// Every class-year's Subject Setup is stored as ONE record with a `rows` array (one row per
+// subject, column-wise) — this flattens that into a plain list of subjects, each carrying a
+// stable synthetic id ("<groupId>-<rowIndex>") used to key marks entries.
+function getClassSubjects(subjectGroups, className, year) {
+  const group = (subjectGroups || []).find(g => g.className === className && String(g.year) === String(year));
+  if (!group) return [];
+  return (group.rows || []).map((r, i) => ({ ...r, id: `${group.id}-${i}` }));
+}
+
 // Computes one student's overall result for a Class+Year+Exam from their entered marks and
 // that class's subject list. Follows the standard Bangladesh-board convention: an F in any
 // Main subject fails the whole result; an Optional ("4th") subject only ever ADDS bonus GPA
@@ -1314,8 +1341,8 @@ function gradeFromPoint(pt) {
 function computeStudentResult(marksRow, subjects) {
   const marks = (marksRow && marksRow.marks) || {};
   const subjectResults = subjects.map(s => {
-    const obtained = Number(marks[s.id]) || 0;
-    const full = Number(s.marks) || 100;
+    const obtained = subjectObtainedMarks(s, marks[s.id]);
+    const full = subjectFullMarks(s);
     return { subject: s, obtained, full, grade: gradeFromMarks(obtained, full) };
   });
   const mainResults = subjectResults.filter(r => r.subject.category !== "Optional");
@@ -4813,31 +4840,31 @@ function ResultModule({ data, save, remove, config, initialTab }) {
 }
 
 /* ---------- Subject Setup ---------- */
-const emptySubject = () => ({
-  id: null, year: String(CURRENT_YEAR), className: CLASSES[0],
-  code: "", name: "", category: SUBJECT_CATEGORIES[0], marks: 100,
-});
+// One record per Class+Year holding ALL of that class's subjects as a `rows` array (one row
+// per subject, column-wise) — "Subject Quantity" simply decides how many rows the table starts with.
+function emptySubjectRow(category) {
+  return { code: "", name: "", category: category || SUBJECT_CATEGORIES[0], marks: 100, mcq: "", cq: "" };
+}
+function emptySubjectGroup() {
+  return { id: null, year: String(CURRENT_YEAR), className: CLASSES[0], quantity: 1, rows: [emptySubjectRow()] };
+}
 
 function SubjectSetupTab({ data, save, remove, config }) {
-  const subjects = data.subjects || [];
+  const groups = data.subjects || [];
   const [editing, setEditing] = useState(null);
   const [printGroup, setPrintGroup] = useState(null);
   const [yearFilter, setYearFilter] = useState("");
   const [classFilter, setClassFilter] = useState("");
 
-  const years = [...new Set(subjects.map(s => String(s.year)))].sort((a, b) => b - a);
-  const filtered = subjects
-    .filter(s => (!yearFilter || String(s.year) === yearFilter) && (!classFilter || s.className === classFilter))
-    .sort((a, b) => String(b.year).localeCompare(String(a.year)) || str(a.className).localeCompare(str(b.className)) || str(a.code).localeCompare(str(b.code)));
+  const years = [...new Set(groups.map(g => String(g.year)))].sort((a, b) => b - a);
+  const filtered = groups
+    .filter(g => (!yearFilter || String(g.year) === yearFilter) && (!classFilter || g.className === classFilter))
+    .sort((a, b) => String(b.year).localeCompare(String(a.year)) || str(a.className).localeCompare(str(b.className)));
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Subject Setup</h2>
-          <p>Define each class's subjects per academic year — this drives Marks Entry, Result, and Marksheet.</p>
-        </div>
-        <button className="btn btn-primary no-print" onClick={() => setEditing(emptySubject())}><Icon.plus />New Subject</button>
+      <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+        <button className="btn btn-primary" onClick={() => setEditing(emptySubjectGroup())}><Icon.plus />New Subject</button>
       </div>
       <div className="no-print search-row">
         <select className="filter-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
@@ -4853,21 +4880,19 @@ function SubjectSetupTab({ data, save, remove, config }) {
         {filtered.length === 0 ? <EmptyState title="No subjects yet" sub="Add a subject to start building the class subject list." /> : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Year</th><th>Class</th><th>Code</th><th>Subject Name</th><th>Category</th><th style={{ textAlign: "right" }}>Marks</th><th></th></tr></thead>
+              <thead><tr><th>Year</th><th>Class</th><th>Subjects</th><th style={{ textAlign: "left" }}>Subject Names</th><th></th></tr></thead>
               <tbody>
-                {filtered.map(s => (
-                  <tr key={s.id}>
-                    <td>{s.year}</td>
-                    <td>{s.className}</td>
-                    <td className="mono">{s.code || "—"}</td>
-                    <td>{s.name}</td>
-                    <td><span className={`badge ${s.category === "Optional" ? "badge-gold" : "badge-green"}`}>{s.category}</span></td>
-                    <td className="mono" style={{ textAlign: "right" }}>{s.marks}</td>
+                {filtered.map(g => (
+                  <tr key={g.id}>
+                    <td>{g.year}</td>
+                    <td>{g.className}</td>
+                    <td>{(g.rows || []).length}</td>
+                    <td>{(g.rows || []).map(r => r.name).filter(Boolean).join(", ") || "—"}</td>
                     <td>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...s })}><Icon.edit /></button>
-                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintGroup({ className: s.className, year: s.year })}><Icon.print /></button>
-                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this subject?")) remove("subjects", s.id); }}><Icon.trash /></button>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...g, rows: (g.rows && g.rows.length ? g.rows : [emptySubjectRow()]) })}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintGroup(g)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this class's subject list?")) remove("subjects", g.id); }}><Icon.trash /></button>
                       </div>
                     </td>
                   </tr>
@@ -4877,54 +4902,113 @@ function SubjectSetupTab({ data, save, remove, config }) {
           </div>
         )}
       </div>
-      {editing && <SubjectFormModal record={editing} onClose={() => setEditing(null)} onSave={async (r) => { await save("subjects", r); setEditing(null); }} />}
-      {printGroup && (
-        <SubjectListDocModal
-          subjects={subjects.filter(s => s.className === printGroup.className && String(s.year) === String(printGroup.year))}
-          className={printGroup.className} year={printGroup.year} config={config} onClose={() => setPrintGroup(null)}
-        />
-      )}
+      {editing && <SubjectGroupFormModal record={editing} onClose={() => setEditing(null)} onSave={async (r) => { await save("subjects", r); setEditing(null); }} />}
+      {printGroup && <SubjectListDocModal group={printGroup} config={config} onClose={() => setPrintGroup(null)} />}
     </div>
   );
 }
 
-function SubjectFormModal({ record, onClose, onSave }) {
-  const [form, setForm] = useState(record);
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  function handleSave() {
-    if (!str(form.name).trim()) { alert("Subject name is required."); return; }
-    onSave(form);
+// Editable line-item table for a class's subject rows — reuses the same bordered "item table"
+// look as the Finance Invoice / Expense Voucher forms. Each row's Marks column shows either one
+// box (Compulsory / Optional) or two boxes, MCQ + CQ (Elective), depending on that row's Category.
+function SubjectRows({ rows, onChange }) {
+  function updateRow(i, patch) {
+    const next = [...rows];
+    next[i] = { ...next[i], ...patch };
+    onChange(next);
   }
   return (
-    <Modal title="Subject" onClose={onClose}
+    <div className="item-table-wrap">
+      <table className="item-form-table">
+        <thead>
+          <tr><th style={{ width: 38 }}>Sl</th><th>Subject Code</th><th>Subject Name</th><th style={{ width: 160 }}>Category</th><th style={{ width: 170 }}>Marks</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td className="itf-sl">{i + 1}</td>
+              <td><input type="text" value={r.code} placeholder="Code" onChange={(e) => updateRow(i, { code: e.target.value })} /></td>
+              <td><input type="text" value={r.name} placeholder="Subject name" onChange={(e) => updateRow(i, { name: e.target.value })} /></td>
+              <td>
+                <select value={r.category} onChange={(e) => updateRow(i, { category: e.target.value })}>
+                  {SUBJECT_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </td>
+              <td>
+                {r.category === "Main Elective" ? (
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <input type="number" value={r.mcq} placeholder="MCQ" title="MCQ marks" style={{ width: 58, textAlign: "right" }} onChange={(e) => updateRow(i, { mcq: e.target.value })} />
+                    <span style={{ color: "var(--slate-soft)", fontSize: 11 }}>+</span>
+                    <input type="number" value={r.cq} placeholder="CQ" title="CQ marks" style={{ width: 58, textAlign: "right" }} onChange={(e) => updateRow(i, { cq: e.target.value })} />
+                    <span className="mono" style={{ fontSize: 10.5, color: (Number(r.mcq) || 0) + (Number(r.cq) || 0) === 100 ? "var(--slate-soft)" : "var(--red)" }}>
+                      ={(Number(r.mcq) || 0) + (Number(r.cq) || 0)}
+                    </span>
+                  </div>
+                ) : (
+                  <input type="number" value={r.marks} placeholder="Full marks" style={{ textAlign: "right" }} onChange={(e) => updateRow(i, { marks: e.target.value })} />
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SubjectGroupFormModal({ record, onClose, onSave }) {
+  const [form, setForm] = useState(record);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  function setQuantity(qStr) {
+    const q = Math.max(1, Math.min(40, parseInt(qStr, 10) || 1));
+    setForm(f => {
+      const rows = [...f.rows];
+      if (q > rows.length) { while (rows.length < q) rows.push(emptySubjectRow()); }
+      else if (q < rows.length) { rows.length = q; }
+      return { ...f, quantity: q, rows };
+    });
+  }
+
+  function handleSave() {
+    const rows = form.rows.filter(r => str(r.name).trim() || str(r.code).trim());
+    if (rows.length === 0) { alert("Add at least one subject row."); return; }
+    onSave({ ...form, quantity: rows.length, rows });
+  }
+
+  return (
+    <Modal title="Subject Setup" onClose={onClose} size="lg"
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>}>
-      <div className="form-grid">
+      <div className="form-grid cols-3" style={{ marginBottom: 18 }}>
         <Field label="Year"><input type="number" value={form.year} onChange={set("year")} /></Field>
         <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
-        <Field label="Subject Code"><input type="text" value={form.code} onChange={set("code")} placeholder="e.g. 101" /></Field>
-        <Field label="Subject Name"><input type="text" value={form.name} onChange={set("name")} placeholder="e.g. Bangla" /></Field>
-        <Field label="Category"><select value={form.category} onChange={set("category")}>{SUBJECT_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></Field>
-        <Field label="Marks (Full Marks)"><input type="number" value={form.marks} onChange={set("marks")} /></Field>
+        <Field label="Subject Quantity"><input type="number" min="1" max="40" value={form.rows.length} onChange={(e) => setQuantity(e.target.value)} /></Field>
       </div>
+      <SubjectRows rows={form.rows} onChange={(rows) => setForm({ ...form, rows })} />
     </Modal>
   );
 }
 
-function SubjectListDocModal({ subjects, className, year, config, onClose }) {
-  const sorted = [...subjects].sort((a, b) => str(a.code).localeCompare(str(b.code)));
+function SubjectListDocModal({ group, config, onClose }) {
+  const rows = group.rows || [];
   return (
-    <DocShell title={`${className} — ${year} Subject List`} onClose={onClose}>
+    <DocShell title={`${group.className} — ${group.year} Subject List`} onClose={onClose}>
       <div className="doc-preview">
         <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 12, marginBottom: 14 }}>
           {config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 40, marginBottom: 6 }} />}
           <div style={{ fontFamily: "'Fraunces',serif", fontSize: 17, fontWeight: 600 }}>{config.schoolName || "School Name"}</div>
-          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Class Subject List — {className} ({year})</div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Class Subject List — {group.className} ({group.year})</div>
         </div>
         <table className="inv-fee-table">
           <thead><tr><th>Code</th><th style={{ textAlign: "left" }}>Subject Name</th><th>Category</th><th>Marks</th></tr></thead>
           <tbody>
-            {sorted.map(s => (
-              <tr key={s.id}><td style={{ textAlign: "center" }}>{s.code || "—"}</td><td>{s.name}</td><td style={{ textAlign: "center" }}>{s.category}</td><td style={{ textAlign: "center" }}>{s.marks}</td></tr>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td style={{ textAlign: "center" }}>{r.code || "—"}</td>
+                <td>{r.name}</td>
+                <td style={{ textAlign: "center" }}>{r.category}</td>
+                <td style={{ textAlign: "center" }}>{r.category === "Main Elective" ? `MCQ ${r.mcq || 0} + CQ ${r.cq || 0} = ${(Number(r.mcq) || 0) + (Number(r.cq) || 0)}` : r.marks}</td>
+              </tr>
             ))}
           </tbody>
         </table>
@@ -4938,7 +5022,7 @@ function MarksEntryTab({ data, save, config }) {
   const students = data.students || [];
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
-  const subjects = data.subjects || [];
+  const subjectGroups = data.subjects || [];
   const marksRows = data.marks || [];
   const toast = useToast();
 
@@ -4948,9 +5032,9 @@ function MarksEntryTab({ data, save, config }) {
   const [grid, setGrid] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const classSubjects = subjects
-    .filter(s => s.className === className && String(s.year) === String(year))
-    .sort((a, b) => (a.category === "Optional") - (b.category === "Optional") || str(a.code).localeCompare(str(b.code)));
+  const classSubjects = getClassSubjects(subjectGroups, className, year);
+  // Every currently-enrolled student for this class comes from the Promotion sheet (via
+  // studentsInClassYear, which reads Promotion first and falls back to archived history).
   const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
 
   function loadGrid() {
@@ -4965,6 +5049,13 @@ function MarksEntryTab({ data, save, config }) {
 
   function setCell(studentId, subjectId, val) {
     setGrid(g => ({ ...g, [studentId]: { ...(g[studentId] || {}), [subjectId]: val } }));
+  }
+  function setCellPart(studentId, subjectId, part, val) {
+    setGrid(g => {
+      const studentCell = g[studentId] || {};
+      const existing = (studentCell[subjectId] && typeof studentCell[subjectId] === "object") ? studentCell[subjectId] : {};
+      return { ...g, [studentId]: { ...studentCell, [subjectId]: { ...existing, [part]: val } } };
+    });
   }
 
   async function handleSaveAll() {
@@ -4988,12 +5079,6 @@ function MarksEntryTab({ data, save, config }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Marks Entry</h2>
-          <p>Select Class, Exam Name and Year to load that class's students and subjects, then enter obtained marks per subject.</p>
-        </div>
-      </div>
       <div className="no-print form-grid cols-3" style={{ marginBottom: 16 }}>
         <Field label="Class"><select value={className} onChange={(e) => { setClassName(e.target.value); setGrid(null); }}><option value="">Select class</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
         <Field label="Exam Name"><select value={examName} onChange={(e) => { setExamName(e.target.value); setGrid(null); }}>{EXAM_NAME_OPTIONS.map(o => <option key={o}>{o}</option>)}</select></Field>
@@ -5005,7 +5090,7 @@ function MarksEntryTab({ data, save, config }) {
       ) : classSubjects.length === 0 ? (
         <EmptyState title="No subjects set up for this class/year" sub="Add subjects first from Subject Setup." />
       ) : classStudents.length === 0 ? (
-        <EmptyState title="No students found in this class for this year" sub="Check Students → Class History / Promotion for this year." />
+        <EmptyState title="No students found in this class for this year" sub="Check Students → Promotion / Class History for this year." />
       ) : !grid ? (
         <div style={{ textAlign: "center", padding: 30 }}>
           <button className="btn btn-primary" onClick={loadGrid}>Load Marks Sheet</button>
@@ -5019,7 +5104,12 @@ function MarksEntryTab({ data, save, config }) {
                   <tr>
                     <th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th>
                     {classSubjects.map(s => (
-                      <th key={s.id} style={{ textAlign: "center" }}>{s.code ? `${s.code} — ` : ""}{s.name}<br /><span style={{ fontWeight: 400, fontSize: 10 }}>/{s.marks}</span></th>
+                      <th key={s.id} style={{ textAlign: "center" }}>
+                        {s.code ? `${s.code} — ` : ""}{s.name}<br />
+                        <span style={{ fontWeight: 400, fontSize: 10 }}>
+                          {s.category === "Main Elective" ? `MCQ/${s.mcq || 0} + CQ/${s.cq || 0}` : `/${s.marks}`}
+                        </span>
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -5032,10 +5122,25 @@ function MarksEntryTab({ data, save, config }) {
                       <td>{s.section}</td>
                       {classSubjects.map(sub => (
                         <td key={sub.id}>
-                          <input type="number" min="0" max={sub.marks}
-                            style={{ width: 64, padding: "5px 6px", border: "1px solid var(--line)", borderRadius: 6, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace" }}
-                            value={(grid[s.id] && grid[s.id][sub.id]) ?? ""}
-                            onChange={(e) => setCell(s.id, sub.id, e.target.value)} />
+                          {sub.category === "Main Elective" ? (
+                            <div style={{ display: "flex", gap: 3 }}>
+                              <input type="number" min="0" max={sub.mcq}
+                                style={{ width: 46, padding: "5px 4px", border: "1px solid var(--line)", borderRadius: 6, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace" }}
+                                placeholder="MCQ"
+                                value={(grid[s.id] && grid[s.id][sub.id] && grid[s.id][sub.id].mcq) ?? ""}
+                                onChange={(e) => setCellPart(s.id, sub.id, "mcq", e.target.value)} />
+                              <input type="number" min="0" max={sub.cq}
+                                style={{ width: 46, padding: "5px 4px", border: "1px solid var(--line)", borderRadius: 6, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace" }}
+                                placeholder="CQ"
+                                value={(grid[s.id] && grid[s.id][sub.id] && grid[s.id][sub.id].cq) ?? ""}
+                                onChange={(e) => setCellPart(s.id, sub.id, "cq", e.target.value)} />
+                            </div>
+                          ) : (
+                            <input type="number" min="0" max={sub.marks}
+                              style={{ width: 64, padding: "5px 6px", border: "1px solid var(--line)", borderRadius: 6, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace" }}
+                              value={(grid[s.id] && grid[s.id][sub.id]) ?? ""}
+                              onChange={(e) => setCell(s.id, sub.id, e.target.value)} />
+                          )}
                         </td>
                       ))}
                     </tr>
@@ -5056,7 +5161,7 @@ function ResultTab({ data, config }) {
   const students = data.students || [];
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
-  const subjects = data.subjects || [];
+  const subjectGroups = data.subjects || [];
   const marksRows = data.marks || [];
 
   const [className, setClassName] = useState("");
@@ -5064,9 +5169,7 @@ function ResultTab({ data, config }) {
   const [year, setYear] = useState(String(CURRENT_YEAR));
   const [view, setView] = useState("published");
 
-  const classSubjects = subjects
-    .filter(s => s.className === className && String(s.year) === String(year))
-    .sort((a, b) => (a.category === "Optional") - (b.category === "Optional") || str(a.code).localeCompare(str(b.code)));
+  const classSubjects = getClassSubjects(subjectGroups, className, year);
   const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
 
   const results = rankResults(classStudents.map(s => {
@@ -5078,12 +5181,6 @@ function ResultTab({ data, config }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Result</h2>
-          <p>Select Class, Exam Name and Year to view the computed result sheet — as a clean Published summary or a full Office Copy.</p>
-        </div>
-      </div>
       <div className="no-print form-grid cols-3" style={{ marginBottom: 16 }}>
         <Field label="Class"><select value={className} onChange={(e) => setClassName(e.target.value)}><option value="">Select class</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
         <Field label="Exam Name"><select value={examName} onChange={(e) => setExamName(e.target.value)}>{EXAM_NAME_OPTIONS.map(o => <option key={o}>{o}</option>)}</select></Field>
@@ -5189,7 +5286,7 @@ function MarksheetTab({ data, config }) {
   const students = data.students || [];
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
-  const subjects = data.subjects || [];
+  const subjectGroups = data.subjects || [];
   const marksRows = data.marks || [];
 
   const [mode, setMode] = useState("single");
@@ -5201,9 +5298,7 @@ function MarksheetTab({ data, config }) {
 
   usePrintChrome({ hideFooter: true });
 
-  const classSubjects = subjects
-    .filter(s => s.className === className && String(s.year) === String(year))
-    .sort((a, b) => (a.category === "Optional") - (b.category === "Optional") || str(a.code).localeCompare(str(b.code)));
+  const classSubjects = getClassSubjects(subjectGroups, className, year);
   const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
 
   const matches = query.trim() ? classStudents.filter(s =>
@@ -5221,12 +5316,6 @@ function MarksheetTab({ data, config }) {
 
   return (
     <div>
-      <div className="section-head">
-        <div>
-          <h2>Marksheet</h2>
-          <p>Generate a subject-wise marksheet — for one student, or print the whole class at once.</p>
-        </div>
-      </div>
       <div className="tabs no-print">
         <button className={`tab ${mode === "single" ? "active" : ""}`} onClick={() => { setMode("single"); setSelected(null); }}>Student-wise</button>
         <button className={`tab ${mode === "class" ? "active" : ""}`} onClick={() => setMode("class")}>Class-wise</button>
