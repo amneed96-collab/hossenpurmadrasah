@@ -883,7 +883,7 @@ function IconWrap({ name, ...rest }) {
    DATA STORE — central hook wrapping Google Sheets as DB
    Collections: students, teachers, finance, fees, committee, seatplans
    ========================================================= */
-const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices", "promotions", "classHistories", "activations", "subjects", "marks"];
+const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices", "promotions", "classHistories", "activations", "subjects", "marks", "attendance"];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -907,7 +907,7 @@ function saveCachedData(sheetsUrl, data) {
   try { localStorage.setItem(DATA_CACHE_PREFIX + sheetsUrl, JSON.stringify(data)); } catch (e) {}
 }
 
-const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [] };
+const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [], attendance: [] };
 
 function useDataStore(config) {
   const cached = loadCachedData(config.sheetsUrl);
@@ -1001,6 +1001,7 @@ const SHEET_MAP = {
   activations: "Activation",
   subjects: "Subjects",
   marks: "Marks",
+  attendance: "Attendance",
 };
 
 /* =========================================================
@@ -1366,19 +1367,51 @@ function computeStudentResult(marksRow, subjects) {
   };
 }
 
-// Ranks an array of { student, result } objects by Final GPA (desc), then total obtained
-// marks (desc) as a tiebreaker. Ties share the same rank; failed students get no rank.
+// Ranks an array of { student, result, attendance? } objects. Passed students are ranked
+// first — by Final GPA (desc), then total obtained (desc), then classes attended (desc) —
+// and failed students are ranked afterwards, continuing the same numbering and using the
+// same tiebreak order among themselves. Ties (identical GPA/Obtained/Attendance) share a rank.
 function rankResults(list) {
-  const sorted = [...list].sort((a, b) => (b.result.finalGpa - a.result.finalGpa) || (b.result.totalObtained - a.result.totalObtained));
-  let lastGpa = null, lastObtained = null, rank = 0, shown = 0;
-  return sorted.map((r) => {
-    shown++;
-    if (r.result.isFail) return { ...r, rank: "—" };
-    if (r.result.finalGpa !== lastGpa || r.result.totalObtained !== lastObtained) {
-      rank = shown; lastGpa = r.result.finalGpa; lastObtained = r.result.totalObtained;
-    }
-    return { ...r, rank };
-  });
+  const attended = (r) => (r.attendance ? Number(r.attendance.attended) || 0 : 0);
+  const cmp = (a, b) => (b.result.finalGpa - a.result.finalGpa) || (b.result.totalObtained - a.result.totalObtained) || (attended(b) - attended(a));
+
+  function assignRanks(arr, startRank) {
+    const sorted = [...arr].sort(cmp);
+    let rank = startRank, lastKey = null, shown = startRank - 1;
+    return sorted.map((r) => {
+      shown++;
+      const key = `${r.result.finalGpa}|${r.result.totalObtained}|${attended(r)}`;
+      if (key !== lastKey) { rank = shown; lastKey = key; }
+      return { ...r, rank };
+    });
+  }
+
+  const passed = list.filter(r => !r.result.isFail);
+  const failed = list.filter(r => r.result.isFail);
+  const rankedPassed = assignRanks(passed, 1);
+  const nextStart = rankedPassed.length ? Math.max(...rankedPassed.map(r => r.rank)) + 1 : 1;
+  const rankedFailed = assignRanks(failed, nextStart);
+  return [...rankedPassed, ...rankedFailed];
+}
+
+// Short, automatic remark for a student's result — based on Final Grade, so it always stays
+// consistent with the computed GPA without needing a teacher to type anything.
+function autoComment(result) {
+  if (result.isFail) return "Needs Improvement";
+  switch (result.finalGrade) {
+    case "A+": return "Outstanding";
+    case "A": return "Excellent";
+    case "A-": return "Very Good";
+    case "B": return "Good";
+    case "C": return "Average";
+    case "D": return "Needs Improvement";
+    default: return "—";
+  }
+}
+
+// Finds one student's saved Attendance record for a Class+Exam+Year, if any.
+function attendanceFor(attendanceRows, className, year, examName, studentId) {
+  return (attendanceRows || []).find(a => a.className === className && String(a.year) === String(year) && a.examName === examName && a.studentId === studentId) || null;
 }
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "Mobile Banking (bKash/Nagad)", "Cheque"];
 
@@ -4833,6 +4866,7 @@ function ResultModule({ data, save, remove, config, initialTab }) {
     <div>
       {tab === "subjects" && <SubjectSetupTab data={data} save={save} remove={remove} config={config} />}
       {tab === "marksEntry" && <MarksEntryTab data={data} save={save} config={config} />}
+      {tab === "attendance" && <AttendanceTab data={data} save={save} config={config} />}
       {tab === "result" && <ResultTab data={data} config={config} />}
       {tab === "marksheet" && <MarksheetTab data={data} config={config} />}
     </div>
@@ -5156,6 +5190,111 @@ function MarksEntryTab({ data, save, config }) {
   );
 }
 
+/* ---------- Attendance ---------- */
+function AttendanceTab({ data, save, config }) {
+  const students = data.students || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
+  const attendanceRows = data.attendance || [];
+  const toast = useToast();
+
+  const [className, setClassName] = useState("");
+  const [examName, setExamName] = useState(EXAM_NAME_OPTIONS[0]);
+  const [year, setYear] = useState(String(CURRENT_YEAR));
+  const [totalClass, setTotalClass] = useState("");
+  const [grid, setGrid] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // Every currently-enrolled student for this class, sourced from the Promotion sheet.
+  const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
+
+  function loadGrid() {
+    const existing = {};
+    attendanceRows
+      .filter(r => r.className === className && String(r.year) === String(year) && r.examName === examName)
+      .forEach(r => { existing[r.studentId] = r.attended; });
+    // If any saved rows already carry a Total Class figure for this class/exam/year, reuse it.
+    const savedTotal = attendanceRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.totalClass);
+    if (savedTotal) setTotalClass(String(savedTotal.totalClass));
+    const next = {};
+    classStudents.forEach(s => { next[s.id] = existing[s.id] ?? ""; });
+    setGrid(next);
+  }
+
+  function setCell(studentId, val) {
+    setGrid(g => ({ ...g, [studentId]: val }));
+  }
+
+  async function handleSaveAll() {
+    if (!grid) return;
+    setSaving(true);
+    try {
+      for (const s of classStudents) {
+        const existingRow = attendanceRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.studentId === s.id);
+        await save("attendance", {
+          id: existingRow ? existingRow.id : null,
+          className, year, examName, studentId: s.id,
+          studentCode: s.studentId, studentName: s.name, roll: s.roll, section: s.section,
+          totalClass, attended: grid[s.id] || "",
+        });
+      }
+      toast && toast("Attendance saved", "success");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="no-print form-grid cols-4" style={{ marginBottom: 16 }}>
+        <Field label="Class"><select value={className} onChange={(e) => { setClassName(e.target.value); setGrid(null); }}><option value="">Select class</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Exam Name"><select value={examName} onChange={(e) => { setExamName(e.target.value); setGrid(null); }}>{EXAM_NAME_OPTIONS.map(o => <option key={o}>{o}</option>)}</select></Field>
+        <Field label="Year"><input type="number" value={year} onChange={(e) => { setYear(e.target.value); setGrid(null); }} /></Field>
+        <Field label="Total Class" hint="total classes held"><input type="number" min="0" value={totalClass} onChange={(e) => setTotalClass(e.target.value)} /></Field>
+      </div>
+
+      {!className ? (
+        <EmptyState title="Select a class to begin" sub="Choose Class, Exam Name and Year above, then load the attendance sheet." />
+      ) : classStudents.length === 0 ? (
+        <EmptyState title="No students found in this class for this year" sub="Check Students → Promotion / Class History for this year." />
+      ) : !grid ? (
+        <div style={{ textAlign: "center", padding: 30 }}>
+          <button className="btn btn-primary" onClick={loadGrid}>Load Attendance Sheet</button>
+        </div>
+      ) : (
+        <>
+          <div className="card card-flush" style={{ marginBottom: 14 }}>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Student ID</th><th>Name</th><th>Roll</th><th style={{ textAlign: "center" }}>Total Class</th><th style={{ textAlign: "center" }}>Attendance</th></tr>
+                </thead>
+                <tbody>
+                  {classStudents.map(s => (
+                    <tr key={s.id}>
+                      <td className="mono">{s.studentId}</td>
+                      <td>{s.name}</td>
+                      <td>{s.roll}</td>
+                      <td className="mono" style={{ textAlign: "center", color: "var(--slate-soft)" }}>{totalClass || "—"}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <input type="number" min="0" max={totalClass || undefined}
+                          style={{ width: 72, padding: "5px 6px", border: "1px solid var(--line)", borderRadius: 6, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace" }}
+                          value={grid[s.id] ?? ""}
+                          onChange={(e) => setCell(s.id, e.target.value)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={handleSaveAll} disabled={saving}>{saving ? "Saving…" : "Save All Attendance"}</button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Result ---------- */
 function ResultTab({ data, config }) {
   const students = data.students || [];
@@ -5163,6 +5302,7 @@ function ResultTab({ data, config }) {
   const classHistories = data.classHistories || [];
   const subjectGroups = data.subjects || [];
   const marksRows = data.marks || [];
+  const attendanceRows = data.attendance || [];
 
   const [className, setClassName] = useState("");
   const [examName, setExamName] = useState(EXAM_NAME_OPTIONS[0]);
@@ -5174,7 +5314,8 @@ function ResultTab({ data, config }) {
 
   const results = rankResults(classStudents.map(s => {
     const row = marksRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.studentId === s.id);
-    return { student: s, result: computeStudentResult(row, classSubjects) };
+    const attendance = attendanceFor(attendanceRows, className, year, examName, s.id);
+    return { student: s, result: computeStudentResult(row, classSubjects), attendance };
   }));
 
   const ready = className && classSubjects.length > 0 && classStudents.length > 0;
@@ -5218,7 +5359,8 @@ function PublishedResultSheet({ results, className, examName, year, config }) {
               <th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th>
               <th style={{ textAlign: "right" }}>Obtained</th><th style={{ textAlign: "right" }}>Main GPA</th>
               <th style={{ textAlign: "right" }}>Opt GPA</th><th style={{ textAlign: "right" }}>Final GPA</th>
-              <th>Grade</th><th style={{ textAlign: "right" }}>Rank</th>
+              <th>Grade</th><th style={{ textAlign: "right" }}>Total Class</th><th style={{ textAlign: "right" }}>Attendance</th>
+              <th style={{ textAlign: "right" }}>Rank</th><th>Comment</th>
             </tr>
           </thead>
           <tbody>
@@ -5229,11 +5371,14 @@ function PublishedResultSheet({ results, className, examName, year, config }) {
                 <td>{r.student.roll}</td>
                 <td>{r.student.section}</td>
                 <td className="mono" style={{ textAlign: "right" }}>{r.result.totalObtained}</td>
-                <td className="mono" style={{ textAlign: "right" }}>{r.result.isFail ? "—" : r.result.mainGpa.toFixed(2)}</td>
-                <td className="mono" style={{ textAlign: "right" }}>{r.result.isFail ? "—" : r.result.optGpa.toFixed(2)}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.mainGpa.toFixed(2)}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.optGpa.toFixed(2)}</td>
                 <td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>{r.result.finalGpa.toFixed(2)}</td>
                 <td><span className={`badge ${r.result.finalGrade === "F" ? "badge-red" : "badge-green"}`}>{r.result.finalGrade}</span></td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.attendance ? r.attendance.totalClass || "—" : "—"}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.attendance ? r.attendance.attended || "—" : "—"}</td>
                 <td style={{ textAlign: "right" }}>{r.rank}</td>
+                <td>{autoComment(r.result)}</td>
               </tr>
             ))}
           </tbody>
@@ -5255,7 +5400,8 @@ function OfficeCopyResultSheet({ results, subjects, className, examName, year, c
               {subjects.map(s => <th key={s.id} style={{ textAlign: "center" }}>{s.code || s.name}</th>)}
               <th style={{ textAlign: "right" }}>Obtained</th><th style={{ textAlign: "right" }}>Main GPA</th>
               <th style={{ textAlign: "right" }}>Opt GPA</th><th style={{ textAlign: "right" }}>Final GPA</th>
-              <th>Grade</th><th style={{ textAlign: "right" }}>Rank</th>
+              <th>Grade</th><th style={{ textAlign: "right" }}>Total Class</th><th style={{ textAlign: "right" }}>Attendance</th>
+              <th style={{ textAlign: "right" }}>Rank</th><th>Comment</th>
             </tr>
           </thead>
           <tbody>
@@ -5267,11 +5413,14 @@ function OfficeCopyResultSheet({ results, subjects, className, examName, year, c
                 <td>{r.student.section}</td>
                 {r.result.subjectResults.map(sr => <td key={sr.subject.id} className="mono" style={{ textAlign: "center" }}>{sr.obtained}</td>)}
                 <td className="mono" style={{ textAlign: "right" }}>{r.result.totalObtained}</td>
-                <td className="mono" style={{ textAlign: "right" }}>{r.result.isFail ? "—" : r.result.mainGpa.toFixed(2)}</td>
-                <td className="mono" style={{ textAlign: "right" }}>{r.result.isFail ? "—" : r.result.optGpa.toFixed(2)}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.mainGpa.toFixed(2)}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.optGpa.toFixed(2)}</td>
                 <td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>{r.result.finalGpa.toFixed(2)}</td>
                 <td><span className={`badge ${r.result.finalGrade === "F" ? "badge-red" : "badge-green"}`}>{r.result.finalGrade}</span></td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.attendance ? r.attendance.totalClass || "—" : "—"}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.attendance ? r.attendance.attended || "—" : "—"}</td>
                 <td style={{ textAlign: "right" }}>{r.rank}</td>
+                <td>{autoComment(r.result)}</td>
               </tr>
             ))}
           </tbody>
@@ -5288,6 +5437,7 @@ function MarksheetTab({ data, config }) {
   const classHistories = data.classHistories || [];
   const subjectGroups = data.subjects || [];
   const marksRows = data.marks || [];
+  const attendanceRows = data.attendance || [];
 
   const [mode, setMode] = useState("single");
   const [className, setClassName] = useState("");
@@ -5309,9 +5459,14 @@ function MarksheetTab({ data, config }) {
     const row = marksRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.studentId === student.id);
     return computeStudentResult(row, classSubjects);
   }
+  function attendanceForStudent(student) {
+    return attendanceFor(attendanceRows, className, year, examName, student.id);
+  }
 
   const ready = className && classSubjects.length > 0;
-  const rankedAll = (mode === "class" && ready) ? rankResults(classStudents.map(s => ({ student: s, result: resultFor(s) }))) : [];
+  const rankedAll = (mode === "class" && ready)
+    ? rankResults(classStudents.map(s => ({ student: s, result: resultFor(s), attendance: attendanceForStudent(s) })))
+    : [];
   const showPreview = mode === "single" ? !!selected : (ready && classStudents.length > 0);
 
   return (
@@ -5349,8 +5504,8 @@ function MarksheetTab({ data, config }) {
           </div>
           <div className="marksheet-batch">
             {mode === "single"
-              ? <MarksheetDoc student={selected} result={resultFor(selected)} className={className} examName={examName} year={year} config={config} />
-              : rankedAll.map(r => <MarksheetDoc key={r.student.id} student={r.student} result={r.result} rank={r.rank} className={className} examName={examName} year={year} config={config} />)}
+              ? <MarksheetDoc student={selected} result={resultFor(selected)} attendance={attendanceForStudent(selected)} className={className} examName={examName} year={year} config={config} />
+              : rankedAll.map(r => <MarksheetDoc key={r.student.id} student={r.student} result={r.result} attendance={r.attendance} rank={r.rank} className={className} examName={examName} year={year} config={config} />)}
           </div>
         </>
       )}
@@ -5358,7 +5513,7 @@ function MarksheetTab({ data, config }) {
   );
 }
 
-function MarksheetDoc({ student, result, rank, className, examName, year, config }) {
+function MarksheetDoc({ student, result, attendance, rank, className, examName, year, config }) {
   return (
     <div className="admission-form-print marksheet-page">
       <div className="adm-header">
@@ -5401,11 +5556,14 @@ function MarksheetDoc({ student, result, rank, className, examName, year, config
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
         <div className="inv-summary" style={{ minWidth: 260 }}>
           <FieldRow name="Total Obtained" value={`${result.totalObtained} / ${result.totalFull}`} />
-          <FieldRow name="Main GPA" value={result.isFail ? "—" : result.mainGpa.toFixed(2)} />
-          <FieldRow name="Optional GPA" value={result.isFail ? "—" : result.optGpa.toFixed(2)} />
+          <FieldRow name="Main GPA" value={result.mainGpa.toFixed(2)} />
+          <FieldRow name="Optional GPA" value={result.optGpa.toFixed(2)} />
           <FieldRow name="Final GPA" value={<strong>{result.finalGpa.toFixed(2)}</strong>} />
           <FieldRow name="Grade" value={<strong>{result.finalGrade}</strong>} />
+          <FieldRow name="Total Class" value={attendance ? (attendance.totalClass || "—") : "—"} />
+          <FieldRow name="Attendance" value={attendance ? (attendance.attended || "—") : "—"} />
           {rank !== undefined && <FieldRow name="Rank" value={rank} />}
+          <FieldRow name="Comment" value={autoComment(result)} />
         </div>
       </div>
 
@@ -5613,6 +5771,7 @@ const NAV_GROUPS = [
     { key: "result", label: "Result", icon: "result", subitems: [
       { key: "subjects", label: "Subject Setup" },
       { key: "marksEntry", label: "Marks Entry" },
+      { key: "attendance", label: "Attendance" },
       { key: "result", label: "Result" },
       { key: "marksheet", label: "Marksheet" },
     ]},
