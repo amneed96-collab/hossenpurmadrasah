@@ -355,6 +355,14 @@ tbody tr:last-child td{border-bottom:none;}
   .doc-preview.half-a4{width:100%;min-height:0;box-shadow:none;border:none;}
 }
 
+/* ===== Marksheet batch (Result → Marksheet, Class-wise) ===== */
+.marksheet-batch{display:flex;flex-direction:column;gap:24px;align-items:center;}
+@media print{
+  .marksheet-batch{gap:0;}
+  .marksheet-page{page-break-after:always;}
+  .marksheet-page:last-child{page-break-after:auto;}
+}
+
 /* Professional Admission Form layout — exactly one A4 page, with a page border and 0.5in margin */
 .admission-form-print{
   font-size:11px;width:210mm;min-height:297mm;max-width:none;
@@ -863,6 +871,7 @@ const Icon = {
   menu: (p)=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M4 6h16M4 12h16M4 18h16"/></svg>,
   idcard: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M15 9h3M15 13h3M7 16h6"/></svg>,
   refresh: (p)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>,
+  result: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="12" cy="9" r="6"/><path d="M8 14.5 5 21l3-1 2 2 2-4.5M16 14.5 19 21l-3-1-2 2-2-4.5"/></svg>,
 };
 
 function IconWrap({ name, ...rest }) {
@@ -874,7 +883,7 @@ function IconWrap({ name, ...rest }) {
    DATA STORE — central hook wrapping Google Sheets as DB
    Collections: students, teachers, finance, fees, committee, seatplans
    ========================================================= */
-const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices", "promotions", "classHistories", "activations"];
+const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices", "promotions", "classHistories", "activations", "subjects", "marks"];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -898,7 +907,7 @@ function saveCachedData(sheetsUrl, data) {
   try { localStorage.setItem(DATA_CACHE_PREFIX + sheetsUrl, JSON.stringify(data)); } catch (e) {}
 }
 
-const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [] };
+const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [] };
 
 function useDataStore(config) {
   const cached = loadCachedData(config.sheetsUrl);
@@ -990,6 +999,8 @@ const SHEET_MAP = {
   promotions: "Promotion",
   classHistories: "ClassHistory",
   activations: "Activation",
+  subjects: "Subjects",
+  marks: "Marks",
 };
 
 /* =========================================================
@@ -1263,6 +1274,85 @@ const EXPENSE_HEADS = [
   "Stationery bill", "Printing bill", "Rent", "Transport bill", "Advertisement bill",
   "Exam expense", "Others"
 ];
+
+// Subject category, used for GPA rules: "Main" subjects (Compulsory or Elective/MCQ) are
+// averaged into Main GPA and any F among them fails the whole result; "Optional" subjects
+// (the 4th/additional subject) only ever ADD bonus GPA points, they never fail the result.
+const SUBJECT_CATEGORIES = ["Main - Compulsory", "Main - Elective (MCQ)", "Optional"];
+
+// Bangladesh-board-style letter-grade / grade-point scale — used for every subject, and for
+// the overall Final GPA on Result sheets and Marksheets.
+const GRADE_SCALE = [
+  { min: 80, letter: "A+", point: 5.0 },
+  { min: 70, letter: "A", point: 4.0 },
+  { min: 60, letter: "A-", point: 3.5 },
+  { min: 50, letter: "B", point: 3.0 },
+  { min: 40, letter: "C", point: 2.0 },
+  { min: 33, letter: "D", point: 1.0 },
+  { min: 0, letter: "F", point: 0.0 },
+];
+function gradeFromPercent(pct) {
+  const p = Number(pct) || 0;
+  return GRADE_SCALE.find(g => p >= g.min) || GRADE_SCALE[GRADE_SCALE.length - 1];
+}
+function gradeFromMarks(obtained, full) {
+  const f = Number(full) || 100;
+  const pct = f > 0 ? ((Number(obtained) || 0) / f) * 100 : 0;
+  return gradeFromPercent(pct);
+}
+// Maps a computed GPA value back onto the nearest grade letter at or below it — needed for
+// the Final GPA, which can land between two scale steps once the optional-subject bonus is added.
+function gradeFromPoint(pt) {
+  const p = Number(pt) || 0;
+  return GRADE_SCALE.find(g => p >= g.point) || GRADE_SCALE[GRADE_SCALE.length - 1];
+}
+
+// Computes one student's overall result for a Class+Year+Exam from their entered marks and
+// that class's subject list. Follows the standard Bangladesh-board convention: an F in any
+// Main subject fails the whole result; an Optional ("4th") subject only ever ADDS bonus GPA
+// points (the portion of its grade point above 2.0) — it never fails the student.
+function computeStudentResult(marksRow, subjects) {
+  const marks = (marksRow && marksRow.marks) || {};
+  const subjectResults = subjects.map(s => {
+    const obtained = Number(marks[s.id]) || 0;
+    const full = Number(s.marks) || 100;
+    return { subject: s, obtained, full, grade: gradeFromMarks(obtained, full) };
+  });
+  const mainResults = subjectResults.filter(r => r.subject.category !== "Optional");
+  const optResults = subjectResults.filter(r => r.subject.category === "Optional");
+
+  const anyMainFail = mainResults.some(r => r.grade.point === 0);
+  const mainGpa = mainResults.length ? sumBy(mainResults, r => r.grade.point) / mainResults.length : 0;
+  const optBonus = sumBy(optResults, r => Math.max(0, r.grade.point - 2));
+  const optGpa = optResults.length ? sumBy(optResults, r => r.grade.point) / optResults.length : 0;
+
+  const finalGpa = Math.round((anyMainFail ? 0 : Math.min(5, mainGpa + optBonus)) * 100) / 100;
+  const finalGrade = anyMainFail ? "F" : gradeFromPoint(finalGpa).letter;
+
+  return {
+    subjectResults,
+    mainGpa: Math.round(mainGpa * 100) / 100,
+    optGpa: Math.round(optGpa * 100) / 100,
+    finalGpa, finalGrade, isFail: anyMainFail,
+    totalObtained: sumBy(subjectResults, r => r.obtained),
+    totalFull: sumBy(subjectResults, r => r.full),
+  };
+}
+
+// Ranks an array of { student, result } objects by Final GPA (desc), then total obtained
+// marks (desc) as a tiebreaker. Ties share the same rank; failed students get no rank.
+function rankResults(list) {
+  const sorted = [...list].sort((a, b) => (b.result.finalGpa - a.result.finalGpa) || (b.result.totalObtained - a.result.totalObtained));
+  let lastGpa = null, lastObtained = null, rank = 0, shown = 0;
+  return sorted.map((r) => {
+    shown++;
+    if (r.result.isFail) return { ...r, rank: "—" };
+    if (r.result.finalGpa !== lastGpa || r.result.totalObtained !== lastObtained) {
+      rank = shown; lastGpa = r.result.finalGpa; lastObtained = r.result.totalObtained;
+    }
+    return { ...r, rank };
+  });
+}
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "Mobile Banking (bKash/Nagad)", "Cheque"];
 
 function ConnectionBanner({ config, onOpenSettings }) {
@@ -1336,6 +1426,22 @@ function getClassHistory(student, promotions, classHistories) {
   const currentEntry = { year: yearFromSession(current.session, String(CURRENT_YEAR)), className: current.className, section: current.section, roll: current.roll, subjectGroup: current.subjectGroup };
   if (!currentEntry.className) return past.length ? past : [{ year: String(admissionYear), className: student.className, section: student.section, roll: student.roll, subjectGroup: student.subjectGroup }];
   return [...past, currentEntry];
+}
+
+// Every student who was enrolled in `className` during `year`, using their full class history
+// (current Promotion + archived ClassHistory) rather than just their CURRENT class — so Marks
+// Entry / Result / Marksheet keep working correctly for past years too. Returns each student
+// with that year's className/section/roll merged in, sorted by roll.
+function studentsInClassYear(students, promotions, classHistories, className, year) {
+  if (!className || !year) return [];
+  return (students || [])
+    .map(s => {
+      const history = getClassHistory(s, promotions, classHistories);
+      const entry = history.find(h => h.className === className && String(h.year) === String(year));
+      return entry ? { ...s, className: entry.className, section: entry.section, roll: entry.roll } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => (Number(a.roll) || 0) - (Number(b.roll) || 0) || str(a.roll).localeCompare(str(b.roll)));
 }
 
 // Returns [{feeType, amount, category, months}] for one class-history entry (a specific year + class),
@@ -4690,6 +4796,545 @@ function CommitteeFormModal({ committee, onClose, onSave }) {
 }
 
 /* =========================================================
+   RESULT MODULE — Subject Setup, Marks Entry, Result, Marksheet
+   ========================================================= */
+function ResultModule({ data, save, remove, config, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "subjects");
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
+
+  return (
+    <div>
+      {tab === "subjects" && <SubjectSetupTab data={data} save={save} remove={remove} config={config} />}
+      {tab === "marksEntry" && <MarksEntryTab data={data} save={save} config={config} />}
+      {tab === "result" && <ResultTab data={data} config={config} />}
+      {tab === "marksheet" && <MarksheetTab data={data} config={config} />}
+    </div>
+  );
+}
+
+/* ---------- Subject Setup ---------- */
+const emptySubject = () => ({
+  id: null, year: String(CURRENT_YEAR), className: CLASSES[0],
+  code: "", name: "", category: SUBJECT_CATEGORIES[0], marks: 100,
+});
+
+function SubjectSetupTab({ data, save, remove, config }) {
+  const subjects = data.subjects || [];
+  const [editing, setEditing] = useState(null);
+  const [printGroup, setPrintGroup] = useState(null);
+  const [yearFilter, setYearFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+
+  const years = [...new Set(subjects.map(s => String(s.year)))].sort((a, b) => b - a);
+  const filtered = subjects
+    .filter(s => (!yearFilter || String(s.year) === yearFilter) && (!classFilter || s.className === classFilter))
+    .sort((a, b) => String(b.year).localeCompare(String(a.year)) || str(a.className).localeCompare(str(b.className)) || str(a.code).localeCompare(str(b.code)));
+
+  return (
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Subject Setup</h2>
+          <p>Define each class's subjects per academic year — this drives Marks Entry, Result, and Marksheet.</p>
+        </div>
+        <button className="btn btn-primary no-print" onClick={() => setEditing(emptySubject())}><Icon.plus />New Subject</button>
+      </div>
+      <div className="no-print search-row">
+        <select className="filter-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+          <option value="">All Years</option>
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+          <option value="">All Classes</option>
+          {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      <div className="card card-flush">
+        {filtered.length === 0 ? <EmptyState title="No subjects yet" sub="Add a subject to start building the class subject list." /> : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Year</th><th>Class</th><th>Code</th><th>Subject Name</th><th>Category</th><th style={{ textAlign: "right" }}>Marks</th><th></th></tr></thead>
+              <tbody>
+                {filtered.map(s => (
+                  <tr key={s.id}>
+                    <td>{s.year}</td>
+                    <td>{s.className}</td>
+                    <td className="mono">{s.code || "—"}</td>
+                    <td>{s.name}</td>
+                    <td><span className={`badge ${s.category === "Optional" ? "badge-gold" : "badge-green"}`}>{s.category}</span></td>
+                    <td className="mono" style={{ textAlign: "right" }}>{s.marks}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...s })}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintGroup({ className: s.className, year: s.year })}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this subject?")) remove("subjects", s.id); }}><Icon.trash /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {editing && <SubjectFormModal record={editing} onClose={() => setEditing(null)} onSave={async (r) => { await save("subjects", r); setEditing(null); }} />}
+      {printGroup && (
+        <SubjectListDocModal
+          subjects={subjects.filter(s => s.className === printGroup.className && String(s.year) === String(printGroup.year))}
+          className={printGroup.className} year={printGroup.year} config={config} onClose={() => setPrintGroup(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SubjectFormModal({ record, onClose, onSave }) {
+  const [form, setForm] = useState(record);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  function handleSave() {
+    if (!str(form.name).trim()) { alert("Subject name is required."); return; }
+    onSave(form);
+  }
+  return (
+    <Modal title="Subject" onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>}>
+      <div className="form-grid">
+        <Field label="Year"><input type="number" value={form.year} onChange={set("year")} /></Field>
+        <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Subject Code"><input type="text" value={form.code} onChange={set("code")} placeholder="e.g. 101" /></Field>
+        <Field label="Subject Name"><input type="text" value={form.name} onChange={set("name")} placeholder="e.g. Bangla" /></Field>
+        <Field label="Category"><select value={form.category} onChange={set("category")}>{SUBJECT_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Marks (Full Marks)"><input type="number" value={form.marks} onChange={set("marks")} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+function SubjectListDocModal({ subjects, className, year, config, onClose }) {
+  const sorted = [...subjects].sort((a, b) => str(a.code).localeCompare(str(b.code)));
+  return (
+    <DocShell title={`${className} — ${year} Subject List`} onClose={onClose}>
+      <div className="doc-preview">
+        <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 12, marginBottom: 14 }}>
+          {config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 40, marginBottom: 6 }} />}
+          <div style={{ fontFamily: "'Fraunces',serif", fontSize: 17, fontWeight: 600 }}>{config.schoolName || "School Name"}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Class Subject List — {className} ({year})</div>
+        </div>
+        <table className="inv-fee-table">
+          <thead><tr><th>Code</th><th style={{ textAlign: "left" }}>Subject Name</th><th>Category</th><th>Marks</th></tr></thead>
+          <tbody>
+            {sorted.map(s => (
+              <tr key={s.id}><td style={{ textAlign: "center" }}>{s.code || "—"}</td><td>{s.name}</td><td style={{ textAlign: "center" }}>{s.category}</td><td style={{ textAlign: "center" }}>{s.marks}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </DocShell>
+  );
+}
+
+/* ---------- Marks Entry ---------- */
+function MarksEntryTab({ data, save, config }) {
+  const students = data.students || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
+  const subjects = data.subjects || [];
+  const marksRows = data.marks || [];
+  const toast = useToast();
+
+  const [className, setClassName] = useState("");
+  const [examName, setExamName] = useState(EXAM_NAME_OPTIONS[0]);
+  const [year, setYear] = useState(String(CURRENT_YEAR));
+  const [grid, setGrid] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const classSubjects = subjects
+    .filter(s => s.className === className && String(s.year) === String(year))
+    .sort((a, b) => (a.category === "Optional") - (b.category === "Optional") || str(a.code).localeCompare(str(b.code)));
+  const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
+
+  function loadGrid() {
+    const existing = {};
+    marksRows
+      .filter(r => r.className === className && String(r.year) === String(year) && r.examName === examName)
+      .forEach(r => { existing[r.studentId] = r.marks || {}; });
+    const next = {};
+    classStudents.forEach(s => { next[s.id] = { ...(existing[s.id] || {}) }; });
+    setGrid(next);
+  }
+
+  function setCell(studentId, subjectId, val) {
+    setGrid(g => ({ ...g, [studentId]: { ...(g[studentId] || {}), [subjectId]: val } }));
+  }
+
+  async function handleSaveAll() {
+    if (!grid) return;
+    setSaving(true);
+    try {
+      for (const s of classStudents) {
+        const existingRow = marksRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.studentId === s.id);
+        await save("marks", {
+          id: existingRow ? existingRow.id : null,
+          className, year, examName, studentId: s.id,
+          studentCode: s.studentId, studentName: s.name, roll: s.roll, section: s.section,
+          marks: grid[s.id] || {},
+        });
+      }
+      toast && toast("Marks saved", "success");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Marks Entry</h2>
+          <p>Select Class, Exam Name and Year to load that class's students and subjects, then enter obtained marks per subject.</p>
+        </div>
+      </div>
+      <div className="no-print form-grid cols-3" style={{ marginBottom: 16 }}>
+        <Field label="Class"><select value={className} onChange={(e) => { setClassName(e.target.value); setGrid(null); }}><option value="">Select class</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Exam Name"><select value={examName} onChange={(e) => { setExamName(e.target.value); setGrid(null); }}>{EXAM_NAME_OPTIONS.map(o => <option key={o}>{o}</option>)}</select></Field>
+        <Field label="Year"><input type="number" value={year} onChange={(e) => { setYear(e.target.value); setGrid(null); }} /></Field>
+      </div>
+
+      {!className ? (
+        <EmptyState title="Select a class to begin" sub="Choose Class, Exam Name and Year above, then load the marks sheet." />
+      ) : classSubjects.length === 0 ? (
+        <EmptyState title="No subjects set up for this class/year" sub="Add subjects first from Subject Setup." />
+      ) : classStudents.length === 0 ? (
+        <EmptyState title="No students found in this class for this year" sub="Check Students → Class History / Promotion for this year." />
+      ) : !grid ? (
+        <div style={{ textAlign: "center", padding: 30 }}>
+          <button className="btn btn-primary" onClick={loadGrid}>Load Marks Sheet</button>
+        </div>
+      ) : (
+        <>
+          <div className="card card-flush" style={{ marginBottom: 14 }}>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th>
+                    {classSubjects.map(s => (
+                      <th key={s.id} style={{ textAlign: "center" }}>{s.code ? `${s.code} — ` : ""}{s.name}<br /><span style={{ fontWeight: 400, fontSize: 10 }}>/{s.marks}</span></th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {classStudents.map(s => (
+                    <tr key={s.id}>
+                      <td className="mono">{s.studentId}</td>
+                      <td>{s.name}</td>
+                      <td>{s.roll}</td>
+                      <td>{s.section}</td>
+                      {classSubjects.map(sub => (
+                        <td key={sub.id}>
+                          <input type="number" min="0" max={sub.marks}
+                            style={{ width: 64, padding: "5px 6px", border: "1px solid var(--line)", borderRadius: 6, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace" }}
+                            value={(grid[s.id] && grid[s.id][sub.id]) ?? ""}
+                            onChange={(e) => setCell(s.id, sub.id, e.target.value)} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={handleSaveAll} disabled={saving}>{saving ? "Saving…" : "Save All Marks"}</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Result ---------- */
+function ResultTab({ data, config }) {
+  const students = data.students || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
+  const subjects = data.subjects || [];
+  const marksRows = data.marks || [];
+
+  const [className, setClassName] = useState("");
+  const [examName, setExamName] = useState(EXAM_NAME_OPTIONS[0]);
+  const [year, setYear] = useState(String(CURRENT_YEAR));
+  const [view, setView] = useState("published");
+
+  const classSubjects = subjects
+    .filter(s => s.className === className && String(s.year) === String(year))
+    .sort((a, b) => (a.category === "Optional") - (b.category === "Optional") || str(a.code).localeCompare(str(b.code)));
+  const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
+
+  const results = rankResults(classStudents.map(s => {
+    const row = marksRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.studentId === s.id);
+    return { student: s, result: computeStudentResult(row, classSubjects) };
+  }));
+
+  const ready = className && classSubjects.length > 0 && classStudents.length > 0;
+
+  return (
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Result</h2>
+          <p>Select Class, Exam Name and Year to view the computed result sheet — as a clean Published summary or a full Office Copy.</p>
+        </div>
+      </div>
+      <div className="no-print form-grid cols-3" style={{ marginBottom: 16 }}>
+        <Field label="Class"><select value={className} onChange={(e) => setClassName(e.target.value)}><option value="">Select class</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Exam Name"><select value={examName} onChange={(e) => setExamName(e.target.value)}>{EXAM_NAME_OPTIONS.map(o => <option key={o}>{o}</option>)}</select></Field>
+        <Field label="Year"><input type="number" value={year} onChange={(e) => setYear(e.target.value)} /></Field>
+      </div>
+
+      {!ready ? (
+        <EmptyState title="Select a class to view the result" sub="Make sure Subject Setup and Marks Entry are completed for this class/exam/year first." />
+      ) : (
+        <>
+          <div className="tabs no-print">
+            <button className={`tab ${view === "published" ? "active" : ""}`} onClick={() => setView("published")}>Published (Portrait)</button>
+            <button className={`tab ${view === "office" ? "active" : ""}`} onClick={() => setView("office")}>Office Copy (Landscape)</button>
+          </div>
+          <div className="no-print" style={{ textAlign: "right", marginBottom: 10 }}>
+            <button className="btn btn-sm" onClick={() => window.print()}><Icon.print />Print</button>
+          </div>
+          {view === "published"
+            ? <PublishedResultSheet results={results} className={className} examName={examName} year={year} config={config} />
+            : <OfficeCopyResultSheet results={results} subjects={classSubjects} className={className} examName={examName} year={year} config={config} />}
+        </>
+      )}
+    </div>
+  );
+}
+
+function PublishedResultSheet({ results, className, examName, year, config }) {
+  return (
+    <div className="doc-preview" style={{ maxWidth: "100%" }}>
+      <PrintDocHead config={config} headline={`Result Sheet — ${className} · ${examName} · ${year}`} />
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th>
+              <th style={{ textAlign: "right" }}>Obtained</th><th style={{ textAlign: "right" }}>Main GPA</th>
+              <th style={{ textAlign: "right" }}>Opt GPA</th><th style={{ textAlign: "right" }}>Final GPA</th>
+              <th>Grade</th><th style={{ textAlign: "right" }}>Rank</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map(r => (
+              <tr key={r.student.id}>
+                <td className="mono">{r.student.studentId}</td>
+                <td>{r.student.name}</td>
+                <td>{r.student.roll}</td>
+                <td>{r.student.section}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.totalObtained}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.isFail ? "—" : r.result.mainGpa.toFixed(2)}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.isFail ? "—" : r.result.optGpa.toFixed(2)}</td>
+                <td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>{r.result.finalGpa.toFixed(2)}</td>
+                <td><span className={`badge ${r.result.finalGrade === "F" ? "badge-red" : "badge-green"}`}>{r.result.finalGrade}</span></td>
+                <td style={{ textAlign: "right" }}>{r.rank}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function OfficeCopyResultSheet({ results, subjects, className, examName, year, config }) {
+  return (
+    <div className="print-landscape">
+      <PrintDocHead config={config} headline={`Office Copy — ${className} · ${examName} · ${year}`} />
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th>
+              {subjects.map(s => <th key={s.id} style={{ textAlign: "center" }}>{s.code || s.name}</th>)}
+              <th style={{ textAlign: "right" }}>Obtained</th><th style={{ textAlign: "right" }}>Main GPA</th>
+              <th style={{ textAlign: "right" }}>Opt GPA</th><th style={{ textAlign: "right" }}>Final GPA</th>
+              <th>Grade</th><th style={{ textAlign: "right" }}>Rank</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map(r => (
+              <tr key={r.student.id}>
+                <td className="mono">{r.student.studentId}</td>
+                <td>{r.student.name}</td>
+                <td>{r.student.roll}</td>
+                <td>{r.student.section}</td>
+                {r.result.subjectResults.map(sr => <td key={sr.subject.id} className="mono" style={{ textAlign: "center" }}>{sr.obtained}</td>)}
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.totalObtained}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.isFail ? "—" : r.result.mainGpa.toFixed(2)}</td>
+                <td className="mono" style={{ textAlign: "right" }}>{r.result.isFail ? "—" : r.result.optGpa.toFixed(2)}</td>
+                <td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>{r.result.finalGpa.toFixed(2)}</td>
+                <td><span className={`badge ${r.result.finalGrade === "F" ? "badge-red" : "badge-green"}`}>{r.result.finalGrade}</span></td>
+                <td style={{ textAlign: "right" }}>{r.rank}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Marksheet ---------- */
+function MarksheetTab({ data, config }) {
+  const students = data.students || [];
+  const promotions = data.promotions || [];
+  const classHistories = data.classHistories || [];
+  const subjects = data.subjects || [];
+  const marksRows = data.marks || [];
+
+  const [mode, setMode] = useState("single");
+  const [className, setClassName] = useState("");
+  const [examName, setExamName] = useState(EXAM_NAME_OPTIONS[0]);
+  const [year, setYear] = useState(String(CURRENT_YEAR));
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(null);
+
+  usePrintChrome({ hideFooter: true });
+
+  const classSubjects = subjects
+    .filter(s => s.className === className && String(s.year) === String(year))
+    .sort((a, b) => (a.category === "Optional") - (b.category === "Optional") || str(a.code).localeCompare(str(b.code)));
+  const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
+
+  const matches = query.trim() ? classStudents.filter(s =>
+    str(s.name).toLowerCase().includes(query.toLowerCase()) || str(s.roll).toLowerCase().includes(query.toLowerCase()) || str(s.studentId).toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 20) : [];
+
+  function resultFor(student) {
+    const row = marksRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.studentId === student.id);
+    return computeStudentResult(row, classSubjects);
+  }
+
+  const ready = className && classSubjects.length > 0;
+  const rankedAll = (mode === "class" && ready) ? rankResults(classStudents.map(s => ({ student: s, result: resultFor(s) }))) : [];
+  const showPreview = mode === "single" ? !!selected : (ready && classStudents.length > 0);
+
+  return (
+    <div>
+      <div className="section-head">
+        <div>
+          <h2>Marksheet</h2>
+          <p>Generate a subject-wise marksheet — for one student, or print the whole class at once.</p>
+        </div>
+      </div>
+      <div className="tabs no-print">
+        <button className={`tab ${mode === "single" ? "active" : ""}`} onClick={() => { setMode("single"); setSelected(null); }}>Student-wise</button>
+        <button className={`tab ${mode === "class" ? "active" : ""}`} onClick={() => setMode("class")}>Class-wise</button>
+      </div>
+      <div className="no-print form-grid cols-3" style={{ marginBottom: 16 }}>
+        <Field label="Class"><select value={className} onChange={(e) => { setClassName(e.target.value); setSelected(null); }}><option value="">Select class</option>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="Exam Name"><select value={examName} onChange={(e) => setExamName(e.target.value)}>{EXAM_NAME_OPTIONS.map(o => <option key={o}>{o}</option>)}</select></Field>
+        <Field label="Year"><input type="number" value={year} onChange={(e) => setYear(e.target.value)} /></Field>
+      </div>
+
+      {!ready ? (
+        <EmptyState title="Select a class to begin" sub="Subjects must be set up for this class/year first (see Subject Setup)." />
+      ) : mode === "single" && !selected ? (
+        <div className="no-print" style={{ marginBottom: 16 }}>
+          <Field label="Search Student" hint="by name, roll, or Student ID">
+            <input className="search-input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Type to search…" />
+          </Field>
+          {matches.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {matches.map(s => <button key={s.id} className="chip" onClick={() => setSelected(s)}>{s.name} · Roll {s.roll}</button>)}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {showPreview && (
+        <>
+          <div className="no-print" style={{ textAlign: "right", marginBottom: 10 }}>
+            {mode === "single" && <button className="btn btn-sm" style={{ marginRight: 8 }} onClick={() => setSelected(null)}>← Change Student</button>}
+            <button className="btn btn-sm" onClick={() => window.print()}><Icon.print />Print</button>
+          </div>
+          <div className="marksheet-batch">
+            {mode === "single"
+              ? <MarksheetDoc student={selected} result={resultFor(selected)} className={className} examName={examName} year={year} config={config} />
+              : rankedAll.map(r => <MarksheetDoc key={r.student.id} student={r.student} result={r.result} rank={r.rank} className={className} examName={examName} year={year} config={config} />)}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MarksheetDoc({ student, result, rank, className, examName, year, config }) {
+  return (
+    <div className="admission-form-print marksheet-page">
+      <div className="adm-header">
+        <div className="adm-header-row">
+          <div className="adm-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
+          <div className="adm-header-center">
+            <div className="adm-school-name">{config.schoolName || "School Name"}{config.instituteCode && <span className="adm-school-code"> ({config.instituteCode})</span>}</div>
+            {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+            <div className="adm-form-title">ACADEMIC MARKSHEET</div>
+          </div>
+          <div className="adm-header-photo">{student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}</div>
+        </div>
+      </div>
+
+      <div className="adm-fields-grid" style={{ marginBottom: 10 }}>
+        <FieldRow name="Student ID" value={<span className="mono">{student.studentId}</span>} />
+        <FieldRow name="Exam" value={`${examName} — ${year}`} />
+        <FieldRow name="Name" value={student.name} />
+        <FieldRow name="Class" value={className} />
+        <FieldRow name="Roll" value={student.roll} />
+        <FieldRow name="Section" value={student.section} />
+      </div>
+
+      <table className="inv-fee-table">
+        <thead><tr><th style={{ textAlign: "left" }}>Subject</th><th>Category</th><th>Full Marks</th><th>Obtained</th><th>Grade</th><th>Point</th></tr></thead>
+        <tbody>
+          {result.subjectResults.map(sr => (
+            <tr key={sr.subject.id}>
+              <td>{sr.subject.name}</td>
+              <td style={{ textAlign: "center" }}>{sr.subject.category}</td>
+              <td style={{ textAlign: "center" }}>{sr.full}</td>
+              <td className="mono" style={{ textAlign: "center" }}>{sr.obtained}</td>
+              <td style={{ textAlign: "center" }}>{sr.grade.letter}</td>
+              <td className="mono" style={{ textAlign: "center" }}>{sr.grade.point.toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+        <div className="inv-summary" style={{ minWidth: 260 }}>
+          <FieldRow name="Total Obtained" value={`${result.totalObtained} / ${result.totalFull}`} />
+          <FieldRow name="Main GPA" value={result.isFail ? "—" : result.mainGpa.toFixed(2)} />
+          <FieldRow name="Optional GPA" value={result.isFail ? "—" : result.optGpa.toFixed(2)} />
+          <FieldRow name="Final GPA" value={<strong>{result.finalGpa.toFixed(2)}</strong>} />
+          <FieldRow name="Grade" value={<strong>{result.finalGrade}</strong>} />
+          {rank !== undefined && <FieldRow name="Rank" value={rank} />}
+        </div>
+      </div>
+
+      <div className="adm-signatures">
+        <div className="adm-sig">Class Teacher</div>
+        <div className="adm-sig">Examination Controller</div>
+        <div className="adm-sig">Head Teacher / Principal</div>
+      </div>
+
+      <div className="adm-footer">
+        <hr className="adm-divider" />
+        <div className="adm-credit">@Poweredby: AM Shahed: 01605721296</div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
    REPORTS MODULE
    ========================================================= */
 function ReportsModule({ data }) {
@@ -4875,6 +5520,14 @@ const NAV_GROUPS = [
     ]},
     { key: "invoice", label: "Fee Invoice", icon: "fee" },
   ]},
+  { label: "Academics", items: [
+    { key: "result", label: "Result", icon: "result", subitems: [
+      { key: "subjects", label: "Subject Setup" },
+      { key: "marksEntry", label: "Marks Entry" },
+      { key: "result", label: "Result" },
+      { key: "marksheet", label: "Marksheet" },
+    ]},
+  ]},
   { label: "Money", items: [
     { key: "finance", label: "Finance", icon: "finance", subitems: [
       { key: "income", label: "Income Invoices" },
@@ -4899,7 +5552,7 @@ const NAV_GROUPS = [
 const MODULE_TITLES = {
   dashboard: "Dashboard", students: "Students", teachers: "Teachers", finance: "Finance",
   due: "Due List", fees: "Master Fee", committee: "Committee", reports: "Reports", settings: "Settings",
-  allcard: "All Card", invoice: "Fee Invoice",
+  allcard: "All Card", invoice: "Fee Invoice", result: "Result",
 };
 
 function MenuBar({ active, subTab, setActive, config, store }) {
@@ -5085,6 +5738,7 @@ function AppShell() {
           {active === "invoice" && <FeeInvoiceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "teachers" && <TeachersModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "finance" && <FinanceModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
+          {active === "result" && <ResultModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "due" && <DueModule data={store.data} config={config} initialTab={subTab} />}
           {active === "fees" && <MasterFeeModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "committee" && <CommitteeModule data={store.data} save={store.save} remove={store.remove} />}
