@@ -1979,7 +1979,6 @@ const emptyStudent = (existingStudents) => {
     guardianName: "", guardianRelation: GUARDIAN_RELATIONS[0], guardianPhone: "",
     presentAddress: emptyAddress(), permanentAddress: emptyAddress(), sameAsPresent: false,
     photoUrl: "", status: "Active",
-    classHistory: [{ year: String(CURRENT_YEAR), className: "One", section: SECTIONS[0] }],
   };
 };
 
@@ -2984,7 +2983,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
     // invoice history, so nothing needs to be written back to the Students sheet here.
     const invoiceNo = generateInvoiceNo(invoices);
     const invoiceRecord = {
-      id: null,
+      id: invoiceNo,
       invoiceNo,
       studentId: selected.id,
       studentDisplayId: selected.studentId,
@@ -4000,20 +3999,25 @@ function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, o
    ========================================================= */
 const emptyFinanceRow = (descriptionMode) => ({ description: descriptionMode === "select" ? EXPENSE_HEADS[0] : "", amount: "" });
 
-const emptyFinance = (type, financeList) => type === "income" ? ({
-  id: null, type: "income",
-  docNo: generateFinanceDocNo(financeList, "income"),
-  date: new Date().toISOString().slice(0, 10),
-  provider: "",
-  rows: [emptyFinanceRow("text")],
-}) : ({
-  id: null, type: "expense",
-  docNo: generateFinanceDocNo(financeList, "expense"),
-  date: new Date().toISOString().slice(0, 10),
-  spender: "",
-  rows: [emptyFinanceRow("select")],
-  paid: "",
-});
+const emptyFinance = (type, financeList) => {
+  if (type === "income") {
+    const docNo = generateFinanceDocNo(financeList, "income");
+    return {
+      id: docNo, type: "income", docNo,
+      date: new Date().toISOString().slice(0, 10),
+      provider: "",
+      rows: [emptyFinanceRow("text")],
+    };
+  }
+  const docNo = generateFinanceDocNo(financeList, "expense");
+  return {
+    id: docNo, type: "expense", docNo,
+    date: new Date().toISOString().slice(0, 10),
+    spender: "",
+    rows: [emptyFinanceRow("select")],
+    paid: "",
+  };
+};
 
 function FinanceModule({ data, save, remove, config, initialTab }) {
   const [tab, setTab] = useState(initialTab || "income");
@@ -5696,13 +5700,26 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
     setProfileEditing(true);
   }
 
+  // Exactly the fields the Settings form edits — sheetsUrl (and anything else on `config`) is
+  // local-only connection config and must never be written into the Settings sheet as a column.
+  const SETTINGS_SHEET_FIELDS = [
+    "schoolName", "instituteCode", "schoolAddress", "schoolEmail", "schoolPhones",
+    "schoolLogo", "facebookUrl", "youtubeUrl", "cashierName", "cashierSignUrl",
+    "principalName", "principalSignUrl",
+  ];
+  function toSheetRow(f) {
+    const row = { id: "main" };
+    SETTINGS_SHEET_FIELDS.forEach(k => { row[k] = f[k]; });
+    return row;
+  }
+
   async function handleSave() {
     setConfig(form);
     saveConfig(form); // local cache for instant reload
     if (form.sheetsUrl) {
       setSaving(true);
       try {
-        await SheetsAPI.upsert(form, "Settings", { id: "main", ...form });
+        await SheetsAPI.upsert(form, "Settings", toSheetRow(form));
         toast("Settings saved and synced to Google Sheet", "success");
       } catch (err) {
         toast("Saved locally, but sheet sync failed: " + err.message, "error");
