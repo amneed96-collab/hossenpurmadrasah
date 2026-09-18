@@ -267,6 +267,12 @@ input,select,textarea{font-family:inherit;}
 
 /* ===== Table ===== */
 .table-wrap{overflow-x:auto;}
+@media print{ .table-wrap{overflow:visible !important;} }
+.result-fit-table th, .result-fit-table td{white-space:normal;word-break:break-word;}
+@media print{
+  .result-fit-table{width:100%;table-layout:fixed;font-size:9px;}
+  .result-fit-table th, .result-fit-table td{padding:4px 3px;}
+}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 thead th{
   text-align:left;padding:10px 14px;font-size:11px;text-transform:uppercase;
@@ -406,12 +412,18 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-fields-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;margin-bottom:4px;}
 .adm-fields-grid .field-row{font-size:10.5px;padding:2px 0;}
 .msh-info-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:10px;}
-.msh-student-info{flex:1.3;min-width:0;}
-.msh-student-info .field-row{font-size:10.5px;padding:1.5px 0;}
+.msh-student-info{flex:1.3;min-width:0;display:grid;grid-template-columns:1fr 1fr;column-gap:14px;}
+.msh-student-info .field-row{font-size:10.5px;padding:2px 0;border-bottom:none;}
 .msh-grading{flex:1;max-width:200px;}
 .msh-grading table{width:100%;}
-.msh-guardian-box{border:1px solid var(--ink);border-radius:4px;padding:8px 10px 18px;margin-top:10px;}
+.msh-guardian-box{border:1px solid var(--ink);border-radius:4px;padding:8px 10px 40px;margin-top:10px;min-height:60px;}
 .msh-guardian-label{font-size:10.5px;font-weight:700;margin-bottom:4px;}
+.msh-bordered-table{width:100%;border-collapse:collapse;font-size:10px;margin:0 0 10px;}
+.msh-bordered-table th,.msh-bordered-table td{border:1px solid var(--ink);padding:4px 5px;}
+.msh-bordered-table thead th{text-transform:uppercase;letter-spacing:0.02em;font-size:9px;}
+.msh-bordered-table tbody tr.msh-gap-row td{border:none;padding:0;height:8px;}
+.msh-credit-outside{font-size:8.5px;color:var(--slate-soft);text-align:right;background:none;margin-top:4px;padding-top:4px;border-top:1px dashed var(--line);}
+@media print{ .marksheet-page{max-height:297mm;overflow:hidden;} }
 .adm-declaration{font-size:10.5px;line-height:1.5;color:var(--slate);margin:4px 0 6px;text-align:justify;}
 .adm-signatures{display:flex;justify-content:space-between;margin-top:22px;padding:0 6px;}
 .adm-sig{border-top:1px solid var(--ink);padding-top:4px;font-size:10px;text-align:center;width:170px;line-height:1.4;}
@@ -1100,7 +1112,21 @@ function FieldRow({ name, value }) {
 // Shared print-only header for list/table printouts: institution name, address, then a data headline.
 // Never shown on screen — only appears when printing (via .print-only), keeping list/table print
 // output limited to institution identity + headline + table, with no buttons/search/filters.
-function PrintDocHead({ config, headline }) {
+function PrintDocHead({ config, headline, layout }) {
+  if (layout === "inline") {
+    return (
+      <div className="print-only" style={{ padding: "0 18px 10px", borderBottom: "2px solid var(--moss-deep)", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+          {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 56, flexShrink: 0 }} />}
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>{(config && config.schoolName) || "School Name"}</div>
+            {config && config.schoolAddress && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
+          </div>
+        </div>
+        {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, textAlign: "center" }}>{headline}</div>}
+      </div>
+    );
+  }
   return (
     <div className="print-only" style={{ padding: "0 18px 10px", textAlign: "center", borderBottom: "2px solid var(--moss-deep)", marginBottom: 10 }}>
       {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 44, marginBottom: 6 }} />}
@@ -3688,7 +3714,7 @@ const emptyTeacher = (existingTeachers) => {
   return {
     id: staffId, staffId, name: "", designation: "Assistant Teacher", subject: "", joinDate: new Date().toISOString().slice(0,10),
     phone: "", email: "", address: "", nid: "", photoUrl: "",
-    basicSalary: "", allowance: "", paidAmount: "", status: "Active", resignDate: "", payments: [],
+    status: "Active", resignDate: "", payments: [],
   };
 };
 
@@ -5311,8 +5337,8 @@ function ResultTab({ data, config }) {
       ) : (
         <>
           <div className="tabs no-print">
-            <button className={`tab ${view === "published" ? "active" : ""}`} onClick={() => setView("published")}>Published (Portrait)</button>
-            <button className={`tab ${view === "office" ? "active" : ""}`} onClick={() => setView("office")}>Office Copy (Landscape)</button>
+            <button className={`tab ${view === "published" ? "active" : ""}`} onClick={() => setView("published")}>Published Result</button>
+            <button className={`tab ${view === "office" ? "active" : ""}`} onClick={() => setView("office")}>Office Result</button>
           </div>
           <div className="no-print" style={{ textAlign: "right", marginBottom: 10 }}>
             <button className="btn btn-sm" onClick={() => window.print()}><Icon.print />Print</button>
@@ -5329,9 +5355,9 @@ function ResultTab({ data, config }) {
 function PublishedResultSheet({ results, className, examName, year, config }) {
   return (
     <div className="doc-preview" style={{ maxWidth: "100%" }}>
-      <PrintDocHead config={config} headline={`Result Sheet — ${className} · ${examName} · ${year}`} />
-      <div className="table-wrap">
-        <table>
+      <PrintDocHead config={config} layout="inline" headline={`Published Result — ${className} · ${examName} · ${year}`} />
+      <div className="table-wrap result-fit-table-wrap">
+        <table className="result-fit-table">
           <thead>
             <tr>
               <th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th>
@@ -5369,9 +5395,9 @@ function PublishedResultSheet({ results, className, examName, year, config }) {
 function OfficeCopyResultSheet({ results, subjects, className, examName, year, config }) {
   return (
     <div className="print-landscape">
-      <PrintDocHead config={config} headline={`Office Copy — ${className} · ${examName} · ${year}`} />
-      <div className="table-wrap">
-        <table>
+      <PrintDocHead config={config} layout="inline" headline={`Office Result — ${className} · ${examName} · ${year}`} />
+      <div className="table-wrap result-fit-table-wrap">
+        <table className="result-fit-table">
           <thead>
             <tr>
               <th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th>
@@ -5500,6 +5526,37 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
     letter: g.letter, point: g.point.toFixed(2),
   }));
 
+  // Student info renders two fields per row (e.g. "Student ID  ·  Roll") — order here sets the pairing.
+  const infoPairs = [
+    ["Student ID", <span className="mono">{student.studentId}</span>],
+    ["Roll", student.roll],
+    ["Name", student.name],
+    ["Class", className],
+    ["Section", student.section],
+    ["Session", student.session || year],
+    ["Obtained", `${result.totalObtained} / ${result.totalFull}`],
+    ["Total Class", attendance ? (attendance.totalClass || "—") : "—"],
+    ["Main GPA", result.mainGpa.toFixed(2)],
+    ["Attend", attendance ? (attendance.attended || "—") : "—"],
+    ["Opt GPA", result.optGpa.toFixed(2)],
+    ...(rank !== undefined ? [["Rank", rank]] : []),
+    ["Final GPA", <strong>{result.finalGpa.toFixed(2)}</strong>],
+    ["Grade", <strong>{result.finalGrade}</strong>],
+  ];
+
+  const mainSubjects = result.subjectResults.filter(sr => sr.subject.category !== "Optional");
+  const optSubjects = result.subjectResults.filter(sr => sr.subject.category === "Optional");
+  const resultRow = (sr) => (
+    <tr key={sr.subject.id}>
+      <td className="mono" style={{ textAlign: "center" }}>{sr.subject.code || "—"}</td>
+      <td style={{ textAlign: "left" }}>{sr.subject.name}</td>
+      <td style={{ textAlign: "left" }}>{sr.subject.category}</td>
+      <td className="mono" style={{ textAlign: "center" }}>{sr.obtained} / {sr.full}</td>
+      <td className="mono" style={{ textAlign: "center" }}>{sr.grade.point.toFixed(2)}</td>
+      <td style={{ textAlign: "center" }}>{sr.grade.letter}</td>
+    </tr>
+  );
+
   return (
     <div className="admission-form-print marksheet-page">
       <div className="adm-header">
@@ -5532,24 +5589,10 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
 
       <div className="msh-info-row">
         <div className="msh-student-info">
-          <FieldRow name="Student ID" value={<span className="mono">{student.studentId}</span>} />
-          <FieldRow name="Name" value={student.name} />
-          <FieldRow name="Class" value={className} />
-          <FieldRow name="Roll" value={student.roll} />
-          <FieldRow name="Section" value={student.section} />
-          <FieldRow name="Session" value={student.session || year} />
-          <FieldRow name="Obtained" value={`${result.totalObtained} / ${result.totalFull}`} />
-          <FieldRow name="Main GPA" value={result.mainGpa.toFixed(2)} />
-          <FieldRow name="Opt GPA" value={result.optGpa.toFixed(2)} />
-          <FieldRow name="Final GPA" value={<strong>{result.finalGpa.toFixed(2)}</strong>} />
-          <FieldRow name="Grade" value={<strong>{result.finalGrade}</strong>} />
-          <FieldRow name="Total Class" value={attendance ? (attendance.totalClass || "—") : "—"} />
-          <FieldRow name="Attend" value={attendance ? (attendance.attended || "—") : "—"} />
-          {rank !== undefined && <FieldRow name="Rank" value={rank} />}
-          <FieldRow name="Comment" value={autoComment(result)} />
+          {infoPairs.map(([label, value]) => <FieldRow key={label} name={label} value={value} />)}
         </div>
         <div className="msh-grading">
-          <table className="inv-fee-table">
+          <table className="msh-bordered-table">
             <thead><tr><th style={{ textAlign: "center" }}>Number</th><th style={{ textAlign: "center" }}>Grade</th><th style={{ textAlign: "center" }}>Point</th></tr></thead>
             <tbody>
               {gradeRanges.map(g => (
@@ -5563,8 +5606,9 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
           </table>
         </div>
       </div>
+      <div style={{ margin: "0 0 8px" }}><FieldRow name="Comment" value={autoComment(result)} /></div>
 
-      <table className="inv-fee-table">
+      <table className="msh-bordered-table">
         <thead>
           <tr>
             <th style={{ textAlign: "center" }}>Subject Code</th>
@@ -5575,25 +5619,20 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
             <th style={{ textAlign: "center" }}>Grade</th>
           </tr>
         </thead>
-        <tbody>
-          {result.subjectResults.map(sr => (
-            <tr key={sr.subject.id}>
-              <td className="mono" style={{ textAlign: "center" }}>{sr.subject.code || "—"}</td>
-              <td style={{ textAlign: "left" }}>{sr.subject.name}</td>
-              <td style={{ textAlign: "left" }}>{sr.subject.category}</td>
-              <td className="mono" style={{ textAlign: "center" }}>{sr.obtained} / {sr.full}</td>
-              <td className="mono" style={{ textAlign: "center" }}>{sr.grade.point.toFixed(2)}</td>
-              <td style={{ textAlign: "center" }}>{sr.grade.letter}</td>
-            </tr>
-          ))}
-        </tbody>
+        <tbody>{mainSubjects.map(resultRow)}</tbody>
+        {optSubjects.length > 0 && (
+          <>
+            <tbody><tr className="msh-gap-row"><td colSpan={6} /></tr></tbody>
+            <tbody>{optSubjects.map(resultRow)}</tbody>
+          </>
+        )}
       </table>
 
       <div className="msh-guardian-box">
         <div className="msh-guardian-label">Guardian's Comment</div>
       </div>
 
-      <div className="adm-signatures">
+      <div className="adm-signatures" style={{ marginTop: 44 }}>
         <div className="adm-sig">Class Teacher</div>
         <div className="adm-sig">
           {config.principalSignUrl && <img src={config.principalSignUrl} alt="" className="adm-sig-img" />}
@@ -5602,9 +5641,9 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
       </div>
 
       <div className="adm-footer">
-        <hr className="adm-divider" />
-        <div className="adm-credit">@Poweredby: AM Shahed: 01605721296</div>
+        <div className="adm-slogan">Education is the backbone of a nation — building an enlightened generation</div>
       </div>
+      <div className="msh-credit-outside">@Poweredby: AM Shahed: 01605721296</div>
     </div>
   );
 }
