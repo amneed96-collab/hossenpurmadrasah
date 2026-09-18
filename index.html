@@ -390,9 +390,8 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-header-center{flex:1;min-width:0;text-align:center;}
 .adm-school-name{
   font-family:'Fraunces',serif;font-size:19px;font-weight:800;
-  background:linear-gradient(180deg,#f6da8a 0%,var(--gold) 55%,#a97a1f 100%);
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--gold);
-  text-shadow:0 1px 0 rgba(0,0,0,0.25);
+  color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,0.35);
   text-transform:uppercase;letter-spacing:0.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .adm-school-code{font-size:10px;font-weight:400;color:#fff;opacity:0.85;text-transform:none;}
@@ -406,6 +405,13 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-fields{margin-bottom:4px;}
 .adm-fields-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;margin-bottom:4px;}
 .adm-fields-grid .field-row{font-size:10.5px;padding:2px 0;}
+.msh-info-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:10px;}
+.msh-student-info{flex:1.3;min-width:0;}
+.msh-student-info .field-row{font-size:10.5px;padding:1.5px 0;}
+.msh-grading{flex:1;max-width:200px;}
+.msh-grading table{width:100%;}
+.msh-guardian-box{border:1px solid var(--ink);border-radius:4px;padding:8px 10px 18px;margin-top:10px;}
+.msh-guardian-label{font-size:10.5px;font-weight:700;margin-bottom:4px;}
 .adm-declaration{font-size:10.5px;line-height:1.5;color:var(--slate);margin:4px 0 6px;text-align:justify;}
 .adm-signatures{display:flex;justify-content:space-between;margin-top:22px;padding:0 6px;}
 .adm-sig{border-top:1px solid var(--ink);padding-top:4px;font-size:10px;text-align:center;width:170px;line-height:1.4;}
@@ -605,7 +611,7 @@ tbody tr:last-child td{border-bottom:none;}
 }
 .id-card-physical .icp-head .icp-school{
   font-weight:800;text-transform:uppercase;letter-spacing:0.02em;
-  color:var(--gold);text-shadow:0 1px 1px rgba(0,0,0,0.25);
+  color:#fff;text-shadow:0 1px 1px rgba(0,0,0,0.25);
   white-space:nowrap;width:100%;display:block;overflow:hidden;
   max-width:100%;
 }
@@ -1267,7 +1273,7 @@ const GENDERS = ["Male", "Female", "Other"];
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const DESIGNATIONS = ["Principal", "Vice Principal", "Senior Teacher", "Assistant Teacher", "Librarian", "Accountant", "Office Staff", "Lab Assistant", "Peon/Support Staff"];
 const SUBJECTS = ["Bangla", "English", "Mathematics", "Science", "Social Science", "Religion", "ICT", "Physical Education", "Arts", "General"];
-const INCOME_HEADS = ["Admission Fee", "Tuition Fee", "Semester Exam Fee", "Model Exam Fee", "Session Fee", "Transport Fee", "Hostel Fee", "Donation", "Other Income"];
+const INCOME_HEADS = ["Admission Fee", "Tuition Fee", "Semester Exam Fee", "Model Exam Fee", "Session Fee", "Transport Fee", "Hostel Fee", "ID Card", "Donation", "Other Income"];
 const EXPENSE_HEADS = [
   "House bill", "Electricity bill", "Gas bill", "Water bill", "Dustbin bill",
   "Night Guard bill", "Vehicles bill", "Fuel bill", "Mobile bill", "Internet bill",
@@ -1600,8 +1606,10 @@ function activeDayFraction(student, activations, rangeStart, rangeEnd) {
 // Each Master Fee head now carries a Category (set in the Master Fee Form) that says exactly
 // how it should be counted: "Monthly" (once per active month), "Half Yearly" (once per active
 // half-year term), "3 Times" (once per each of its selected months, if that month was active),
-// or "Yearly" (once for the year, if any month was active — the default/legacy behavior).
-const FEE_CATEGORIES = ["Monthly", "Half Yearly", "Yearly", "3 Times"];
+// "Yearly" (once for the year, if any month was active — the default/legacy behavior), or
+// "Admission Year" (charged exactly once in total, only in the calendar year the student was
+// admitted — e.g. a one-time Admission/ID Card fee that should never repeat in later years).
+const FEE_CATEGORIES = ["Monthly", "Half Yearly", "Yearly", "3 Times", "Admission Year"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // Which calendar months (as "YYYY-MM" strings) inside [rangeStart, rangeEnd] the student was
@@ -1638,6 +1646,10 @@ function occurrencesForHead(h, student, activations, periodStart, periodEnd) {
   const activeMonths = activeMonthsInRange(student, activations, periodStart, periodEnd);
   const year = String(periodStart).slice(0, 4);
   const category = h.category || "Yearly";
+  if (category === "Admission Year") {
+    const admissionYear = student.admissionDate ? String(new Date(student.admissionDate).getFullYear()) : null;
+    return (admissionYear && admissionYear === year && activeMonths.length > 0) ? 1 : 0;
+  }
   if (category === "Monthly") return activeMonths.length;
   if (category === "Half Yearly") {
     const term1 = activeMonths.some(m => m >= `${year}-01` && m <= `${year}-06`);
@@ -2006,13 +2018,18 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
   });
 
   function openNew() { setEditing(emptyStudent(students)); }
-  function openEdit(s) { setEditing({ ...s }); }
+  function openEdit(s) {
+    const current = getCurrentStatus(s, promotions);
+    setEditing({ ...s, className: current.className, roll: current.roll, section: current.section, subjectGroup: current.subjectGroup, session: current.session });
+  }
   async function handleSave(record) {
-    const isNew = !students.find(s => s.id === record.id);
     const saved = await save("students", record);
-    // Every admission seeds a matching Promotion record — this is the single source of truth
-    // for the student's CURRENT class/roll/section/subject/session from here on.
-    if (isNew && saved) {
+    // The List/Promotion views show a student's CURRENT class/roll/section/subject/session
+    // via their Promotion record (getCurrentStatus prefers it over the student record itself),
+    // so it must be kept in sync every time the Admission Form is saved — not just on brand-new
+    // admissions — otherwise an edit updates the student record but the List still shows the
+    // old class/roll/section until a Promotion is separately run.
+    if (saved) {
       await save("promotions", {
         id: saved.id, studentId: saved.id, name: saved.name,
         roll: saved.roll, className: saved.className, section: saved.section,
@@ -4699,6 +4716,7 @@ function FeeGroupModal({ group, onClose, onSave }) {
                 <option value="Half Yearly">Half Yearly (বছরে ২ বার)</option>
                 <option value="Yearly">Yearly (বছরে ১ বার)</option>
                 <option value="3 Times">3 Times (নির্দিষ্ট মাস সিলেক্ট করুন)</option>
+                <option value="Admission Year">Admission Year (শুধুমাত্র ভর্তির বছরে একবার)</option>
               </select>
             </Field>
             <div style={{ display: "flex", gap: 8 }}>
@@ -4989,13 +5007,13 @@ function SubjectListDocModal({ group, config, onClose }) {
           <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Class Subject List — {group.className} ({group.year})</div>
         </div>
         <table className="inv-fee-table">
-          <thead><tr><th>Code</th><th style={{ textAlign: "left" }}>Subject Name</th><th>Category</th><th>Marks</th></tr></thead>
+          <thead><tr><th style={{ textAlign: "center" }}>Code</th><th style={{ textAlign: "center" }}>Subject Name</th><th style={{ textAlign: "center" }}>Category</th><th style={{ textAlign: "center" }}>Marks</th></tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={i}>
                 <td style={{ textAlign: "center" }}>{r.code || "—"}</td>
-                <td>{r.name}</td>
-                <td style={{ textAlign: "center" }}>{r.category}</td>
+                <td style={{ textAlign: "left" }}>{r.name}</td>
+                <td style={{ textAlign: "left" }}>{r.category}</td>
                 <td style={{ textAlign: "center" }}>{r.category === "Main Elective" ? `MCQ ${r.mcq || 0} + CQ ${r.cq || 0} = ${(Number(r.mcq) || 0) + (Number(r.cq) || 0)}` : r.marks}</td>
               </tr>
             ))}
@@ -5094,9 +5112,10 @@ function MarksEntryTab({ data, save, config }) {
                     <th>Student ID</th><th>Name</th><th>Roll</th><th>Section</th>
                     {classSubjects.map(s => (
                       <th key={s.id} style={{ textAlign: "center" }}>
-                        {s.code ? `${s.code} — ` : ""}{s.name}<br />
+                        <div className="mono">{s.code || "—"}</div>
+                        <div>{s.name}</div>
                         <span style={{ fontWeight: 400, fontSize: 10 }}>
-                          {s.category === "Main Elective" ? `MCQ/${s.mcq || 0} + CQ/${s.cq || 0}` : `/${s.marks}`}
+                          {s.category === "Main Elective" ? `MCQ/${s.mcq || 0} + CQ/${s.cq || 0}` : `Mark /${s.marks}`}
                         </span>
                       </th>
                     ))}
@@ -5469,63 +5488,113 @@ function MarksheetTab({ data, config }) {
 }
 
 function MarksheetDoc({ student, result, attendance, rank, className, examName, year, config }) {
+  const phones = (config.schoolPhones || []).filter(Boolean);
+  const today = new Date().toISOString().slice(0, 10);
+  // Turns the shared GRADE_SCALE (min% + letter + point) into display ranges, e.g. "80-100".
+  const gradeRanges = GRADE_SCALE.map((g, i) => ({
+    range: i === 0 ? `${g.min}-100` : `${g.min}-${GRADE_SCALE[i - 1].min - 1}`,
+    letter: g.letter, point: g.point.toFixed(2),
+  }));
+
   return (
     <div className="admission-form-print marksheet-page">
       <div className="adm-header">
         <div className="adm-header-row">
           <div className="adm-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
           <div className="adm-header-center">
-            <div className="adm-school-name">{config.schoolName || "School Name"}{config.instituteCode && <span className="adm-school-code"> ({config.instituteCode})</span>}</div>
+            <div className="adm-school-name">{(config.schoolName || "School Name").toUpperCase()}</div>
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+            {(config.instituteCode || config.schoolEmail || phones[0]) && (
+              <div className="adm-school-contact">
+                {config.instituteCode && <span>Code: {config.instituteCode}</span>}
+                {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
+                {config.schoolEmail && <span>Email: {config.schoolEmail}</span>}
+                {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
+                {phones[0] && <span>Mobile: {phones[0]}</span>}
+              </div>
+            )}
             <div className="adm-form-title">ACADEMIC MARKSHEET</div>
           </div>
           <div className="adm-header-photo">{student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}</div>
         </div>
+        <hr className="adm-divider" />
       </div>
 
-      <div className="adm-fields-grid" style={{ marginBottom: 10 }}>
-        <FieldRow name="Student ID" value={<span className="mono">{student.studentId}</span>} />
-        <FieldRow name="Exam" value={`${examName} — ${year}`} />
-        <FieldRow name="Name" value={student.name} />
-        <FieldRow name="Class" value={className} />
-        <FieldRow name="Roll" value={student.roll} />
-        <FieldRow name="Section" value={student.section} />
+      <div style={{ display: "flex", alignItems: "baseline", margin: "2px 0 10px" }}>
+        <div style={{ flex: 1 }} />
+        <div style={{ flex: 2, textAlign: "center", fontWeight: 700, fontSize: 13 }}>{examName} — {year}</div>
+        <div style={{ flex: 1, textAlign: "right", fontSize: 10.5 }}>Date: {today}</div>
+      </div>
+
+      <div className="msh-info-row">
+        <div className="msh-student-info">
+          <FieldRow name="Student ID" value={<span className="mono">{student.studentId}</span>} />
+          <FieldRow name="Name" value={student.name} />
+          <FieldRow name="Class" value={className} />
+          <FieldRow name="Roll" value={student.roll} />
+          <FieldRow name="Section" value={student.section} />
+          <FieldRow name="Session" value={student.session || year} />
+          <FieldRow name="Obtained" value={`${result.totalObtained} / ${result.totalFull}`} />
+          <FieldRow name="Main GPA" value={result.mainGpa.toFixed(2)} />
+          <FieldRow name="Opt GPA" value={result.optGpa.toFixed(2)} />
+          <FieldRow name="Final GPA" value={<strong>{result.finalGpa.toFixed(2)}</strong>} />
+          <FieldRow name="Grade" value={<strong>{result.finalGrade}</strong>} />
+          <FieldRow name="Total Class" value={attendance ? (attendance.totalClass || "—") : "—"} />
+          <FieldRow name="Attend" value={attendance ? (attendance.attended || "—") : "—"} />
+          {rank !== undefined && <FieldRow name="Rank" value={rank} />}
+          <FieldRow name="Comment" value={autoComment(result)} />
+        </div>
+        <div className="msh-grading">
+          <table className="inv-fee-table">
+            <thead><tr><th style={{ textAlign: "center" }}>Number</th><th style={{ textAlign: "center" }}>Grade</th><th style={{ textAlign: "center" }}>Point</th></tr></thead>
+            <tbody>
+              {gradeRanges.map(g => (
+                <tr key={g.letter}>
+                  <td className="mono" style={{ textAlign: "center" }}>{g.range}</td>
+                  <td style={{ textAlign: "center" }}>{g.letter}</td>
+                  <td className="mono" style={{ textAlign: "center" }}>{g.point}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <table className="inv-fee-table">
-        <thead><tr><th style={{ textAlign: "left" }}>Subject</th><th>Category</th><th>Full Marks</th><th>Obtained</th><th>Grade</th><th>Point</th></tr></thead>
+        <thead>
+          <tr>
+            <th style={{ textAlign: "center" }}>Subject Code</th>
+            <th style={{ textAlign: "center" }}>Subject Name</th>
+            <th style={{ textAlign: "center" }}>Category</th>
+            <th style={{ textAlign: "center" }}>Obtained/Marks</th>
+            <th style={{ textAlign: "center" }}>Point</th>
+            <th style={{ textAlign: "center" }}>Grade</th>
+          </tr>
+        </thead>
         <tbody>
           {result.subjectResults.map(sr => (
             <tr key={sr.subject.id}>
-              <td>{sr.subject.name}</td>
-              <td style={{ textAlign: "center" }}>{sr.subject.category}</td>
-              <td style={{ textAlign: "center" }}>{sr.full}</td>
-              <td className="mono" style={{ textAlign: "center" }}>{sr.obtained}</td>
-              <td style={{ textAlign: "center" }}>{sr.grade.letter}</td>
+              <td className="mono" style={{ textAlign: "center" }}>{sr.subject.code || "—"}</td>
+              <td style={{ textAlign: "left" }}>{sr.subject.name}</td>
+              <td style={{ textAlign: "left" }}>{sr.subject.category}</td>
+              <td className="mono" style={{ textAlign: "center" }}>{sr.obtained} / {sr.full}</td>
               <td className="mono" style={{ textAlign: "center" }}>{sr.grade.point.toFixed(2)}</td>
+              <td style={{ textAlign: "center" }}>{sr.grade.letter}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
-        <div className="inv-summary" style={{ minWidth: 260 }}>
-          <FieldRow name="Total Obtained" value={`${result.totalObtained} / ${result.totalFull}`} />
-          <FieldRow name="Main GPA" value={result.mainGpa.toFixed(2)} />
-          <FieldRow name="Optional GPA" value={result.optGpa.toFixed(2)} />
-          <FieldRow name="Final GPA" value={<strong>{result.finalGpa.toFixed(2)}</strong>} />
-          <FieldRow name="Grade" value={<strong>{result.finalGrade}</strong>} />
-          <FieldRow name="Total Class" value={attendance ? (attendance.totalClass || "—") : "—"} />
-          <FieldRow name="Attendance" value={attendance ? (attendance.attended || "—") : "—"} />
-          {rank !== undefined && <FieldRow name="Rank" value={rank} />}
-          <FieldRow name="Comment" value={autoComment(result)} />
-        </div>
+      <div className="msh-guardian-box">
+        <div className="msh-guardian-label">Guardian's Comment</div>
       </div>
 
       <div className="adm-signatures">
         <div className="adm-sig">Class Teacher</div>
-        <div className="adm-sig">Examination Controller</div>
-        <div className="adm-sig">Head Teacher / Principal</div>
+        <div className="adm-sig">
+          {config.principalSignUrl && <img src={config.principalSignUrl} alt="" className="adm-sig-img" />}
+          Principal{config.principalName ? <><br />{config.principalName}</> : null}
+        </div>
       </div>
 
       <div className="adm-footer">
