@@ -416,8 +416,9 @@ tbody tr:last-child td{border-bottom:none;}
 .msh-pair-row{display:flex;gap:14px;}
 .msh-pair-row>div{flex:1;min-width:0;}
 .msh-student-info .field-row{padding:3px 0;border-bottom:none;}
-.msh-grading{flex:1;max-width:220px;}
+.msh-grading{flex:1;max-width:190px;}
 .msh-grading table{width:100%;}
+.msh-grading table th,.msh-grading table td{padding:3px 5px;}
 .msh-guardian-box{border:1px solid var(--ink);border-radius:4px;padding:8px 10px 60px;margin-top:10px;min-height:90px;}
 .msh-guardian-label{font-size:10.5px;font-weight:700;margin-bottom:4px;}
 .msh-bordered-table{width:100%;border-collapse:collapse;margin:0 0 10px;}
@@ -425,15 +426,33 @@ tbody tr:last-child td{border-bottom:none;}
 .msh-bordered-table thead th{text-transform:uppercase;letter-spacing:0.02em;color:#000;}
 .msh-bordered-table tbody tr:last-child td{border-bottom:1px solid var(--ink);}
 .msh-bordered-table tbody tr.msh-gap-row td{border:none;padding:0;height:8px;}
-.msh-credit-outside{font-size:8.5px;color:var(--slate-soft);text-align:right;background:none;margin-top:4px;padding-top:4px;border-top:1px dashed var(--line);}
 .msh-bottom-block{margin-top:auto;}
-@media print{ .marksheet-page{max-height:297mm;overflow:hidden;} }
+/* Credit line renders outside the page's own border/content box (absolutely positioned below
+   it) instead of taking up space inside it, so the border always hugs the real content and the
+   line itself sits below the page margin as its own strip. */
+.msh-credit-outside{
+  position:absolute;left:0;right:0;bottom:-18px;
+  font-size:8.5px;color:var(--slate-soft);text-align:right;background:none;
+  padding-top:4px;border-top:1px dashed var(--line);
+}
+.marksheet-page{position:relative;}
+@media print{
+  /* min-height:100vh already represents the printable area (page size minus the @page margin),
+     so capping at the SAME reference guarantees the content never spills onto a second page —
+     capping at a flat "297mm" was taller than the real printable area and let overflow through. */
+  .marksheet-page{max-height:100vh;overflow:hidden;}
+}
 /* Marksheet-only overrides (scoped to .marksheet-page so Admission Form / ID cards / other
    documents sharing these same class names are left exactly as they were). */
 .marksheet-page .adm-header,.marksheet-page .adm-footer{background:#1f6e42;}
-.marksheet-page .adm-school-name{font-size:27px;}
+.marksheet-page .adm-header{padding-bottom:0;}
+.marksheet-page .adm-header .adm-divider{margin:7px 0 0;border-top-color:rgba(255,255,255,0.5);}
+.marksheet-page .adm-school-name{font-size:24px;}
+.marksheet-page .adm-form-title{font-size:15px;}
+.marksheet-page .adm-slogan{color:#fff;}
 .marksheet-page .msh-student-info .field-row,
 .marksheet-page .msh-bordered-table{font-size:14px;}
+.marksheet-page .msh-grading table{font-size:12px;}
 .adm-declaration{font-size:10.5px;line-height:1.5;color:var(--slate);margin:4px 0 6px;text-align:justify;}
 .adm-signatures{display:flex;justify-content:space-between;margin-top:22px;padding:0 6px;}
 .adm-sig{border-top:1px solid var(--ink);padding-top:4px;font-size:10px;text-align:center;width:170px;line-height:1.4;}
@@ -2000,11 +2019,13 @@ function nextRollForClass(students, className, excludeId) {
   return rolls.length ? Math.max(...rolls) + 1 : 1;
 }
 
+const ADDRESS_FIELDS = ["co", "village", "union", "ward", "po", "upazila", "district"];
 const emptyAddress = () => ({ co: "", village: "", union: "", ward: "", po: "", upazila: "", district: "" });
+const addrKey = (prefix, field) => prefix + field.charAt(0).toUpperCase() + field.slice(1);
 
 const emptyStudent = (existingStudents) => {
   const studentId = generateStudentId(existingStudents);
-  return {
+  const student = {
     id: studentId, studentId, admissionFormNo: generateFormNo(existingStudents),
     name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
     className: "One", section: SECTIONS[0], subjectGroup: SUBJECT_GROUPS[0],
@@ -2013,10 +2034,29 @@ const emptyStudent = (existingStudents) => {
     previousInstitute: "", previousClass: "",
     bloodGroup: "", nidOrBirthNo: "", phone: "",
     guardianName: "", guardianRelation: GUARDIAN_RELATIONS[0], guardianPhone: "",
-    presentAddress: emptyAddress(), permanentAddress: emptyAddress(), sameAsPresent: false,
+    sameAsPresent: false,
     photoUrl: "", status: "Active",
   };
+  ADDRESS_FIELDS.forEach(f => { student[addrKey("present", f)] = ""; student[addrKey("permanent", f)] = ""; });
+  return student;
 };
+
+// Backward compatibility: older records stored presentAddress/permanentAddress as one nested
+// JSON object per address. New records save each address line as its own column instead — this
+// pulls any old nested data into the new flat fields so existing students still edit correctly.
+function migrateAddressFields(s) {
+  const out = { ...s };
+  ["present", "permanent"].forEach(prefix => {
+    const nested = s[`${prefix}Address`];
+    if (nested && typeof nested === "object") {
+      ADDRESS_FIELDS.forEach(f => {
+        const key = addrKey(prefix, f);
+        if (!out[key]) out[key] = nested[f] || "";
+      });
+    }
+  });
+  return out;
+}
 
 const STUDENTS_SUBTABS = [
   { key: "list", label: "All Admission" },
@@ -3175,8 +3215,9 @@ function formatAddress(addr) {
 
 function AdmissionFormPrint({ student, config }) {
   const phones = (config.schoolPhones || []).filter(Boolean);
-  const present = student.presentAddress && typeof student.presentAddress === "object" ? student.presentAddress : emptyAddress();
-  const permanent = student.permanentAddress && typeof student.permanentAddress === "object" ? student.permanentAddress : emptyAddress();
+  const s = migrateAddressFields(student);
+  const present = { co: s.presentCo, village: s.presentVillage, union: s.presentUnion, ward: s.presentWard, po: s.presentPo, upazila: s.presentUpazila, district: s.presentDistrict };
+  const permanent = { co: s.permanentCo, village: s.permanentVillage, union: s.permanentUnion, ward: s.permanentWard, po: s.permanentPo, upazila: s.permanentUpazila, district: s.permanentDistrict };
 
   const dataFields = [
     ["Admission Date", fmtDate(student.admissionDate)], ["Student ID", student.studentId],
@@ -3280,7 +3321,7 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
     admissionDate: s.admissionDate ? String(s.admissionDate).slice(0, 10) : s.admissionDate,
     dob: s.dob ? String(s.dob).slice(0, 10) : s.dob,
   });
-  const [form, setForm] = useState(normalizeDates(student));
+  const [form, setForm] = useState(migrateAddressFields(normalizeDates(student)));
   const [showPrint, setShowPrint] = useState(false);
   const [saving, setSaving] = useState(false);
   usePrintChrome({ hideFooter: true }); // admission form prints its own footer with slogan + credit
@@ -3297,19 +3338,23 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
     });
   }
 
-  function handlePresentChange(key, val) {
+  function handlePresentChange(field, val) {
     setForm(f => {
-      const nextPresent = { ...(f.presentAddress || emptyAddress()), [key]: val };
-      const nextPermanent = f.sameAsPresent ? nextPresent : f.permanentAddress;
-      return { ...f, presentAddress: nextPresent, permanentAddress: nextPermanent };
+      const next = { ...f, [addrKey("present", field)]: val };
+      if (f.sameAsPresent) next[addrKey("permanent", field)] = val;
+      return next;
     });
   }
-  function handlePermanentChange(key, val) {
-    setForm(f => ({ ...f, permanentAddress: { ...(f.permanentAddress || emptyAddress()), [key]: val } }));
+  function handlePermanentChange(field, val) {
+    setForm(f => ({ ...f, [addrKey("permanent", field)]: val }));
   }
   function toggleSameAddress(e) {
     const checked = e.target.checked;
-    setForm(f => ({ ...f, sameAsPresent: checked, permanentAddress: checked ? f.presentAddress : f.permanentAddress }));
+    setForm(f => {
+      const next = { ...f, sameAsPresent: checked };
+      if (checked) ADDRESS_FIELDS.forEach(field => { next[addrKey("permanent", field)] = f[addrKey("present", field)]; });
+      return next;
+    });
   }
 
   // Single Save action: saves the record, confirms it actually persisted, then shows the
@@ -3319,13 +3364,10 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
     const saved = await onSave(form);
     setSaving(false);
     if (saved) {
-      setForm(normalizeDates(saved));
+      setForm(migrateAddressFields(normalizeDates(saved)));
       setShowPrint(true);
     }
   }
-
-  const present = form.presentAddress && typeof form.presentAddress === "object" ? form.presentAddress : emptyAddress();
-  const permanent = form.permanentAddress && typeof form.permanentAddress === "object" ? form.permanentAddress : emptyAddress();
 
   return (
     <Modal title={student.id ? "Edit Student" : "New Admission"} onClose={onClose} size="lg"
@@ -3374,13 +3416,13 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", marginBottom: 8 }}>Present Address</div>
         <div className="form-grid cols-3">
-          <Field label="C/O"><input type="text" value={present.co} onChange={(e) => handlePresentChange("co", e.target.value)} /></Field>
-          <Field label="Village"><input type="text" value={present.village} onChange={(e) => handlePresentChange("village", e.target.value)} /></Field>
-          <Field label="Union"><input type="text" value={present.union} onChange={(e) => handlePresentChange("union", e.target.value)} /></Field>
-          <Field label="Ward No"><input type="text" value={present.ward} onChange={(e) => handlePresentChange("ward", e.target.value)} /></Field>
-          <Field label="P/O"><input type="text" value={present.po} onChange={(e) => handlePresentChange("po", e.target.value)} /></Field>
-          <Field label="Upazila"><input type="text" value={present.upazila} onChange={(e) => handlePresentChange("upazila", e.target.value)} /></Field>
-          <Field label="District" span2><input type="text" value={present.district} onChange={(e) => handlePresentChange("district", e.target.value)} /></Field>
+          <Field label="C/O"><input type="text" value={form.presentCo} onChange={(e) => handlePresentChange("co", e.target.value)} /></Field>
+          <Field label="Village"><input type="text" value={form.presentVillage} onChange={(e) => handlePresentChange("village", e.target.value)} /></Field>
+          <Field label="Union"><input type="text" value={form.presentUnion} onChange={(e) => handlePresentChange("union", e.target.value)} /></Field>
+          <Field label="Ward No"><input type="text" value={form.presentWard} onChange={(e) => handlePresentChange("ward", e.target.value)} /></Field>
+          <Field label="P/O"><input type="text" value={form.presentPo} onChange={(e) => handlePresentChange("po", e.target.value)} /></Field>
+          <Field label="Upazila"><input type="text" value={form.presentUpazila} onChange={(e) => handlePresentChange("upazila", e.target.value)} /></Field>
+          <Field label="District" span2><input type="text" value={form.presentDistrict} onChange={(e) => handlePresentChange("district", e.target.value)} /></Field>
         </div>
       </div>
 
@@ -3392,13 +3434,13 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
           </label>
         </div>
         <div className="form-grid cols-3">
-          <Field label="C/O"><input type="text" value={permanent.co} onChange={(e) => handlePermanentChange("co", e.target.value)} disabled={form.sameAsPresent} /></Field>
-          <Field label="Village"><input type="text" value={permanent.village} onChange={(e) => handlePermanentChange("village", e.target.value)} disabled={form.sameAsPresent} /></Field>
-          <Field label="Union"><input type="text" value={permanent.union} onChange={(e) => handlePermanentChange("union", e.target.value)} disabled={form.sameAsPresent} /></Field>
-          <Field label="Ward No"><input type="text" value={permanent.ward} onChange={(e) => handlePermanentChange("ward", e.target.value)} disabled={form.sameAsPresent} /></Field>
-          <Field label="P/O"><input type="text" value={permanent.po} onChange={(e) => handlePermanentChange("po", e.target.value)} disabled={form.sameAsPresent} /></Field>
-          <Field label="Upazila"><input type="text" value={permanent.upazila} onChange={(e) => handlePermanentChange("upazila", e.target.value)} disabled={form.sameAsPresent} /></Field>
-          <Field label="District" span2><input type="text" value={permanent.district} onChange={(e) => handlePermanentChange("district", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="C/O"><input type="text" value={form.permanentCo} onChange={(e) => handlePermanentChange("co", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="Village"><input type="text" value={form.permanentVillage} onChange={(e) => handlePermanentChange("village", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="Union"><input type="text" value={form.permanentUnion} onChange={(e) => handlePermanentChange("union", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="Ward No"><input type="text" value={form.permanentWard} onChange={(e) => handlePermanentChange("ward", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="P/O"><input type="text" value={form.permanentPo} onChange={(e) => handlePermanentChange("po", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="Upazila"><input type="text" value={form.permanentUpazila} onChange={(e) => handlePermanentChange("upazila", e.target.value)} disabled={form.sameAsPresent} /></Field>
+          <Field label="District" span2><input type="text" value={form.permanentDistrict} onChange={(e) => handlePermanentChange("district", e.target.value)} disabled={form.sameAsPresent} /></Field>
         </div>
       </div>
 
@@ -5756,13 +5798,17 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
   // Exactly the fields the Settings form edits — sheetsUrl (and anything else on `config`) is
   // local-only connection config and must never be written into the Settings sheet as a column.
   const SETTINGS_SHEET_FIELDS = [
-    "schoolName", "instituteCode", "schoolAddress", "schoolEmail", "schoolPhones",
+    "schoolName", "instituteCode", "schoolAddress", "schoolEmail",
     "schoolLogo", "facebookUrl", "youtubeUrl", "cashierName", "cashierSignUrl",
     "principalName", "principalSignUrl",
   ];
   function toSheetRow(f) {
     const row = { id: "main" };
     SETTINGS_SHEET_FIELDS.forEach(k => { row[k] = f[k]; });
+    const phones = f.schoolPhones || [];
+    row.schoolPhone1 = phones[0] || "";
+    row.schoolPhone2 = phones[1] || "";
+    row.schoolPhone3 = phones[2] || "";
     return row;
   }
 
@@ -6060,7 +6106,11 @@ function AppShell() {
         const res = await SheetsAPI.list(config, "Settings");
         const row = (res.rows || []).find(r => r.id === "main");
         if (row) {
-          const merged = { ...config, ...row };
+          const hasFlatPhones = row.schoolPhone1 !== undefined || row.schoolPhone2 !== undefined || row.schoolPhone3 !== undefined;
+          const schoolPhones = hasFlatPhones
+            ? [row.schoolPhone1 || "", row.schoolPhone2 || "", row.schoolPhone3 || ""]
+            : (row.schoolPhones || config.schoolPhones);
+          const merged = { ...config, ...row, schoolPhones };
           setConfigState(merged);
           saveConfig(merged);
         }
