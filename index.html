@@ -412,18 +412,28 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-fields-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;margin-bottom:4px;}
 .adm-fields-grid .field-row{font-size:10.5px;padding:2px 0;}
 .msh-info-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:10px;}
-.msh-student-info{flex:1.3;min-width:0;display:grid;grid-template-columns:1fr 1fr;column-gap:14px;}
-.msh-student-info .field-row{font-size:10.5px;padding:2px 0;border-bottom:none;}
-.msh-grading{flex:1;max-width:200px;}
+.msh-student-info{flex:1.3;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.msh-pair-row{display:flex;gap:14px;}
+.msh-pair-row>div{flex:1;min-width:0;}
+.msh-student-info .field-row{padding:3px 0;border-bottom:none;}
+.msh-grading{flex:1;max-width:220px;}
 .msh-grading table{width:100%;}
-.msh-guardian-box{border:1px solid var(--ink);border-radius:4px;padding:8px 10px 40px;margin-top:10px;min-height:60px;}
+.msh-guardian-box{border:1px solid var(--ink);border-radius:4px;padding:8px 10px 60px;margin-top:10px;min-height:90px;}
 .msh-guardian-label{font-size:10.5px;font-weight:700;margin-bottom:4px;}
-.msh-bordered-table{width:100%;border-collapse:collapse;font-size:10px;margin:0 0 10px;}
-.msh-bordered-table th,.msh-bordered-table td{border:1px solid var(--ink);padding:4px 5px;}
-.msh-bordered-table thead th{text-transform:uppercase;letter-spacing:0.02em;font-size:9px;}
+.msh-bordered-table{width:100%;border-collapse:collapse;margin:0 0 10px;}
+.msh-bordered-table th,.msh-bordered-table td{border:1px solid var(--ink);padding:8px 6px;}
+.msh-bordered-table thead th{text-transform:uppercase;letter-spacing:0.02em;color:#000;}
+.msh-bordered-table tbody tr:last-child td{border-bottom:1px solid var(--ink);}
 .msh-bordered-table tbody tr.msh-gap-row td{border:none;padding:0;height:8px;}
 .msh-credit-outside{font-size:8.5px;color:var(--slate-soft);text-align:right;background:none;margin-top:4px;padding-top:4px;border-top:1px dashed var(--line);}
+.msh-bottom-block{margin-top:auto;}
 @media print{ .marksheet-page{max-height:297mm;overflow:hidden;} }
+/* Marksheet-only overrides (scoped to .marksheet-page so Admission Form / ID cards / other
+   documents sharing these same class names are left exactly as they were). */
+.marksheet-page .adm-header,.marksheet-page .adm-footer{background:#1f6e42;}
+.marksheet-page .adm-school-name{font-size:27px;}
+.marksheet-page .msh-student-info .field-row,
+.marksheet-page .msh-bordered-table{font-size:14px;}
 .adm-declaration{font-size:10.5px;line-height:1.5;color:var(--slate);margin:4px 0 6px;text-align:justify;}
 .adm-signatures{display:flex;justify-content:space-between;margin-top:22px;padding:0 6px;}
 .adm-sig{border-top:1px solid var(--ink);padding-top:4px;font-size:10px;text-align:center;width:170px;line-height:1.4;}
@@ -5526,23 +5536,19 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
     letter: g.letter, point: g.point.toFixed(2),
   }));
 
-  // Student info renders two fields per row (e.g. "Student ID  ·  Roll") — order here sets the pairing.
-  const infoPairs = [
-    ["Student ID", <span className="mono">{student.studentId}</span>],
-    ["Roll", student.roll],
-    ["Name", student.name],
-    ["Class", className],
-    ["Section", student.section],
-    ["Session", student.session || year],
-    ["Obtained", `${result.totalObtained} / ${result.totalFull}`],
-    ["Total Class", attendance ? (attendance.totalClass || "—") : "—"],
-    ["Main GPA", result.mainGpa.toFixed(2)],
-    ["Attend", attendance ? (attendance.attended || "—") : "—"],
-    ["Opt GPA", result.optGpa.toFixed(2)],
-    ...(rank !== undefined ? [["Rank", rank]] : []),
-    ["Final GPA", <strong>{result.finalGpa.toFixed(2)}</strong>],
-    ["Grade", <strong>{result.finalGrade}</strong>],
-  ];
+  // Student info renders two fields per row. Built as explicit rows (rather than one flat list
+  // auto-flowed into a grid) so Grade always ends up paired with Comment on the same row,
+  // regardless of whether Rank is present.
+  const infoRows = [
+    [["Student ID", <span className="mono">{student.studentId}</span>], ["Roll", student.roll]],
+    [["Name", student.name], ["Class", className]],
+    [["Section", student.section], ["Session", student.session || year]],
+    [["Obtained", `${result.totalObtained} / ${result.totalFull}`], ["Total Class", attendance ? (attendance.totalClass || "—") : "—"]],
+    [["Main GPA", result.mainGpa.toFixed(2)], ["Attend", attendance ? (attendance.attended || "—") : "—"]],
+    [["Opt GPA", result.optGpa.toFixed(2)], ["Final GPA", <strong>{result.finalGpa.toFixed(2)}</strong>]],
+    rank !== undefined ? [["Rank", rank]] : null,
+    [["Grade", <strong>{result.finalGrade}</strong>], ["Comment", autoComment(result)]],
+  ].filter(Boolean);
 
   const mainSubjects = result.subjectResults.filter(sr => sr.subject.category !== "Optional");
   const optSubjects = result.subjectResults.filter(sr => sr.subject.category === "Optional");
@@ -5581,15 +5587,19 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
         <hr className="adm-divider" />
       </div>
 
-      <div style={{ display: "flex", alignItems: "baseline", margin: "2px 0 10px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", margin: "2px 0 24px" }}>
         <div style={{ flex: 1 }} />
-        <div style={{ flex: 2, textAlign: "center", fontWeight: 700, fontSize: 13 }}>{examName} — {year}</div>
-        <div style={{ flex: 1, textAlign: "right", fontSize: 10.5 }}>Date: {today}</div>
+        <div style={{ flex: 2, textAlign: "center", fontWeight: 700, fontSize: 18 }}>{examName} — {year}</div>
+        <div style={{ flex: 1, textAlign: "right", fontSize: 14 }}>Date: {today}</div>
       </div>
 
       <div className="msh-info-row">
         <div className="msh-student-info">
-          {infoPairs.map(([label, value]) => <FieldRow key={label} name={label} value={value} />)}
+          {infoRows.map((pair, i) => (
+            <div className="msh-pair-row" key={i}>
+              {pair.map(([label, value]) => <div key={label}><FieldRow name={label} value={value} /></div>)}
+            </div>
+          ))}
         </div>
         <div className="msh-grading">
           <table className="msh-bordered-table">
@@ -5606,7 +5616,6 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
           </table>
         </div>
       </div>
-      <div style={{ margin: "0 0 8px" }}><FieldRow name="Comment" value={autoComment(result)} /></div>
 
       <table className="msh-bordered-table">
         <thead>
@@ -5632,18 +5641,23 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
         <div className="msh-guardian-label">Guardian's Comment</div>
       </div>
 
-      <div className="adm-signatures" style={{ marginTop: 44 }}>
-        <div className="adm-sig">Class Teacher</div>
-        <div className="adm-sig">
-          {config.principalSignUrl && <img src={config.principalSignUrl} alt="" className="adm-sig-img" />}
-          Principal{config.principalName ? <><br />{config.principalName}</> : null}
+      {/* Pinned to the bottom of the page (margin-top:auto inside the page's flex column) so the
+          signature line always sits a small fixed gap above the footer, and the footer itself
+          always sits flush at the very bottom — no leftover blank space below it. */}
+      <div className="msh-bottom-block">
+        <div className="adm-signatures" style={{ marginTop: 0, marginBottom: 14 }}>
+          <div className="adm-sig">Class Teacher</div>
+          <div className="adm-sig">
+            {config.principalSignUrl && <img src={config.principalSignUrl} alt="" className="adm-sig-img" />}
+            Principal{config.principalName ? <><br />{config.principalName}</> : null}
+          </div>
         </div>
-      </div>
 
-      <div className="adm-footer">
-        <div className="adm-slogan">Education is the backbone of a nation — building an enlightened generation</div>
+        <div className="adm-footer">
+          <div className="adm-slogan">Education is the backbone of a nation — building an enlightened generation</div>
+        </div>
+        <div className="msh-credit-outside">@Poweredby: AM Shahed: 01605721296</div>
       </div>
-      <div className="msh-credit-outside">@Poweredby: AM Shahed: 01605721296</div>
     </div>
   );
 }
