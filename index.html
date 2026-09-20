@@ -902,9 +902,11 @@ const Icon = {
   students: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M22 10L12 5 2 10l10 5 10-5Z"/><path d="M6 12.5V17c0 1.5 3 3 6 3s6-1.5 6-3v-4.5"/></svg>,
   teachers: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>,
   finance: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5a2.5 2.5 0 0 1 2.5-1.5c1.5 0 2.5.8 2.5 2s-1 1.5-2.5 2-2.5.8-2.5 2 1 2 2.5 2a2.5 2.5 0 0 0 2.5-1.5"/></svg>,
+  zakat: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M15 4a7 7 0 1 0 5 11.9A7 7 0 0 1 15 4Z"/><circle cx="18" cy="17" r="3.2"/><path d="M18 15.6v2.8M16.8 17h2.4"/></svg>,
   due: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>,
   fee: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M20 6H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1Z"/><path d="M3 10h18M7 15h4"/></svg>,
   committee: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.6"/><path d="M2 20c0-3 2.7-5 6-5s6 2 6 5M14.5 15.2c2.7.3 4.5 2 4.5 4.8"/></svg>,
+  notice: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M3 11v2a2 2 0 0 0 2 2h1l3 4v-4h7a2 2 0 0 0 2-2v-2"/><path d="M3 11 15 5v10L3 11Z"/><path d="M19 5a4 4 0 0 1 0 8"/></svg>,
   reports: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M4 19V5a1 1 0 0 1 1-1h9l6 6v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/><path d="M14 4v5a1 1 0 0 0 1 1h5M8 13h8M8 16.5h5"/></svg>,
   settings: (p)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.32.5.7 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>,
   plus: (p)=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" {...p}><path d="M12 5v14M5 12h14"/></svg>,
@@ -931,7 +933,7 @@ function IconWrap({ name, ...rest }) {
    DATA STORE — central hook wrapping Google Sheets as DB
    Collections: students, teachers, finance, fees, committee, seatplans
    ========================================================= */
-const COLLECTIONS = ["students", "teachers", "finance", "fees", "committee", "seatplans", "invoices", "promotions", "classHistories", "activations", "subjects", "marks", "attendance"];
+const COLLECTIONS = ["students", "teachers", "finance", "zakat", "fees", "committee", "notices", "seatplans", "invoices", "promotions", "classHistories", "activations", "subjects", "marks", "attendance"];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -955,7 +957,7 @@ function saveCachedData(sheetsUrl, data) {
   try { localStorage.setItem(DATA_CACHE_PREFIX + sheetsUrl, JSON.stringify(data)); } catch (e) {}
 }
 
-const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], fees: [], committee: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [], attendance: [] };
+const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], zakat: [], fees: [], committee: [], notices: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [], attendance: [] };
 
 function useDataStore(config) {
   const cached = loadCachedData(config.sheetsUrl);
@@ -1040,8 +1042,10 @@ const SHEET_MAP = {
   students: "Students",
   teachers: "Teachers",
   finance: "Finance",
+  zakat: "Zakat",
   fees: "MasterFees",
   committee: "Committee",
+  notices: "Notices",
   seatplans: "SeatPlans",
   invoices: "Invoice",
   promotions: "Promotion",
@@ -1375,13 +1379,20 @@ function gradeFromPoint(pt) {
 
 // A "Main Elective" subject has two mark boxes (MCQ + CQ, summing to its full marks); every
 // other category has just one. These two helpers keep that rule in exactly one place.
-function subjectFullMarks(subject) {
+// "1st Model Examination" etc. vs "1st Semester Examination" etc. — detected by name so no
+// separate Exam Type field is needed; Model exams use ONE full-marks value for every subject
+// in the class (set once per Subject Setup group) instead of each subject's own Semester marks.
+function isModelExam(examName) {
+  return /model/i.test(examName || "");
+}
+function subjectFullMarks(subject, isModel, modelExamMarks) {
+  if (isModel) return Number(modelExamMarks) || 50;
   return subject.category === "Main Elective"
     ? (Number(subject.mcq) || 0) + (Number(subject.cq) || 0)
     : (Number(subject.marks) || 100);
 }
-function subjectObtainedMarks(subject, cell) {
-  if (subject.category === "Main Elective") {
+function subjectObtainedMarks(subject, cell, isModel) {
+  if (!isModel && subject.category === "Main Elective") {
     const c = cell || {};
     return (Number(c.mcq) || 0) + (Number(c.cq) || 0);
   }
@@ -1396,16 +1407,22 @@ function getClassSubjects(subjectGroups, className, year) {
   if (!group) return [];
   return (group.rows || []).map((r, i) => ({ ...r, id: `${group.id}-${i}` }));
 }
+// The Model Exam's single full-marks value lives on the Subject Setup group itself (one value
+// for the whole class, not per subject) — defaults to 50 for groups saved before this existed.
+function getModelExamMarks(subjectGroups, className, year) {
+  const group = (subjectGroups || []).find(g => g.className === className && String(g.year) === String(year));
+  return (group && Number(group.modelExamMarks)) || 50;
+}
 
 // Computes one student's overall result for a Class+Year+Exam from their entered marks and
 // that class's subject list. Follows the standard Bangladesh-board convention: an F in any
 // Main subject fails the whole result; an Optional ("4th") subject only ever ADDS bonus GPA
 // points (the portion of its grade point above 2.0) — it never fails the student.
-function computeStudentResult(marksRow, subjects) {
+function computeStudentResult(marksRow, subjects, isModel, modelExamMarks) {
   const marks = (marksRow && marksRow.marks) || {};
   const subjectResults = subjects.map(s => {
-    const obtained = subjectObtainedMarks(s, marks[s.id]);
-    const full = subjectFullMarks(s);
+    const obtained = subjectObtainedMarks(s, marks[s.id], isModel);
+    const full = subjectFullMarks(s, isModel, modelExamMarks);
     return { subject: s, obtained, full, grade: gradeFromMarks(obtained, full) };
   });
   const mainResults = subjectResults.filter(r => r.subject.category !== "Optional");
@@ -1858,6 +1875,7 @@ function withinRange(dateStr, range) {
   if (range === "yearly") {
     return d.getFullYear() === now.getFullYear();
   }
+  if (range === "total") return true;
   return true;
 }
 
@@ -1999,13 +2017,13 @@ function generateInvoiceNo(existingInvoices) {
 
 // Auto-numbers Finance documents — "INV-0001", "INV-0002"… for Invoices (income) and
 // "EXP-0001", "EXP-0002"… for Expense Vouchers — each series counted independently.
-function generateFinanceDocNo(financeList, type) {
-  const prefix = type === "income" ? "INV" : "EXP";
+function generateFinanceDocNo(financeList, type, prefixOverride) {
+  const prefix = prefixOverride || (type === "income" ? "INV" : "EXP");
   const nums = (financeList || [])
     .filter(f => f.type === type)
     .map(f => f.docNo || "")
     .filter(id => id.startsWith(prefix + "-"))
-    .map(id => parseInt(id.split("-")[1], 10))
+    .map(id => parseInt(id.split("-").pop(), 10))
     .filter(n => !isNaN(n));
   const next = (nums.length ? Math.max(...nums) : 0) + 1;
   return `${prefix}-${String(next).padStart(4, "0")}`;
@@ -4097,6 +4115,108 @@ const emptyFinance = (type, financeList) => {
   };
 };
 
+const emptyZakat = (type, zakatList) => {
+  if (type === "income") {
+    const docNo = generateFinanceDocNo(zakatList, "income", "ZKT-INV");
+    return {
+      id: docNo, type: "income", docNo,
+      date: new Date().toISOString().slice(0, 10),
+      provider: "",
+      rows: [emptyFinanceRow("text")],
+    };
+  }
+  const docNo = generateFinanceDocNo(zakatList, "expense", "ZKT-EXP");
+  return {
+    id: docNo, type: "expense", docNo,
+    date: new Date().toISOString().slice(0, 10),
+    spender: "",
+    rows: [emptyFinanceRow("select")],
+    paid: "",
+  };
+};
+
+// Completely separate from regular Finance: its own collection/sheet, its own ZKT- numbering
+// series, and its own running Fund balance (Jakat income adds to the fund, Jakat expense
+// subtracts from it) — reuses the exact same Invoice/Expense Voucher form & print layouts as
+// regular Finance via the docPrefix/title/noLabel/docTitle override props.
+function ZakatModule({ data, save, remove, config, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "income");
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
+  const [editing, setEditing] = useState(null);
+  const [docTarget, setDocTarget] = useState(null);
+  const zakat = data.zakat || [];
+  const list = zakat.filter(f => f.type === tab).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const isIncome = tab === "income";
+
+  const fundIncome = sumBy(zakat.filter(f => f.type === "income"), f => f.amount);
+  const fundExpense = sumBy(zakat.filter(f => f.type === "expense"), f => f.amount);
+  const fundBalance = fundIncome - fundExpense;
+
+  return (
+    <div>
+      <div className="section-actions">
+        <button className="btn btn-primary" onClick={() => setEditing(emptyZakat(tab, zakat))}><Icon.plus />New {isIncome ? "Jakat Invoice" : "Jakat Expense"}</button>
+      </div>
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="kv-row"><span className="k">Total Jakat Collected</span><span className="v">৳{money(fundIncome)}</span></div>
+        <div className="kv-row"><span className="k">Total Jakat Distributed</span><span className="v">৳{money(fundExpense)}</span></div>
+        <div className="kv-row"><span className="k">Jakat Fund Balance</span><span className="v" style={{ fontWeight: 700, color: fundBalance >= 0 ? "var(--moss)" : "var(--red)" }}>৳{money(fundBalance)}</span></div>
+      </div>
+
+      <div className="card card-flush">
+        {list.length === 0 ? <EmptyState title={`No ${isIncome ? "Jakat invoices" : "Jakat expenses"} yet`} sub="Add a new entry to get started." /> : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                {isIncome ? (
+                  <tr><th>Jakat Invoice No</th><th>Date</th><th>Provider</th><th style={{ textAlign: "right" }}>Amount</th><th></th></tr>
+                ) : (
+                  <tr><th>Jakat Expense No</th><th>Date</th><th>Spender</th><th style={{ textAlign: "right" }}>Subtotal</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th></th></tr>
+                )}
+              </thead>
+              <tbody>
+                {list.map(f => (
+                  <tr key={f.id}>
+                    <td className="mono">{f.docNo || "—"}</td>
+                    <td>{fmtDate(f.date)}</td>
+                    <td>{isIncome ? (f.provider || "—") : (f.spender || "—")}</td>
+                    {isIncome ? (
+                      <td className="mono" style={{ textAlign: "right" }}>৳{money(f.amount)}</td>
+                    ) : (
+                      <>
+                        <td className="mono" style={{ textAlign: "right" }}>৳{money(f.subtotal != null ? f.subtotal : f.amount)}</td>
+                        <td className="mono" style={{ textAlign: "right" }}>৳{money(f.paid)}</td>
+                        <td className="mono" style={{ textAlign: "right", color: Number(f.due) > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(f.due)}</td>
+                      </>
+                    )}
+                    <td>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...f, rows: (f.rows && f.rows.length ? f.rows : [emptyFinanceRow(isIncome ? "text" : "select")]) })}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setDocTarget(f)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this record?")) remove("zakat", f.id); }}><Icon.trash /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {editing && (isIncome
+        ? <InvoiceFormModal record={editing} financeList={zakat} onClose={() => setEditing(null)} onSave={async (r) => { await save("zakat", r); setEditing(null); }} docPrefix="ZKT-INV" title="Jakat Invoice" noLabel="Jakat Invoice No" />
+        : <ExpenseFormModal record={editing} financeList={zakat} onClose={() => setEditing(null)} onSave={async (r) => { await save("zakat", r); setEditing(null); }} docPrefix="ZKT-EXP" title="Jakat Expense" noLabel="Jakat Expense No" />
+      )}
+      {docTarget && (docTarget.type === "income"
+        ? <InvoiceDocModal record={docTarget} config={config} onClose={() => setDocTarget(null)} docTitle="Jakat Invoice" noLabel="Jakat Invoice No" />
+        : <ExpenseDocModal record={docTarget} config={config} onClose={() => setDocTarget(null)} docTitle="Jakat Expense" noLabel="Jakat Expense No" />
+      )}
+    </div>
+  );
+}
+
 function FinanceModule({ data, save, remove, config, initialTab }) {
   const [tab, setTab] = useState(initialTab || "income");
   useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
@@ -4213,7 +4333,7 @@ function FinanceItemRows({ rows, onChange, descriptionMode }) {
   );
 }
 
-function InvoiceFormModal({ record, financeList, onClose, onSave }) {
+function InvoiceFormModal({ record, financeList, onClose, onSave, docPrefix, title, noLabel }) {
   const [form, setForm] = useState(record);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const subtotal = sumBy(form.rows, r => r.amount);
@@ -4221,15 +4341,15 @@ function InvoiceFormModal({ record, financeList, onClose, onSave }) {
   function handleSave() {
     const rows = form.rows.filter(r => str(r.description).trim() || Number(r.amount) > 0);
     if (rows.length === 0) { alert("Add at least one item row."); return; }
-    const docNo = form.docNo || generateFinanceDocNo(financeList, "income");
+    const docNo = form.docNo || generateFinanceDocNo(financeList, "income", docPrefix);
     onSave({ ...form, rows, docNo, amount: sumBy(rows, r => r.amount), head: "Invoice" });
   }
 
   return (
-    <Modal title="Invoice" onClose={onClose}
+    <Modal title={title || "Invoice"} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>}>
       <div className="form-grid" style={{ marginBottom: 18 }}>
-        <Field label="Invoice No"><input type="text" className="mono" value={form.docNo} readOnly /></Field>
+        <Field label={noLabel || "Invoice No"}><input type="text" className="mono" value={form.docNo} readOnly /></Field>
         <Field label="Date"><input type="date" value={(form.date || "").slice(0, 10)} onChange={set("date")} /></Field>
         <Field label="Provider" span2><input type="text" value={form.provider} onChange={set("provider")} placeholder="Name of the provider" /></Field>
       </div>
@@ -4246,7 +4366,7 @@ function InvoiceFormModal({ record, financeList, onClose, onSave }) {
   );
 }
 
-function ExpenseFormModal({ record, financeList, onClose, onSave }) {
+function ExpenseFormModal({ record, financeList, onClose, onSave, docPrefix, title, noLabel }) {
   const [form, setForm] = useState(record);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const subtotal = sumBy(form.rows, r => r.amount);
@@ -4257,17 +4377,17 @@ function ExpenseFormModal({ record, financeList, onClose, onSave }) {
     const rows = form.rows.filter(r => str(r.description).trim() || Number(r.amount) > 0);
     if (rows.length === 0) { alert("Add at least one item row."); return; }
     const sub = sumBy(rows, r => r.amount);
-    const docNo = form.docNo || generateFinanceDocNo(financeList, "expense");
+    const docNo = form.docNo || generateFinanceDocNo(financeList, "expense", docPrefix);
     const uniqueDesc = [...new Set(rows.map(r => r.description).filter(Boolean))];
     const head = uniqueDesc.length === 1 ? uniqueDesc[0] : (uniqueDesc.length > 1 ? "Mixed" : "Expense");
     onSave({ ...form, rows, docNo, subtotal: sub, paid: form.paid, due: Math.max(0, sub - (Number(form.paid) || 0)), amount: sub, head });
   }
 
   return (
-    <Modal title="Expense Voucher" onClose={onClose}
+    <Modal title={title || "Expense Voucher"} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>}>
       <div className="form-grid" style={{ marginBottom: 18 }}>
-        <Field label="Voucher No"><input type="text" className="mono" value={form.docNo} readOnly /></Field>
+        <Field label={noLabel || "Voucher No"}><input type="text" className="mono" value={form.docNo} readOnly /></Field>
         <Field label="Date"><input type="date" value={(form.date || "").slice(0, 10)} onChange={set("date")} /></Field>
         <Field label="Spender" span2><input type="text" value={form.spender} onChange={set("spender")} placeholder="Who is spending / requesting" /></Field>
       </div>
@@ -4313,18 +4433,18 @@ function FinanceDocHeader({ config, docTitle }) {
   );
 }
 
-function InvoiceDocModal({ record, config, onClose }) {
+function InvoiceDocModal({ record, config, onClose, docTitle, noLabel }) {
   usePrintChrome({ hideWatermark: true, hideFooter: true });
   const rows = record.rows || [];
   const subtotal = sumBy(rows, r => r.amount);
   return (
-    <DocShell title={`Invoice — ${record.docNo || ""}`} onClose={onClose}>
+    <DocShell title={`${docTitle || "Invoice"} — ${record.docNo || ""}`} onClose={onClose}>
       <div className="doc-preview invoice-doc-print">
         {config.schoolLogo && <div className="inv-watermark"><img src={config.schoolLogo} alt="" /></div>}
-        <FinanceDocHeader config={config} docTitle="INVOICE" />
+        <FinanceDocHeader config={config} docTitle={(docTitle || "Invoice").toUpperCase()} />
 
         <div className="inv-meta-grid">
-          <FieldRow name="Invoice No" value={<span className="mono">{record.docNo}</span>} />
+          <FieldRow name={noLabel || "Invoice No"} value={<span className="mono">{record.docNo}</span>} />
           <FieldRow name="Date" value={fmtDate(record.date)} />
           <FieldRow name="Provider" value={record.provider || "—"} />
         </div>
@@ -4355,20 +4475,20 @@ function InvoiceDocModal({ record, config, onClose }) {
   );
 }
 
-function ExpenseDocModal({ record, config, onClose }) {
+function ExpenseDocModal({ record, config, onClose, docTitle, noLabel }) {
   usePrintChrome({ hideWatermark: true, hideFooter: true });
   const rows = record.rows || [];
   const subtotal = record.subtotal != null ? Number(record.subtotal) : sumBy(rows, r => r.amount);
   const paid = Number(record.paid) || 0;
   const due = record.due != null ? Number(record.due) : Math.max(0, subtotal - paid);
   return (
-    <DocShell title={`Expense Voucher — ${record.docNo || ""}`} onClose={onClose}>
+    <DocShell title={`${docTitle || "Expense Voucher"} — ${record.docNo || ""}`} onClose={onClose}>
       <div className="doc-preview invoice-doc-print">
         {config.schoolLogo && <div className="inv-watermark"><img src={config.schoolLogo} alt="" /></div>}
-        <FinanceDocHeader config={config} docTitle="EXPENSE VOUCHER" />
+        <FinanceDocHeader config={config} docTitle={(docTitle || "Expense Voucher").toUpperCase()} />
 
         <div className="inv-meta-grid">
-          <FieldRow name="Voucher No" value={<span className="mono">{record.docNo}</span>} />
+          <FieldRow name={noLabel || "Voucher No"} value={<span className="mono">{record.docNo}</span>} />
           <FieldRow name="Date" value={fmtDate(record.date)} />
           <FieldRow name="Spender" value={record.spender || "—"} />
         </div>
@@ -4910,6 +5030,93 @@ function CommitteeFormModal({ committee, onClose, onSave }) {
   );
 }
 
+function emptyNotice(config) {
+  return {
+    id: null,
+    date: new Date().toISOString().slice(0, 10),
+    title: "", details: "",
+    signatoryName: (config && config.principalName) || "",
+    signatoryDesignation: "Principal",
+  };
+}
+
+// Read-only list (Title + Date) — clicking a row opens the full notice with a Print button.
+// Notices themselves are only ever created/edited from Settings → Notice (see SettingsModule).
+function NoticeModule({ data, config }) {
+  const notices = (data.notices || []).slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const [viewing, setViewing] = useState(null);
+  return (
+    <div>
+      <div className="card card-flush">
+        {notices.length === 0 ? (
+          <EmptyState title="No notices published yet" sub="Go to Settings → Notice to publish one." />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th style={{ textAlign: "left" }}>Title</th><th>Date</th></tr></thead>
+              <tbody>
+                {notices.map(n => (
+                  <tr key={n.id} style={{ cursor: "pointer" }} onClick={() => setViewing(n)}>
+                    <td style={{ textAlign: "left", fontWeight: 600 }}>{n.title || "Untitled"}</td>
+                    <td>{fmtDate(n.date)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {viewing && <NoticeViewModal notice={viewing} config={config} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+function NoticeViewModal({ notice, config, onClose }) {
+  const phone = (config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "";
+  return (
+    <DocShell title={notice.title || "Notice"} onClose={onClose}>
+      <div className="doc-preview">
+        <PrintDocHead config={config} headline="NOTICE" />
+        <div style={{ textAlign: "right", fontSize: 12, color: "var(--slate-soft)", marginBottom: 4 }}>Date: {fmtDate(notice.date)}</div>
+        <h3 style={{ fontSize: 16, fontWeight: 700, textAlign: "center", margin: "6px 0 16px", textDecoration: "underline" }}>{notice.title}</h3>
+        <div style={{ fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", textAlign: "justify", minHeight: 120 }}>{notice.details}</div>
+        <div style={{ marginTop: 50, textAlign: "right" }}>
+          <div style={{ display: "inline-block", textAlign: "center", borderTop: "1px solid var(--ink)", paddingTop: 6, minWidth: 200 }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{notice.signatoryName || "—"}</div>
+            <div style={{ fontSize: 12 }}>{notice.signatoryDesignation || "Principal"}</div>
+            {phone && <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>Mobile: {phone}</div>}
+          </div>
+        </div>
+      </div>
+    </DocShell>
+  );
+}
+
+// Opened only via a button (Settings → Notice → New/Edit) per the "forms live behind a button"
+// convention used across the app. Mobile is never a form field — it always mirrors the current
+// Settings phone number automatically, so it can't go stale on an old notice.
+function NoticeFormModal({ notice, config, onClose, onSave }) {
+  const [form, setForm] = useState(notice);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const phone = (config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "";
+  return (
+    <Modal title={notice.id ? "Edit Notice" : "New Notice"} onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save Notice</button></>}>
+      <div className="form-grid" style={{ marginBottom: 16 }}>
+        <Field label="Date"><input type="date" value={(form.date || "").slice(0, 10)} onChange={set("date")} /></Field>
+        <Field label="Title" span2><input type="text" value={form.title} onChange={set("title")} placeholder="Notice title" /></Field>
+        <Field label="Details" span2><textarea rows={8} value={form.details} onChange={set("details")} placeholder="Full notice text…" /></Field>
+      </div>
+      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)", display: "block", marginBottom: 8 }}>Signature</label>
+      <div className="form-grid cols-3">
+        <Field label="Name"><input type="text" value={form.signatoryName} onChange={set("signatoryName")} /></Field>
+        <Field label="Designation"><input type="text" value={form.signatoryDesignation} onChange={set("signatoryDesignation")} placeholder="Principal" /></Field>
+        <Field label="Mobile No" hint="auto from Settings"><input type="text" value={phone} readOnly style={{ background: "var(--paper)" }} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
 /* =========================================================
    RESULT MODULE — Subject Setup, Marks Entry, Result, Marksheet
    ========================================================= */
@@ -4935,7 +5142,7 @@ function emptySubjectRow(category) {
   return { code: "", name: "", category: category || SUBJECT_CATEGORIES[0], marks: 100, mcq: "", cq: "" };
 }
 function emptySubjectGroup() {
-  return { id: null, year: String(CURRENT_YEAR), className: CLASSES[0], quantity: 1, rows: [emptySubjectRow()] };
+  return { id: null, year: String(CURRENT_YEAR), className: CLASSES[0], quantity: 1, modelExamMarks: 50, rows: [emptySubjectRow()] };
 }
 
 function SubjectSetupTab({ data, save, remove, config }) {
@@ -4969,13 +5176,14 @@ function SubjectSetupTab({ data, save, remove, config }) {
         {filtered.length === 0 ? <EmptyState title="No subjects yet" sub="Add a subject to start building the class subject list." /> : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Year</th><th>Class</th><th>Subjects</th><th style={{ textAlign: "left" }}>Subject Names</th><th></th></tr></thead>
+              <thead><tr><th>Year</th><th>Class</th><th>Subjects</th><th>Model Marks</th><th style={{ textAlign: "left" }}>Subject Names</th><th></th></tr></thead>
               <tbody>
                 {filtered.map(g => (
                   <tr key={g.id}>
                     <td>{g.year}</td>
                     <td>{g.className}</td>
                     <td>{(g.rows || []).length}</td>
+                    <td>{g.modelExamMarks || 50}</td>
                     <td>{(g.rows || []).map(r => r.name).filter(Boolean).join(", ") || "—"}</td>
                     <td>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
@@ -5072,6 +5280,9 @@ function SubjectGroupFormModal({ record, onClose, onSave }) {
         <Field label="Year"><input type="number" value={form.year} onChange={set("year")} /></Field>
         <Field label="Class"><select value={form.className} onChange={set("className")}>{CLASSES.map(c => <option key={c}>{c}</option>)}</select></Field>
         <Field label="Subject Quantity"><input type="number" min="1" max="40" value={form.rows.length} onChange={(e) => setQuantity(e.target.value)} /></Field>
+        <Field label="Model Exam Full Marks" hint="applies to every subject for any 'Model' exam — Semester exams keep each subject's own marks below">
+          <input type="number" min="1" value={form.modelExamMarks || ""} onChange={set("modelExamMarks")} placeholder="e.g. 50" />
+        </Field>
       </div>
       <SubjectRows rows={form.rows} onChange={(rows) => setForm({ ...form, rows })} />
     </Modal>
@@ -5087,6 +5298,7 @@ function SubjectListDocModal({ group, config, onClose }) {
           {config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 40, marginBottom: 6 }} />}
           <div style={{ fontFamily: "'Fraunces',serif", fontSize: 17, fontWeight: 600 }}>{config.schoolName || "School Name"}</div>
           <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Class Subject List — {group.className} ({group.year})</div>
+          <div style={{ fontSize: 11, color: "var(--slate-soft)", marginTop: 3 }}>Model Exam Full Marks (all subjects): {group.modelExamMarks || 50}</div>
         </div>
         <table className="inv-fee-table">
           <thead><tr><th style={{ textAlign: "center" }}>Code</th><th style={{ textAlign: "center" }}>Subject Name</th><th style={{ textAlign: "center" }}>Category</th><th style={{ textAlign: "center" }}>Marks</th></tr></thead>
@@ -5125,6 +5337,8 @@ function MarksEntryTab({ data, save, config }) {
   // Every currently-enrolled student for this class comes from the Promotion sheet (via
   // studentsInClassYear, which reads Promotion first and falls back to archived history).
   const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
+  const isModel = isModelExam(examName);
+  const modelExamMarks = getModelExamMarks(subjectGroups, className, year);
 
   function loadGrid() {
     const existing = {};
@@ -5197,7 +5411,7 @@ function MarksEntryTab({ data, save, config }) {
                         <div className="mono">{s.code || "—"}</div>
                         <div>{s.name}</div>
                         <span style={{ fontWeight: 400, fontSize: 10 }}>
-                          {s.category === "Main Elective" ? `MCQ/${s.mcq || 0} + CQ/${s.cq || 0}` : `Mark /${s.marks}`}
+                          {isModel ? `Mark /${modelExamMarks}` : (s.category === "Main Elective" ? `MCQ/${s.mcq || 0} + CQ/${s.cq || 0}` : `Mark /${s.marks}`)}
                         </span>
                       </th>
                     ))}
@@ -5212,7 +5426,7 @@ function MarksEntryTab({ data, save, config }) {
                       <td>{s.section}</td>
                       {classSubjects.map(sub => (
                         <td key={sub.id}>
-                          {sub.category === "Main Elective" ? (
+                          {!isModel && sub.category === "Main Elective" ? (
                             <div style={{ display: "flex", gap: 3 }}>
                               <input type="number" min="0" max={sub.mcq}
                                 style={{ width: 46, padding: "5px 4px", border: "1px solid var(--line)", borderRadius: 6, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace" }}
@@ -5226,7 +5440,7 @@ function MarksEntryTab({ data, save, config }) {
                                 onChange={(e) => setCellPart(s.id, sub.id, "cq", e.target.value)} />
                             </div>
                           ) : (
-                            <input type="number" min="0" max={sub.marks}
+                            <input type="number" min="0" max={isModel ? modelExamMarks : sub.marks}
                               style={{ width: 64, padding: "5px 6px", border: "1px solid var(--line)", borderRadius: 6, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace" }}
                               value={(grid[s.id] && grid[s.id][sub.id]) ?? ""}
                               onChange={(e) => setCell(s.id, sub.id, e.target.value)} />
@@ -5367,11 +5581,13 @@ function ResultTab({ data, config }) {
 
   const classSubjects = getClassSubjects(subjectGroups, className, year);
   const classStudents = studentsInClassYear(students, promotions, classHistories, className, year);
+  const isModel = isModelExam(examName);
+  const modelExamMarks = getModelExamMarks(subjectGroups, className, year);
 
   const results = rankResults(classStudents.map(s => {
     const row = marksRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.studentId === s.id);
     const attendance = attendanceFor(attendanceRows, className, year, examName, s.id);
-    return { student: s, result: computeStudentResult(row, classSubjects), attendance };
+    return { student: s, result: computeStudentResult(row, classSubjects, isModel, modelExamMarks), attendance };
   }));
 
   const ready = className && classSubjects.length > 0 && classStudents.length > 0;
@@ -5513,7 +5729,7 @@ function MarksheetTab({ data, config }) {
 
   function resultFor(student) {
     const row = marksRows.find(r => r.className === className && String(r.year) === String(year) && r.examName === examName && r.studentId === student.id);
-    return computeStudentResult(row, classSubjects);
+    return computeStudentResult(row, classSubjects, isModelExam(examName), getModelExamMarks(subjectGroups, className, year));
   }
   function attendanceForStudent(student) {
     return attendanceFor(attendanceRows, className, year, examName, student.id);
@@ -5707,66 +5923,82 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
 /* =========================================================
    REPORTS MODULE
    ========================================================= */
-function ReportsModule({ data }) {
+const REPORT_RANGES = [
+  { key: "daily", label: "Daily" },
+  { key: "monthly", label: "Monthly" },
+  { key: "yearly", label: "Yearly" },
+  { key: "total", label: "Total" },
+];
+
+function ReportsModule({ data, config }) {
   const [range, setRange] = useState("monthly");
   const finance = data.finance || [];
-  const students = data.students || [];
-  const teachers = data.teachers || [];
-  const invoices = data.invoices || [];
-  const promotions = data.promotions || [];
-  const classHistories = data.classHistories || [];
-  const activations = data.activations || [];
-  const feeRules = (data.fees || []).filter(f => f.kind === "class");
-  const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
+  const rangeLabel = (REPORT_RANGES.find(r => r.key === range) || {}).label || range;
 
   const filtered = finance.filter(f => withinRange(f.date, range));
   const income = sumBy(filtered.filter(f => f.type === "income"), f => f.amount);
   const expense = sumBy(filtered.filter(f => f.type === "expense"), f => f.amount);
   const net = income - expense;
 
-  const studentDueTotal = sumBy(students, s => studentDueFromRules(s, feeRules, invoices, promotions, classHistories, activations));
-  const teacherDueTotal = sumBy(teachers, t => teacherDueFromRules(t, teacherFeeRules));
+  // Current surplus/deficit and current cash are the running, all-time position — actual cash
+  // in hand doesn't reset just because a Daily/Monthly/Yearly report is being viewed.
+  const allTimeIncome = sumBy(finance.filter(f => f.type === "income"), f => f.amount);
+  const allTimeExpense = sumBy(finance.filter(f => f.type === "expense"), f => f.amount);
+  const currentCash = allTimeIncome - allTimeExpense;
 
   const headBreakdown = {};
   filtered.forEach(f => {
     const key = `${f.type}:${f.head}`;
     headBreakdown[key] = (headBreakdown[key] || 0) + (Number(f.amount) || 0);
   });
+  const headRows = Object.entries(headBreakdown)
+    .map(([key, val]) => { const [type, head] = key.split(":"); return { type, head, val }; })
+    .sort((a, b) => (a.type === b.type ? b.val - a.val : (a.type === "income" ? -1 : 1)));
 
   return (
     <div>
+      <div className="section-actions no-print">
+        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Report</button>
+      </div>
+
       <div className="chip-row no-print" style={{ marginBottom: 18 }}>
-        {["daily","monthly","yearly"].map(r => (
-          <button key={r} className={`chip ${range === r ? "active" : ""}`} onClick={() => setRange(r)} style={{ textTransform: "capitalize" }}>{r}</button>
+        {REPORT_RANGES.map(r => (
+          <button key={r.key} className={`chip ${range === r.key ? "active" : ""}`} onClick={() => setRange(r.key)}>{r.label}</button>
         ))}
       </div>
 
-      <div className="grid grid-3" style={{ marginBottom: 20 }}>
-        <StatCard label={`${range} Income`} value={"৳"+money(income)} accent="var(--moss)" />
-        <StatCard label={`${range} Expense`} value={"৳"+money(expense)} accent="var(--red)" />
-        <StatCard label="Net Balance" value={"৳"+money(net)} sub={net >= 0 ? "Surplus" : "Deficit"} accent={net >= 0 ? "var(--gold)" : "var(--red)"} />
+      <PrintDocHead config={config} headline={`${rangeLabel} Financial Report`} />
+
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th style={{ textAlign: "left" }}>Head</th><th>Type</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
+          <tbody>
+            {headRows.length === 0 ? (
+              <tr><td colSpan={3}><EmptyState title="No transactions in this range" sub="Add finance entries to see a breakdown." /></td></tr>
+            ) : headRows.map(r => (
+              <tr key={r.type + r.head}>
+                <td style={{ textAlign: "left" }}>{r.head}</td>
+                <td><span className={`badge ${r.type === "income" ? "badge-green" : "badge-red"}`}>{r.type}</span></td>
+                <td className="mono" style={{ textAlign: "right" }}>৳{money(r.val)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr><td style={{ textAlign: "left", fontWeight: 700 }}>Total Income ({rangeLabel})</td><td></td><td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>৳{money(income)}</td></tr>
+            <tr><td style={{ textAlign: "left", fontWeight: 700 }}>Total Expense ({rangeLabel})</td><td></td><td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>৳{money(expense)}</td></tr>
+            <tr><td style={{ textAlign: "left", fontWeight: 700 }}>Net ({rangeLabel})</td><td></td><td className="mono" style={{ textAlign: "right", fontWeight: 700, color: net >= 0 ? "var(--moss)" : "var(--red)" }}>৳{money(net)}</td></tr>
+          </tfoot>
+        </table>
       </div>
 
-      <div className="grid grid-2">
-        <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 12 }}>Breakdown by Head ({range})</h3>
-          {Object.keys(headBreakdown).length === 0 ? <EmptyState title="No transactions in this range" sub="Add finance entries to see breakdowns." /> : (
-            Object.entries(headBreakdown).map(([key, val]) => {
-              const [type, head] = key.split(":");
-              return <div className="kv-row" key={key}><span className="k">{head} <span className={`badge ${type === "income" ? "badge-green" : "badge-red"}`} style={{ marginLeft: 6 }}>{type}</span></span><span className="v">৳{money(val)}</span></div>;
-            })
-          )}
-        </div>
-        <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 12 }}>Total Outstanding Dues</h3>
-          <div className="kv-row"><span className="k">Student fee dues</span><span className="v" style={{ color: "var(--red)" }}>৳{money(studentDueTotal)}</span></div>
-          <div className="kv-row"><span className="k">Teacher salary dues</span><span className="v" style={{ color: "var(--red)" }}>৳{money(teacherDueTotal)}</span></div>
-          <div className="kv-row"><span className="k">Combined</span><span className="v">৳{money(studentDueTotal + teacherDueTotal)}</span></div>
-        </div>
-      </div>
-
-      <div className="no-print" style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
-        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Report</button>
+      <div className="table-wrap" style={{ marginTop: 18 }}>
+        <table>
+          <thead><tr><th style={{ textAlign: "left" }}>Current Position</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
+          <tbody>
+            <tr><td style={{ textAlign: "left" }}>Current Surplus / Deficit</td><td className="mono" style={{ textAlign: "right", fontWeight: 700, color: currentCash >= 0 ? "var(--moss)" : "var(--red)" }}>৳{money(currentCash)} ({currentCash >= 0 ? "Surplus" : "Deficit"})</td></tr>
+            <tr><td style={{ textAlign: "left" }}>Current Cash</td><td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>৳{money(currentCash)}</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -5779,10 +6011,12 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
   const [form, setForm] = useState({ ...config, schoolPhones: config.schoolPhones && config.schoolPhones.length ? config.schoolPhones : ["", "", ""] });
   const [saving, setSaving] = useState(false);
   const [committeeEditing, setCommitteeEditing] = useState(null);
+  const [noticeEditing, setNoticeEditing] = useState(null);
   const [profileEditing, setProfileEditing] = useState(false);
   const toast = useToast();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const committees = (data && data.committee) || [];
+  const notices = ((data && data.notices) || []).slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
   function setPhone(i, val) {
     const phones = [...form.schoolPhones];
@@ -5883,6 +6117,32 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
         )}
       </div>
 
+      <div className="card" style={{ maxWidth: 560, marginTop: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h3 style={{ fontSize: 15 }}>Notice</h3>
+          <button className="btn btn-sm btn-primary" onClick={() => setNoticeEditing(emptyNotice(config))}><Icon.plus />New Notice</button>
+        </div>
+        <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginBottom: 12 }}>Notices published here appear on the Notice menu.</p>
+        {notices.length === 0 ? (
+          <EmptyState title="No notices yet" sub="Publish your first notice above." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {notices.map(n => (
+              <div key={n.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px dashed var(--line)" }}>
+                <div>
+                  <strong style={{ fontSize: 13 }}>{n.title || "Untitled"}</strong>
+                  <div style={{ fontSize: 11.5, color: "var(--slate-soft)" }}>{fmtDate(n.date)}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button className="btn btn-sm btn-icon" onClick={() => setNoticeEditing({ ...n })}><Icon.edit /></button>
+                  <button className="btn btn-sm btn-icon" onClick={() => remove("notices", n.id)}><Icon.trash /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {profileEditing && (
         <Modal title="Edit Institution Profile" onClose={() => setProfileEditing(false)} size="lg"
           footer={<><button className="btn" onClick={() => setProfileEditing(false)}>Cancel</button><button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Settings"}</button></>}>
@@ -5906,6 +6166,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
       )}
 
       {committeeEditing && <CommitteeFormModal committee={committeeEditing} onClose={() => setCommitteeEditing(null)} onSave={async (r) => { await save("committee", r); setCommitteeEditing(null); }} />}
+      {noticeEditing && <NoticeFormModal notice={noticeEditing} config={config} onClose={() => setNoticeEditing(null)} onSave={async (r) => { await save("notices", r); setNoticeEditing(null); }} />}
     </div>
   );
 }
@@ -5952,6 +6213,10 @@ const NAV_GROUPS = [
       { key: "income", label: "Income Invoices" },
       { key: "expense", label: "Expense Vouchers" },
     ]},
+    { key: "zakat", label: "Zakat", icon: "zakat", subitems: [
+      { key: "income", label: "Jakat Invoice" },
+      { key: "expense", label: "Expense Jakat" },
+    ]},
     { key: "due", label: "Due List", icon: "due", subitems: [
       { key: "students", label: "Student Dues" },
       { key: "teachers", label: "Teacher Dues" },
@@ -5963,14 +6228,15 @@ const NAV_GROUPS = [
   ]},
   { label: "Organization", items: [
     { key: "committee", label: "Committee", icon: "committee" },
+    { key: "notices", label: "Notice", icon: "notice" },
     { key: "reports", label: "Reports", icon: "reports" },
   ]},
   { label: "System", items: [{ key: "settings", label: "Settings", icon: "settings" }] },
 ];
 
 const MODULE_TITLES = {
-  dashboard: "Dashboard", students: "Students", teachers: "Teachers", finance: "Finance",
-  due: "Due List", fees: "Master Fee", committee: "Committee", reports: "Reports", settings: "Settings",
+  dashboard: "Dashboard", students: "Students", teachers: "Teachers", finance: "Finance", zakat: "Zakat",
+  due: "Due List", fees: "Master Fee", committee: "Committee", notices: "Notice", reports: "Reports", settings: "Settings",
   allcard: "All Card", invoice: "Fee Invoice", result: "Result",
 };
 
@@ -6161,11 +6427,13 @@ function AppShell() {
           {active === "invoice" && <FeeInvoiceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "teachers" && <TeachersModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "finance" && <FinanceModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
+          {active === "zakat" && <ZakatModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "result" && <ResultModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "due" && <DueModule data={store.data} config={config} initialTab={subTab} />}
           {active === "fees" && <MasterFeeModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "committee" && <CommitteeModule data={store.data} save={store.save} remove={store.remove} />}
-          {active === "reports" && <ReportsModule data={store.data} />}
+          {active === "notices" && <NoticeModule data={store.data} config={config} />}
+          {active === "reports" && <ReportsModule data={store.data} config={config} />}
           {active === "settings" && <SettingsModule config={config} setConfig={setConfig} data={store.data} save={store.save} remove={store.remove} />}
         </div>
       </div>
