@@ -223,54 +223,79 @@ function bulkGet(sheetsCsv) {
   return { data: out };
 }
 
+// upsertRow/deleteRow both do a "read every id in the sheet, then write" sequence. Without a
+// lock, two requests arriving close together (a slow mobile connection retrying a request, two
+// staff saving at nearly the same moment, an auto-sync overlapping a manual Save) can both read
+// the sheet BEFORE either one's write lands — each one then thinks "no existing row with this
+// id" and both append a brand-new row, which is exactly what shows up as a record being
+// duplicated on Save, or a Delete silently not removing anything because the row index shifted
+// under it mid-operation. Wrapping the whole read-check-write sequence in a script lock makes it
+// atomic: only one upsert/delete against this spreadsheet runs at a time, so this can't happen.
 function upsertRow(sheetName, rowJson) {
-  const sheet = getSheet(sheetName);
-  const row = typeof rowJson === "string" ? JSON.parse(rowJson) : rowJson;
-  if (!row.id) {
-    row.id = Utilities.getUuid();
-  }
-  const now = new Date().toISOString();
-  if (!row.createdAt) row.createdAt = now;
-  row.updatedAt = now;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = getSheet(sheetName);
+    const row = typeof rowJson === "string" ? JSON.parse(rowJson) : rowJson;
+    if (!row.id) {
+      row.id = Utilities.getUuid();
+    }
+    const now = new Date().toISOString();
+    if (!row.createdAt) row.createdAt = now;
+    row.updatedAt = now;
 
-  const headers = ensureColumns(sheet, row);
+    const headers = ensureColumns(sheet, row);
 
-  const lastRow = sheet.getLastRow();
-  let foundRowIndex = -1;
-  if (lastRow >= 2) {
-    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    for (let i = 0; i < ids.length; i++) {
-      if (ids[i][0] === row.id) {
-        foundRowIndex = i + 2;
-        break;
+    const lastRow = sheet.getLastRow();
+    let foundRowIndex = -1;
+    if (lastRow >= 2) {
+      // Compare as strings — a value typed as a plain number (e.g. an old id that happens to be
+      // all digits) can come back from getValues() as a JS Number while row.id sent from the
+      // client is always a String; a strict === would miss that match and append a duplicate.
+      const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      const targetId = String(row.id);
+      for (let i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]) === targetId) {
+          foundRowIndex = i + 2;
+          break;
+        }
       }
     }
+
+    const rowValues = headers.map(h => cellValue(row[h]));
+
+    const targetRow = foundRowIndex > -1 ? foundRowIndex : sheet.getLastRow() + 1;
+    const range = sheet.getRange(targetRow, 1, 1, headers.length);
+    // Plain-text format BEFORE writing — otherwise Sheets auto-detects date/number-looking
+    // strings (like Admission Date "2026-01-10") and silently converts the cell to a real
+    // Date/Number type, which breaks the app's <input type="date"> fields on the next edit.
+    range.setNumberFormat("@");
+    range.setValues([rowValues]);
+    invalidateListCache(sheetName);
+    return { success: true, id: row.id };
+  } finally {
+    lock.releaseLock();
   }
-
-  const rowValues = headers.map(h => cellValue(row[h]));
-
-  const targetRow = foundRowIndex > -1 ? foundRowIndex : sheet.getLastRow() + 1;
-  const range = sheet.getRange(targetRow, 1, 1, headers.length);
-  // Plain-text format BEFORE writing — otherwise Sheets auto-detects date/number-looking
-  // strings (like Admission Date "2026-01-10") and silently converts the cell to a real
-  // Date/Number type, which breaks the app's <input type="date"> fields on the next edit.
-  range.setNumberFormat("@");
-  range.setValues([rowValues]);
-  invalidateListCache(sheetName);
-  return { success: true, id: row.id };
 }
 
 function deleteRow(sheetName, id) {
-  const sheet = getSheet(sheetName);
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { success: false, error: "Row not found" };
-  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  for (let i = 0; i < ids.length; i++) {
-    if (ids[i][0] === id) {
-      sheet.deleteRow(i + 2);
-      invalidateListCache(sheetName);
-      return { success: true };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = getSheet(sheetName);
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { success: false, error: "Row not found" };
+    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    const targetId = String(id);
+    for (let i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === targetId) {
+        sheet.deleteRow(i + 2);
+        invalidateListCache(sheetName);
+        return { success: true };
+      }
     }
+    return { success: false, error: "Row not found" };
+  } finally {
+    lock.releaseLock();
   }
-  return { success: false, error: "Row not found" };
 }

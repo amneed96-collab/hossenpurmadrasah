@@ -525,6 +525,31 @@ tbody tr:last-child td{border-bottom:none;}
   body.no-print-footer .print-footer{display:none !important;}
 }
 
+/* ===== Protyon (Certificate) — A4 Landscape, font-size 16, background design from Settings.
+   Deliberately does NOT draw any credit/footer line of its own (per requirement) — combined with
+   usePrintChrome({hideFooter:true}) on the component, the printed certificate carries no
+   "@Poweredby" text anywhere. ===== */
+.protyon-print{
+  font-size:16px; line-height:1.9; width:297mm; min-height:210mm; max-width:none;
+  box-sizing:border-box; padding:26mm 24mm; margin:0 auto; position:relative; color:#000;
+  background-size:cover; background-position:center; background-repeat:no-repeat;
+}
+@media print{
+  .protyon-print{ width:100%; min-height:100vh; box-shadow:none; }
+}
+.protyon-content{ position:relative; z-index:1; }
+.protyon-title{
+  text-align:center; font-family:'Fraunces',serif; font-size:30px; font-weight:800;
+  letter-spacing:0.08em; margin-bottom:8px; text-transform:uppercase;
+}
+.protyon-title-underline{ width:110px; height:3px; background:var(--gold); margin:0 auto 30px; }
+.protyon-body{ text-align:justify; }
+.protyon-body b{ font-weight:700; }
+.protyon-meta-row{ display:flex; justify-content:space-between; font-size:15px; margin-bottom:26px; }
+.protyon-signatures{ display:flex; justify-content:space-between; margin-top:80px; }
+.protyon-sig{ text-align:center; width:220px; }
+.protyon-sig-line{ border-top:1.5px solid #000; padding-top:6px; font-size:14px; font-weight:600; }
+
 .id-card-grid{display:flex;flex-wrap:wrap;gap:0.2in;justify-content:flex-start;align-content:flex-start;}
 @media print{
   .id-card-grid{gap:0.2in;}
@@ -812,6 +837,7 @@ function loadConfig() {
     cashierSignUrl: "",
     principalName: "",
     principalSignUrl: "",
+    certificateBgUrl: "",
   };
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
@@ -933,7 +959,7 @@ function IconWrap({ name, ...rest }) {
    DATA STORE — central hook wrapping Google Sheets as DB
    Collections: students, teachers, finance, fees, committee, seatplans
    ========================================================= */
-const COLLECTIONS = ["students", "teachers", "finance", "zakat", "fees", "committee", "notices", "seatplans", "invoices", "promotions", "classHistories", "activations", "subjects", "marks", "attendance"];
+const COLLECTIONS = ["students", "teachers", "finance", "zakat", "fees", "committee", "notices", "seatplans", "invoices", "promotions", "classHistories", "activations", "subjects", "marks", "attendance", "deletedStudents", "certificates"];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -957,7 +983,7 @@ function saveCachedData(sheetsUrl, data) {
   try { localStorage.setItem(DATA_CACHE_PREFIX + sheetsUrl, JSON.stringify(data)); } catch (e) {}
 }
 
-const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], zakat: [], fees: [], committee: [], notices: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [], attendance: [] };
+const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], zakat: [], fees: [], committee: [], notices: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [], attendance: [], deletedStudents: [], certificates: [] };
 
 function useDataStore(config) {
   const cached = loadCachedData(config.sheetsUrl);
@@ -1054,6 +1080,8 @@ const SHEET_MAP = {
   subjects: "Subjects",
   marks: "Marks",
   attendance: "Attendance",
+  deletedStudents: "DeletedStudents",
+  certificates: "Certificates",
 };
 
 /* =========================================================
@@ -1606,6 +1634,13 @@ function applicableFeeHeadsForEntry(entry, feeRules) {
   const cats = {};
   if (allSectionsRow) { feeHeadsOf(allSectionsRow).forEach(h => { map[h] = Number(allSectionsRow[h]) || 0; }); Object.assign(cats, feeCategoriesOf(allSectionsRow)); }
   if (specificRow) { feeHeadsOf(specificRow).forEach(h => { map[h] = Number(specificRow[h]) || 0; }); Object.assign(cats, feeCategoriesOf(specificRow)); }
+  // A fee rule row DOES exist for this year+class, but it was saved against a specific section
+  // that doesn't match this student's section, and there's no "All Sections" row either — rather
+  // than silently showing nothing (which looks like "the fee I just added isn't showing"), fall
+  // back to using whatever row IS there so a newly added Master Fee rule is never invisible.
+  if (!allSectionsRow && !specificRow && rulesForYearClass.length > 0) {
+    rulesForYearClass.forEach(row => { feeHeadsOf(row).forEach(h => { map[h] = Number(row[h]) || 0; }); Object.assign(cats, feeCategoriesOf(row)); });
+  }
   return Object.entries(map).map(([feeType, amount]) => ({
     feeType, amount, category: (cats[feeType] && cats[feeType].category) || "Yearly", months: (cats[feeType] && cats[feeType].months) || [],
   }));
@@ -2041,6 +2076,23 @@ const ADDRESS_FIELDS = ["co", "village", "union", "ward", "po", "upazila", "dist
 const emptyAddress = () => ({ co: "", village: "", union: "", ward: "", po: "", upazila: "", district: "" });
 const addrKey = (prefix, field) => prefix + field.charAt(0).toUpperCase() + field.slice(1);
 
+// One printable line from a student's Permanent Address fields (co, village, union, ward,
+// post office, upazila, district) — used on the Protyon (Certificate).
+function formatPermanentAddress(student) {
+  return ADDRESS_FIELDS.map(f => student[addrKey("permanent", f)]).filter(Boolean).join(", ");
+}
+
+function generateCertificateNo(existingCertificates) {
+  const year = new Date().getFullYear();
+  const nums = (existingCertificates || [])
+    .map(c => c.certificateNo || "")
+    .filter(id => id.startsWith(`CRT-${year}-`))
+    .map(id => parseInt(id.split("-")[2], 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `CRT-${year}-${String(next).padStart(4, "0")}`;
+}
+
 const emptyStudent = (existingStudents) => {
   const studentId = generateStudentId(existingStudents);
   const student = {
@@ -2082,6 +2134,7 @@ const STUDENTS_SUBTABS = [
   { key: "classHistory", label: "Class History" },
   { key: "activation", label: "Activation" },
   { key: "office", label: "Office Information" },
+  { key: "deleted", label: "Delete Students" },
 ];
 
 function StudentsModule({ data, save, remove, config, initialTab }) {
@@ -2099,6 +2152,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
   const promotions = data.promotions || [];
   const classHistories = data.classHistories || [];
   const activations = data.activations || [];
+  const deletedStudents = data.deletedStudents || [];
   const feeRules = (data.fees || []).filter(f => f.kind === "class");
 
   const filtered = students.filter(s => {
@@ -2133,6 +2187,18 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
     return saved;
   }
 
+  // Deleting from All Admission is a SOFT delete: the student's full record (with their current
+  // class/roll/section snapshotted in) is archived into Deleted Students first, then removed from
+  // both Students and Promotion — so a promoted/graduated student doesn't linger in the Promotion
+  // sheet pointing at a student that no longer exists in the main list.
+  async function handleDeleteStudent(s) {
+    const current = getCurrentStatus(s, promotions);
+    const archived = { ...s, ...current, deletedAt: new Date().toISOString() };
+    await save("deletedStudents", archived);
+    await remove("promotions", s.id);
+    await remove("students", s.id);
+  }
+
   return (
     <div>
       <div className="section-actions">
@@ -2144,7 +2210,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
 
       {tab === "list" && (
         <StudentListTab students={filtered} query={query} setQuery={setQuery} classFilter={classFilter} setClassFilter={setClassFilter}
-          onEdit={openEdit} onDelete={(id) => remove("students", id)} onPrint={(s) => setPrintStudent(s)} feeRules={feeRules} invoices={invoices}
+          onEdit={openEdit} onDelete={handleDeleteStudent} onPrint={(s) => setPrintStudent(s)} feeRules={feeRules} invoices={invoices}
           promotions={promotions} classHistories={classHistories} activations={activations} config={config} />
       )}
       {tab === "promotion" && (
@@ -2158,6 +2224,9 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
       )}
       {tab === "office" && (
         <OfficeInformationTab students={students} promotions={promotions} classHistories={classHistories} config={config} />
+      )}
+      {tab === "deleted" && (
+        <DeletedStudentsTab deletedStudents={deletedStudents} save={save} remove={remove} config={config} />
       )}
 
       {editing && (
@@ -2217,7 +2286,7 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
                       <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn btn-sm btn-icon" title="Edit" onClick={() => onEdit(s)}><Icon.edit /></button>
                         <button className="btn btn-sm btn-icon" title="Print Admission Form" onClick={() => onPrint(s)}><Icon.print /></button>
-                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}?`)) onDelete(s.id); }}><Icon.trash /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${s.name}? They'll be moved to Delete Students, from where they can be restored.`)) onDelete(s); }}><Icon.trash /></button>
                       </div>
                     </td>
                   </tr>
@@ -2227,6 +2296,86 @@ function StudentListTab({ students, query, setQuery, classFilter, setClassFilter
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// Delete Students: a soft-delete archive. Every student removed from All Admission lands here
+// (with their class/roll/section snapshotted at the moment of deletion) instead of being lost —
+// from here staff can permanently erase a mistaken/duplicate record, reprint their Admission
+// Form for reference, or Restore them (which re-creates both their Students and Promotion rows).
+function DeletedStudentsTab({ deletedStudents, save, remove, config }) {
+  const [query, setQuery] = useState("");
+  const [printStudent, setPrintStudent] = useState(null);
+  const toast = useToast();
+
+  const filtered = deletedStudents.filter(s => !query
+    || str(s.name).toLowerCase().includes(query.toLowerCase())
+    || str(s.roll).toLowerCase().includes(query.toLowerCase())
+    || str(s.studentId).toLowerCase().includes(query.toLowerCase()));
+
+  async function permanentlyDelete(s) {
+    if (!confirm(`Permanently delete ${s.name}'s record? This cannot be undone.`)) return;
+    await remove("deletedStudents", s.id);
+  }
+
+  async function restore(s) {
+    if (!confirm(`Restore ${s.name} back to All Admission?`)) return;
+    const { deletedAt, ...record } = s;
+    const saved = await save("students", record);
+    if (saved) {
+      await save("promotions", {
+        id: saved.id, studentId: saved.id, name: saved.name,
+        roll: saved.roll, className: saved.className, section: saved.section,
+        subjectGroup: saved.subjectGroup, session: saved.session,
+      });
+    }
+    await remove("deletedStudents", s.id);
+    toast && toast(`${s.name} restored`, "success");
+  }
+
+  return (
+    <div className="card card-flush">
+      <div className="no-print" style={{ padding: "16px 18px 0" }}>
+        <div className="search-row">
+          <input className="search-input" placeholder="Search by name, roll, or Student ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      </div>
+      {filtered.length === 0 ? (
+        <EmptyState title="No deleted students" sub="Students removed from All Admission appear here and can be restored." />
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Photo</th><th>Student ID</th><th>Name</th><th>Class</th><th>Section</th><th>Deleted At</th><th className="no-print"></th></tr>
+            </thead>
+            <tbody>
+              {filtered.map(s => (
+                <tr key={s.id}>
+                  <td>
+                    <div style={{ width: 34, height: 34, borderRadius: 7, overflow: "hidden", background: "var(--paper)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {s.photoUrl ? <img src={s.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Icon.students width={14} height={14} style={{ opacity: 0.35 }} />}
+                    </div>
+                  </td>
+                  <td className="mono">{s.studentId || "—"}</td>
+                  <td>{s.name}</td>
+                  <td>{s.className || "—"}</td>
+                  <td>{s.section || "—"}</td>
+                  <td>{s.deletedAt ? fmtDate(s.deletedAt) : "—"}</td>
+                  <td className="no-print">
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn btn-sm btn-icon" title="Delete permanently" onClick={() => permanentlyDelete(s)}><Icon.trash /></button>
+                      <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintStudent(s)}><Icon.print /></button>
+                      <button className="btn btn-sm btn-icon" title="Restore" onClick={() => restore(s)}><Icon.refresh /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {printStudent && <AdmissionFormPrintModal student={printStudent} config={config} onClose={() => setPrintStudent(null)} />}
     </div>
   );
 }
@@ -3286,10 +3435,10 @@ function AdmissionFormPrint({ student, config }) {
       </div>
 
       <div className="adm-section-title">Permanent Address</div>
-      <div className="adm-fields"><FieldRow name="" value={formatAddress(permanent)} /></div>
+      <div className="adm-fields"><FieldRow name="Address" value={formatAddress(permanent)} /></div>
 
       <div className="adm-section-title">Present Address</div>
-      <div className="adm-fields"><FieldRow name="" value={formatAddress(present)} /></div>
+      <div className="adm-fields"><FieldRow name="Address" value={formatAddress(present)} /></div>
 
       <div className="adm-section-title">Declaration of Guardian</div>
       <p className="adm-declaration">
@@ -3743,12 +3892,16 @@ function CardTypeFlow({ type, students, promotions, config, onBack }) {
   );
 }
 
-function AllCardModule({ data, config, initialCardType }) {
-  const [cardType, setCardType] = useState(initialCardType || null); // 'id' | 'admit' | 'seat' | null
+function AllCardModule({ data, config, initialCardType, save, remove }) {
+  const [cardType, setCardType] = useState(initialCardType || null); // 'id' | 'admit' | 'seat' | 'protyon' | null
   useEffect(() => { if (initialCardType) setCardType(initialCardType); }, [initialCardType]);
   const students = data.students || [];
   const promotions = data.promotions || [];
+  const certificates = data.certificates || [];
 
+  if (cardType === "protyon") {
+    return <ProtyonModule students={students} promotions={promotions} certificates={certificates} config={config} save={save} remove={remove} onBack={() => setCardType(null)} />;
+  }
   if (cardType) {
     return <CardTypeFlow type={cardType} students={students} promotions={promotions} config={config} onBack={() => setCardType(null)} />;
   }
@@ -3771,6 +3924,197 @@ function AllCardModule({ data, config, initialCardType }) {
           <h3 style={{ fontSize: 15 }}>Seat Plan</h3>
           <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Exam seat card, 3in × 2in</p>
         </button>
+        <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("protyon")}>
+          <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--moss-deep)" }} />
+          <h3 style={{ fontSize: 15 }}>Protyon</h3>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>প্রত্যয়নপত্র, A4 Landscape</p>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Protyon (প্রত্যয়নপত্র / Certificate): a log of every certificate issued so far (who + when),
+// with the actual form living behind a button (opens/closes on click, per spec) rather than
+// always being on screen. Selecting a Student ID/Name in the form auto-fills Name, Father's
+// Name, Mother's Name, and Permanent Address from that student's record.
+function ProtyonModule({ students, promotions, certificates, config, save, remove, onBack }) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [printCert, setPrintCert] = useState(null);
+  const sorted = certificates.slice().sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
+
+  async function handleDelete(c) {
+    if (!confirm(`Delete this certificate record for ${c.name}?`)) return;
+    await remove("certificates", c.id);
+  }
+
+  return (
+    <div>
+      <div className="section-actions no-print">
+        <button className="btn" onClick={onBack}>← Back to All Card</button>
+        <button className="btn btn-primary" onClick={() => setFormOpen((o) => !o)}><Icon.plus />{formOpen ? "Close Certificate Form" : "Open Certificate Form"}</button>
+      </div>
+
+      {formOpen && (
+        <CertificateFormModal students={students} promotions={promotions} certificates={certificates} config={config}
+          onSave={save} onClose={() => setFormOpen(false)}
+          onIssued={(cert) => { setFormOpen(false); setPrintCert(cert); }} />
+      )}
+
+      <div className="card card-flush">
+        {sorted.length === 0 ? (
+          <EmptyState title="No certificates issued yet" sub={`Use "Open Certificate Form" above to issue and print a Protyon.`} />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Certificate No</th><th>Student ID</th><th>Name</th><th>Class</th><th>Date</th><th className="no-print"></th></tr>
+              </thead>
+              <tbody>
+                {sorted.map(c => (
+                  <tr key={c.id}>
+                    <td className="mono">{c.certificateNo || "—"}</td>
+                    <td className="mono">{c.studentDisplayId || "—"}</td>
+                    <td>{c.name}</td>
+                    <td>{c.className || "—"}{c.section ? ` — ${c.section}` : ""}</td>
+                    <td>{fmtDate(c.date)}</td>
+                    <td className="no-print">
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-sm btn-icon" title="Print" onClick={() => setPrintCert(c)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => handleDelete(c)}><Icon.trash /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {printCert && <CertificatePrintModal certificate={printCert} config={config} onClose={() => setPrintCert(null)} />}
+    </div>
+  );
+}
+
+function CertificateFormModal({ students, promotions, certificates, config, onSave, onClose, onIssued }) {
+  const [selected, setSelected] = useState(null);
+  const [query, setQuery] = useState("");
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const matches = query.trim() ? students.filter(s =>
+    str(s.name).toLowerCase().includes(query.toLowerCase())
+    || str(s.studentId).toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 20) : [];
+
+  const current = selected ? getCurrentStatus(selected, promotions) : null;
+
+  async function handleIssue() {
+    if (!selected) return;
+    setSaving(true);
+    const today = new Date().toISOString().slice(0, 10);
+    const record = {
+      id: generateCertificateNo(certificates),
+      certificateNo: generateCertificateNo(certificates),
+      studentId: selected.id,
+      studentDisplayId: selected.studentId,
+      name: selected.name,
+      fatherName: selected.fatherName,
+      motherName: selected.motherName,
+      permanentAddress: formatPermanentAddress(selected),
+      className: current.className,
+      section: current.section,
+      roll: current.roll,
+      date: today,
+    };
+    const saved = await onSave("certificates", record);
+    setSaving(false);
+    toast && toast("Certificate issued", "success");
+    onIssued(saved || record);
+  }
+
+  return (
+    <Modal title="Certificate Form — Protyon" onClose={onClose} size="lg"
+      footer={selected ? (
+        <>
+          <button className="btn" onClick={() => setSelected(null)}>← Search Another Student</button>
+          <button className="btn btn-primary" disabled={saving} onClick={handleIssue}>{saving ? "Saving…" : "Issue & Print"}</button>
+        </>
+      ) : (
+        <button className="btn" onClick={onClose}>Close</button>
+      )}>
+      {!selected ? (
+        <div>
+          <Field label="Search Student" hint="by Student ID or Name">
+            <input className="search-input" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Type to search…" />
+          </Field>
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            {matches.map(s => { const c = getCurrentStatus(s, promotions); return (
+              <button key={s.id} className="btn" style={{ justifyContent: "flex-start", textAlign: "left" }} onClick={() => setSelected(s)}>
+                <strong style={{ marginRight: 8 }}>{s.name}</strong>
+                <span style={{ color: "var(--slate-soft)", fontSize: 12.5 }}>{c.className}{c.section} · <span className="mono">{s.studentId}</span></span>
+              </button>
+            ); })}
+            {query.trim() && matches.length === 0 && <EmptyState title="No matching students" sub="Try a different name or Student ID." />}
+            {!query.trim() && <EmptyState title="Search for a student" sub="Type a name or Student ID above — the rest of the certificate fills in automatically." />}
+          </div>
+        </div>
+      ) : (
+        <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+          <Field label="Student ID" hint="auto-filled"><input type="text" value={selected.studentId || ""} readOnly style={{ background: "var(--paper)" }} className="mono" /></Field>
+          <Field label="Name" hint="auto-filled"><input type="text" value={selected.name || ""} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Father's Name" hint="auto-filled"><input type="text" value={selected.fatherName || ""} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Mother's Name" hint="auto-filled"><input type="text" value={selected.motherName || ""} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Permanent Address" hint="auto-filled"><input type="text" value={formatPermanentAddress(selected) || "—"} readOnly style={{ background: "var(--paper)" }} /></Field>
+          <Field label="Class" hint="current"><input type="text" value={`${current.className || "—"} ${current.section || ""}`} readOnly style={{ background: "var(--paper)" }} /></Field>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// Print-only wrapper so a previously issued certificate can be reprinted from the log without
+// re-selecting the student — mirrors SavedInvoicePrintModal's pattern.
+function CertificatePrintModal({ certificate, config, onClose }) {
+  function handlePrint() { window.print(); }
+  return (
+    <Modal title="Print Protyon" onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print / Save as PDF</button></>}>
+      <CertificatePrint certificate={certificate} config={config} />
+    </Modal>
+  );
+}
+
+// The certificate itself — A4 Landscape (via .print-landscape), font-size 16 (.protyon-print),
+// background image from Settings (config.certificateBgUrl) drawn full-bleed, and NO shared
+// footer/credit line at all (hideFooter, and this component draws no credit line of its own,
+// unlike Admission Form/Invoice/Admit Card which draw their own copy of it).
+function CertificatePrint({ certificate: c, config }) {
+  usePrintChrome({ hideWatermark: true, hideFooter: true });
+  const bgStyle = config.certificateBgUrl ? { backgroundImage: `url(${config.certificateBgUrl})` } : {};
+  return (
+    <div className="print-landscape">
+      <div className="doc-preview protyon-print" style={bgStyle}>
+        <div className="protyon-content">
+          <div className="protyon-title">প্রত্যয়নপত্র</div>
+          <div className="protyon-title-underline" />
+          <div className="protyon-meta-row">
+            <div>নং: <b className="mono">{c.certificateNo}</b></div>
+            <div>তারিখ: <b>{fmtDate(c.date)}</b></div>
+          </div>
+          <div className="protyon-body">
+            এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, <b>{c.name}</b>, পিতা: <b>{c.fatherName || "—"}</b>, মাতা: <b>{c.motherName || "—"}</b>,
+            স্থায়ী ঠিকানা: <b>{c.permanentAddress || "—"}</b> — {config.schoolName || "এই প্রতিষ্ঠান"}-এর একজন নিয়মিত/সাবেক
+            ছাত্র/ছাত্রী{c.className ? <> ({c.className}{c.section ? `, ${c.section}` : ""}{c.roll ? `, রোল: ${c.roll}` : ""})</> : null}।
+            আইডি নং: <b className="mono">{c.studentDisplayId}</b>। তার নৈতিক চরিত্র ও আচার-আচরণ সন্তোষজনক বলে জানা যায়।
+            তার ভবিষ্যৎ জীবনের সর্বাঙ্গীন সাফল্য কামনা করি।
+          </div>
+          <div className="protyon-signatures">
+            <div className="protyon-sig"><div className="protyon-sig-line">লেখক</div></div>
+            <div className="protyon-sig"><div className="protyon-sig-line">প্রিন্সিপাল{config.principalName ? <><br />{config.principalName}</> : null}</div></div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -6034,7 +6378,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
   const SETTINGS_SHEET_FIELDS = [
     "schoolName", "instituteCode", "schoolAddress", "schoolEmail",
     "schoolLogo", "facebookUrl", "youtubeUrl", "cashierName", "cashierSignUrl",
-    "principalName", "principalSignUrl",
+    "principalName", "principalSignUrl", "certificateBgUrl",
   ];
   function toSheetRow(f) {
     const row = { id: "main" };
@@ -6161,6 +6505,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
             <PhotoBox label="Cashier Signature Image" folder="signatures" config={form} existingUrl={form.cashierSignUrl} onUploaded={(url) => setForm(f => ({ ...f, cashierSignUrl: url }))} />
             <Field label="Principal Name" hint="shown on Fee Invoice / Admission Form"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
             <PhotoBox label="Principal Signature Image" folder="signatures" config={form} existingUrl={form.principalSignUrl} onUploaded={(url) => setForm(f => ({ ...f, principalSignUrl: url }))} />
+            <PhotoBox label="Protyon (Certificate) Background Design" folder="certificate" config={form} existingUrl={form.certificateBgUrl} onUploaded={(url) => setForm(f => ({ ...f, certificateBgUrl: url }))} />
           </div>
         </Modal>
       )}
@@ -6183,6 +6528,7 @@ const NAV_GROUPS = [
       { key: "classHistory", label: "Class History" },
       { key: "activation", label: "Activation" },
       { key: "office", label: "Office Information" },
+      { key: "deleted", label: "Delete Students" },
     ]},
     { key: "teachers", label: "Teachers", icon: "teachers", subitems: [
       { key: "list", label: "Staff List" },
@@ -6196,6 +6542,7 @@ const NAV_GROUPS = [
       { key: "id", label: "ID Card" },
       { key: "admit", label: "Admit Card" },
       { key: "seat", label: "Seat Plan" },
+      { key: "protyon", label: "Protyon" },
     ]},
     { key: "invoice", label: "Fee Invoice", icon: "fee" },
   ]},
@@ -6423,7 +6770,7 @@ function AppShell() {
           <ConnectionBanner config={config} onOpenSettings={() => setActive("settings")} />
           {active === "dashboard" && <Dashboard data={store.data} setActiveModule={setActive} />}
           {active === "students" && <StudentsModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
-          {active === "allcard" && <AllCardModule data={store.data} config={config} initialCardType={subTab} />}
+          {active === "allcard" && <AllCardModule data={store.data} config={config} initialCardType={subTab} save={store.save} remove={store.remove} />}
           {active === "invoice" && <FeeInvoiceModule data={store.data} save={store.save} remove={store.remove} config={config} />}
           {active === "teachers" && <TeachersModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
           {active === "finance" && <FinanceModule data={store.data} save={store.save} remove={store.remove} config={config} initialTab={subTab} />}
