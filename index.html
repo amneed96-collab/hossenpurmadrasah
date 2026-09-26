@@ -382,6 +382,16 @@ tbody tr:last-child td{border-bottom:none;}
   }
 }
 
+/* Notice — a plain A4 page (not the ~640px "card" .doc-preview default), no drop shadow */
+.notice-print{
+  font-size:13px;width:210mm;min-height:297mm;max-width:none;
+  box-sizing:border-box;padding:0.5in;border:1px solid var(--line);border-radius:0;
+  display:flex;flex-direction:column;margin:0 auto;box-shadow:none;
+}
+@media print{
+  .notice-print{width:100%;min-height:100vh;box-sizing:border-box;padding:0;border:none;box-shadow:none;}
+}
+
 .adm-header{
   background:var(--moss-deep);color:#fff;border-radius:0;
   padding:10px 16px 8px;margin:-0.5in -0.5in 12px;
@@ -409,6 +419,7 @@ tbody tr:last-child td{border-bottom:none;}
 
 .adm-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--moss-deep);margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid var(--line);}
 .adm-fields{margin-bottom:4px;}
+.adm-address-line{font-size:11px;line-height:1.6;padding:2px 0 10px;}
 .adm-fields-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;margin-bottom:4px;}
 .adm-fields-grid .field-row{font-size:10.5px;padding:2px 0;}
 .msh-info-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:10px;}
@@ -454,7 +465,7 @@ tbody tr:last-child td{border-bottom:none;}
 .marksheet-page .msh-bordered-table{font-size:14px;}
 .marksheet-page .msh-grading table{font-size:12px;}
 .adm-declaration{font-size:10.5px;line-height:1.5;color:var(--slate);margin:4px 0 6px;text-align:justify;}
-.adm-signatures{display:flex;justify-content:space-between;margin-top:22px;padding:0 6px;}
+.adm-signatures{display:flex;justify-content:space-between;margin-top:46px;padding:0 6px;}
 .adm-sig{border-top:1px solid var(--ink);padding-top:4px;font-size:10px;text-align:center;width:170px;line-height:1.4;}
 .adm-sig-img{display:block;max-height:34px;max-width:120px;margin:0 auto 2px;object-fit:contain;}
 
@@ -525,17 +536,18 @@ tbody tr:last-child td{border-bottom:none;}
   body.no-print-footer .print-footer{display:none !important;}
 }
 
-/* ===== Protyon (Certificate) — A4 Landscape, font-size 16, background design from Settings.
-   Deliberately does NOT draw any credit/footer line of its own (per requirement) — combined with
-   usePrintChrome({hideFooter:true}) on the component, the printed certificate carries no
-   "@Poweredby" text anywhere. ===== */
+/* ===== Protyon (Certificate) — plain A4 Landscape page, no border/frame, font-size 16,
+   background design from Settings. Deliberately does NOT draw any credit/footer line of its
+   own (per requirement) — combined with usePrintChrome({hideFooter:true}) on the component,
+   the printed certificate carries no "@Poweredby" text anywhere. ===== */
 .protyon-print{
   font-size:16px; line-height:1.9; width:297mm; min-height:210mm; max-width:none;
-  box-sizing:border-box; padding:26mm 24mm; margin:0 auto; position:relative; color:#000;
+  box-sizing:border-box; padding:22mm 28mm; margin:0 auto; position:relative; color:#000;
+  border:none; border-radius:0; box-shadow:none;
   background-size:cover; background-position:center; background-repeat:no-repeat;
 }
 @media print{
-  .protyon-print{ width:100%; min-height:100vh; box-shadow:none; }
+  .protyon-print{ width:100%; min-height:100vh; box-shadow:none; border:none; }
 }
 .protyon-content{ position:relative; z-index:1; }
 .protyon-title{
@@ -546,7 +558,7 @@ tbody tr:last-child td{border-bottom:none;}
 .protyon-body{ text-align:justify; }
 .protyon-body b{ font-weight:700; }
 .protyon-meta-row{ display:flex; justify-content:space-between; font-size:15px; margin-bottom:26px; }
-.protyon-signatures{ display:flex; justify-content:space-between; margin-top:80px; }
+.protyon-signatures{ display:flex; justify-content:flex-end; margin-top:80px; }
 .protyon-sig{ text-align:center; width:220px; }
 .protyon-sig-line{ border-top:1.5px solid #000; padding-top:6px; font-size:14px; font-weight:600; }
 
@@ -1185,6 +1197,19 @@ function PrintDocHead({ config, headline, layout }) {
           </div>
         </div>
         {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, textAlign: "center" }}>{headline}</div>}
+      </div>
+    );
+  }
+  // Logo pinned to the far left (absolutely positioned) while the name/address/headline block
+  // stays truly centered on the page — as opposed to "inline" above, where the name sits
+  // left-aligned next to the logo instead of centered.
+  if (layout === "logo-left") {
+    return (
+      <div className="print-only" style={{ padding: "0 18px 10px", borderBottom: "2px solid var(--moss-deep)", marginBottom: 10, position: "relative", textAlign: "center" }}>
+        {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 50, position: "absolute", left: 0, top: 0 }} />}
+        <div style={{ fontFamily: "'Fraunces',serif", fontSize: 20, fontWeight: 700 }}>{(config && config.schoolName) || "School Name"}</div>
+        {config && config.schoolAddress && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
+        {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{headline}</div>}
       </div>
     );
   }
@@ -3435,10 +3460,10 @@ function AdmissionFormPrint({ student, config }) {
       </div>
 
       <div className="adm-section-title">Permanent Address</div>
-      <div className="adm-fields"><FieldRow name="Address" value={formatAddress(permanent)} /></div>
+      <div className="adm-address-line">{formatAddress(permanent)}</div>
 
       <div className="adm-section-title">Present Address</div>
-      <div className="adm-fields"><FieldRow name="Address" value={formatAddress(present)} /></div>
+      <div className="adm-address-line">{formatAddress(present)}</div>
 
       <div className="adm-section-title">Declaration of Guardian</div>
       <p className="adm-declaration">
@@ -3927,7 +3952,7 @@ function AllCardModule({ data, config, initialCardType, save, remove }) {
         <button className="card" style={{ textAlign: "center", cursor: "pointer", padding: "32px 20px" }} onClick={() => setCardType("protyon")}>
           <Icon.idcard width={30} height={30} style={{ margin: "0 auto 10px", display: "block", color: "var(--moss-deep)" }} />
           <h3 style={{ fontSize: 15 }}>Protyon</h3>
-          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>প্রত্যয়নপত্র, A4 Landscape</p>
+          <p style={{ fontSize: 12.5, color: "var(--slate-soft)", marginTop: 4 }}>Certificate, A4 Landscape</p>
         </button>
       </div>
     </div>
@@ -4086,10 +4111,12 @@ function CertificatePrintModal({ certificate, config, onClose }) {
   );
 }
 
-// The certificate itself — A4 Landscape (via .print-landscape), font-size 16 (.protyon-print),
-// background image from Settings (config.certificateBgUrl) drawn full-bleed, and NO shared
-// footer/credit line at all (hideFooter, and this component draws no credit line of its own,
-// unlike Admission Form/Invoice/Admit Card which draw their own copy of it).
+// The certificate itself — plain A4 Landscape page (via .print-landscape, no border/frame),
+// font-size 16 (.protyon-print), fully in English, background image from Settings
+// (config.certificateBgUrl) drawn full-bleed, and NO shared footer/credit line at all
+// (hideFooter, and this component draws no credit line of its own, unlike Admission
+// Form/Invoice/Admit Card which draw their own copy of it). Only the Principal signs —
+// there's deliberately no "Prepared By" line.
 function CertificatePrint({ certificate: c, config }) {
   usePrintChrome({ hideWatermark: true, hideFooter: true });
   const bgStyle = config.certificateBgUrl ? { backgroundImage: `url(${config.certificateBgUrl})` } : {};
@@ -4097,22 +4124,21 @@ function CertificatePrint({ certificate: c, config }) {
     <div className="print-landscape">
       <div className="doc-preview protyon-print" style={bgStyle}>
         <div className="protyon-content">
-          <div className="protyon-title">প্রত্যয়নপত্র</div>
+          <div className="protyon-title">Certificate</div>
           <div className="protyon-title-underline" />
           <div className="protyon-meta-row">
-            <div>নং: <b className="mono">{c.certificateNo}</b></div>
-            <div>তারিখ: <b>{fmtDate(c.date)}</b></div>
+            <div>No: <b className="mono">{c.certificateNo}</b></div>
+            <div>Date: <b>{fmtDate(c.date)}</b></div>
           </div>
           <div className="protyon-body">
-            এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, <b>{c.name}</b>, পিতা: <b>{c.fatherName || "—"}</b>, মাতা: <b>{c.motherName || "—"}</b>,
-            স্থায়ী ঠিকানা: <b>{c.permanentAddress || "—"}</b> — {config.schoolName || "এই প্রতিষ্ঠান"}-এর একজন নিয়মিত/সাবেক
-            ছাত্র/ছাত্রী{c.className ? <> ({c.className}{c.section ? `, ${c.section}` : ""}{c.roll ? `, রোল: ${c.roll}` : ""})</> : null}।
-            আইডি নং: <b className="mono">{c.studentDisplayId}</b>। তার নৈতিক চরিত্র ও আচার-আচরণ সন্তোষজনক বলে জানা যায়।
-            তার ভবিষ্যৎ জীবনের সর্বাঙ্গীন সাফল্য কামনা করি।
+            This is to certify that <b>{c.name}</b>, son/daughter of <b>{c.fatherName || "—"}</b> and <b>{c.motherName || "—"}</b>,
+            permanent address <b>{c.permanentAddress || "—"}</b>, is a regular/former student of {config.schoolName || "this institution"}
+            {c.className ? <> (Class: {c.className}{c.section ? `, Section: ${c.section}` : ""}{c.roll ? `, Roll: ${c.roll}` : ""})</> : null}.
+            Student ID: <b className="mono">{c.studentDisplayId}</b>. To the best of our knowledge, his/her moral character and conduct
+            have been found satisfactory. We wish him/her every success in life.
           </div>
           <div className="protyon-signatures">
-            <div className="protyon-sig"><div className="protyon-sig-line">লেখক</div></div>
-            <div className="protyon-sig"><div className="protyon-sig-line">প্রিন্সিপাল{config.principalName ? <><br />{config.principalName}</> : null}</div></div>
+            <div className="protyon-sig"><div className="protyon-sig-line">Principal{config.principalName ? <><br />{config.principalName}</> : null}</div></div>
           </div>
         </div>
       </div>
@@ -5419,8 +5445,8 @@ function NoticeViewModal({ notice, config, onClose }) {
   const phone = (config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "";
   return (
     <DocShell title={notice.title || "Notice"} onClose={onClose}>
-      <div className="doc-preview">
-        <PrintDocHead config={config} headline="NOTICE" />
+      <div className="doc-preview notice-print">
+        <PrintDocHead config={config} headline="NOTICE" layout="logo-left" />
         <div style={{ textAlign: "right", fontSize: 12, color: "var(--slate-soft)", marginBottom: 4 }}>Date: {fmtDate(notice.date)}</div>
         <h3 style={{ fontSize: 16, fontWeight: 700, textAlign: "center", margin: "6px 0 16px", textDecoration: "underline" }}>{notice.title}</h3>
         <div style={{ fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", textAlign: "justify", minHeight: 120 }}>{notice.details}</div>
