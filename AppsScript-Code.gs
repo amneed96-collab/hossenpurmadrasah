@@ -223,6 +223,18 @@ function bulkGet(sheetsCsv) {
   return { data: out };
 }
 
+// Finds which column actually holds "id" by its header text, instead of assuming it's always
+// column 1. Hardcoding column 1 silently reads/deletes the WRONG column's values if a column was
+// ever manually inserted before it in the real Google Sheet (a helper/sort column, a reordered
+// layout, importing from another source, etc.) — which would make id-matching never find the
+// real row (or, worse, coincidentally match something else). Falls back to column 1 only when no
+// "id" header exists at all (shouldn't normally happen — getSheet/ensureColumns always put it
+// first on a sheet this app created — but a sheet edited outside the app could lack it).
+function idColumnIndex(headers) {
+  const idx = headers.indexOf("id");
+  return idx > -1 ? idx : 0;
+}
+
 // upsertRow/deleteRow both do a "read every id in the sheet, then write" sequence. Without a
 // lock, two requests arriving close together (a slow mobile connection retrying a request, two
 // staff saving at nearly the same moment, an auto-sync overlapping a manual Save) can both read
@@ -252,7 +264,8 @@ function upsertRow(sheetName, rowJson) {
       // Compare as strings — a value typed as a plain number (e.g. an old id that happens to be
       // all digits) can come back from getValues() as a JS Number while row.id sent from the
       // client is always a String; a strict === would miss that match and append a duplicate.
-      const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      const idCol = idColumnIndex(headers) + 1; // getRange columns are 1-based
+      const ids = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
       const targetId = String(row.id);
       for (let i = 0; i < ids.length; i++) {
         if (String(ids[i][0]) === targetId) {
@@ -284,23 +297,31 @@ function deleteRow(sheetName, id) {
   try {
     const sheet = getSheet(sheetName);
     const lastRow = sheet.getLastRow();
-    // NOTE: deliberately no "error" key on the not-found outcomes below. The frontend's
+    // NOTE: deliberately no "error" key on the not-found outcome below. The frontend's
     // sheetsCall() treats ANY response with a truthy "error" field as a hard failure and throws
     // (showing a scary "Delete failed on server" toast) — but "there was no row with this id to
     // delete" is a perfectly normal, benign outcome (e.g. a student who never had a Promotion
     // row yet, or a row already removed by another device/tab), not a real server error. Using
     // "notFound" instead of "error" keeps that distinction so callers can tell the difference.
     if (lastRow < 2) return { success: false, notFound: true };
-    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    const headers = getHeaders(sheet);
+    const idCol = idColumnIndex(headers) + 1;
+    const ids = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
     const targetId = String(id);
+    // Delete EVERY row matching this id, not just the first one found. If a duplicate row with
+    // the same id was ever left behind — e.g. from before the lock above existed, when a slow or
+    // retried Save could append a second row instead of updating the first — deleting only "the"
+    // first match would leave the duplicate behind, and the student would look un-deleted the
+    // next time the app re-reads the Sheet even though this delete genuinely ran and reported
+    // success. Deleting bottom-to-top keeps the earlier row numbers valid as rows shift up.
+    const matchingRows = [];
     for (let i = 0; i < ids.length; i++) {
-      if (String(ids[i][0]) === targetId) {
-        sheet.deleteRow(i + 2);
-        invalidateListCache(sheetName);
-        return { success: true };
-      }
+      if (String(ids[i][0]) === targetId) matchingRows.push(i + 2);
     }
-    return { success: false, notFound: true };
+    if (matchingRows.length === 0) return { success: false, notFound: true };
+    matchingRows.sort((a, b) => b - a).forEach(rowNum => sheet.deleteRow(rowNum));
+    invalidateListCache(sheetName);
+    return { success: true, deletedCount: matchingRows.length };
   } finally {
     lock.releaseLock();
   }
