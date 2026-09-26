@@ -543,7 +543,7 @@ tbody tr:last-child td{border-bottom:none;}
    the printed certificate carries no "@Poweredby" text anywhere. ===== */
 .protyon-print{
   font-size:16px; line-height:1.9; width:297mm; min-height:210mm; max-width:none;
-  box-sizing:border-box; padding:0.5in; margin:0 auto; position:relative; color:#000;
+  box-sizing:border-box; padding:0.5in 1in; margin:0 auto; position:relative; color:#000;
   border:none; border-radius:0; box-shadow:none; overflow:hidden;
 }
 @media print{
@@ -1077,16 +1077,18 @@ function useDataStore(config) {
       saveCachedData(config.sheetsUrl, updated);
       return updated;
     });
-    if (!config.sheetsUrl) return;
+    if (!config.sheetsUrl) return { success: true, offline: true };
     try {
       const res = await SheetsAPI.remove(config, sheet, id);
       // res.notFound means there was simply no row with this id on the server (e.g. a student
       // who never had a Promotion row yet) — not a failure, so it gets no toast either way,
       // rather than a misleading "Deleted" for something that was never there.
-      if (res && res.notFound) return;
+      if (res && res.notFound) return { success: true, notFound: true };
       toast && toast("Deleted", "success");
+      return { success: true };
     } catch (err) {
       toast && toast("Delete failed on server", "error");
+      return { success: false, error: err.message };
     }
   }, [config.sheetsUrl]);
 
@@ -1302,7 +1304,16 @@ function calcAge(dob, asOfDate) {
 
 // Resizes an image client-side (max dimension) before upload, to keep Drive uploads fast
 // and avoid huge base64 payloads over the wire.
-function resizeImageFile(file, maxDim) {
+// maxDim caps the longest side in pixels (small for logos/photos/signatures, much larger for a
+// full-page background design so it doesn't look blurry when stretched across an A4 sheet).
+// preserveTransparency keeps PNG/GIF/WebP alpha intact by exporting as PNG instead of flattening
+// to JPEG — JPEG has no alpha channel, and a canvas's un-painted pixels are transparent-BLACK,
+// so flattening a transparent frame/border design to JPEG turns every see-through area solid
+// black. For ordinary opaque uploads we still fill white before drawing (defensive: avoids the
+// same black-corners issue if a source image happens to carry stray transparency) and export as
+// compressed JPEG, which stays much smaller.
+function resizeImageFile(file, maxDim, opts) {
+  const preserveTransparency = !!(opts && opts.preserveTransparency);
   return new Promise((resolve, reject) => {
     const img = new Image();
     const reader = new FileReader();
@@ -1317,9 +1328,15 @@ function resizeImageFile(file, maxDim) {
         const canvas = document.createElement("canvas");
         canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext("2d");
+        const wantsPng = preserveTransparency && /^image\/(png|gif|webp)$/.test(file.type);
+        if (!wantsPng) {
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, width, height);
+        }
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-        resolve({ base64: dataUrl.split(",")[1], mimeType: "image/jpeg", dataUrl });
+        const mimeType = wantsPng ? "image/png" : "image/jpeg";
+        const dataUrl = wantsPng ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.85);
+        resolve({ base64: dataUrl.split(",")[1], mimeType, dataUrl });
       };
       img.onerror = reject;
       img.src = reader.result;
@@ -1329,21 +1346,23 @@ function resizeImageFile(file, maxDim) {
   });
 }
 
-function PhotoBox({ label, folder, config, onUploaded, existingUrl }) {
+function PhotoBox({ label, folder, config, onUploaded, existingUrl, maxDim, preserveTransparency }) {
   const toast = useToast();
   const [preview, setPreview] = useState(existingUrl || "");
   const [busy, setBusy] = useState(false);
   const inputRef = useRef();
+  const dim = maxDim || 500;
 
   async function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
     setBusy(true);
     try {
-      const { base64, mimeType, dataUrl } = await resizeImageFile(file, 500);
+      const { base64, mimeType, dataUrl } = await resizeImageFile(file, dim, { preserveTransparency });
       setPreview(dataUrl); // instant local preview while uploading
       if (config && config.sheetsUrl) {
-        const filename = `${Date.now()}.jpg`;
+        const ext = mimeType === "image/png" ? "png" : "jpg";
+        const filename = `${Date.now()}.${ext}`;
         try {
           const res = await sheetsCall(config, { action: "uploadImage", folder: folder || "misc", filename, base64, mimeType });
           if (res && res.url) {
@@ -1357,7 +1376,7 @@ function PhotoBox({ label, folder, config, onUploaded, existingUrl }) {
           // fall back to a smaller embedded thumbnail so the photo still saves and shows,
           // rather than losing the photo entirely.
           console.error("Drive upload failed, using embedded fallback:", uploadErr);
-          const small = await resizeImageFile(file, 160);
+          const small = await resizeImageFile(file, 160, { preserveTransparency });
           onUploaded(small.dataUrl);
           toast && toast("Couldn't upload to Drive (check Apps Script permissions) — saved a small embedded copy instead", "error");
         }
@@ -2233,12 +2252,25 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
   // class/roll/section snapshotted in) is archived into Deleted Students first, then removed from
   // both Students and Promotion — so a promoted/graduated student doesn't linger in the Promotion
   // sheet pointing at a student that no longer exists in the main list.
+  //
+  // The Students removal is the one that actually has to reach the server — if it silently fails
+  // (a dropped request, an Apps Script cold-start hiccup) the on-screen list still LOOKS correct
+  // because the local state was already updated optimistically, and the only sign anything was
+  // wrong used to be an easy-to-miss toast — the row would then reappear on next login once
+  // fresh data is pulled from the actual Sheet. Retrying once and then raising an impossible-to-
+  // miss alert (rather than just another toast) on a genuine second failure closes that gap.
   async function handleDeleteStudent(s) {
     const current = getCurrentStatus(s, promotions);
     const archived = { ...s, ...current, deletedAt: new Date().toISOString() };
     await save("deletedStudents", archived);
     await remove("promotions", s.id);
-    await remove("students", s.id);
+    let result = await remove("students", s.id);
+    if (!result || !result.success) {
+      result = await remove("students", s.id); // one retry — covers a transient blip
+    }
+    if (!result || !result.success) {
+      alert(`${s.name} could NOT be deleted on the server (network or Apps Script error). They may reappear in All Admission next time you sync. Please check your internet connection and try again.`);
+    }
   }
 
   return (
@@ -4134,11 +4166,13 @@ function CertificatePrintModal({ certificate, config, onClose }) {
 // — a real <img> always shows up in print regardless of the browser's "print background
 // graphics" setting, and object-fit:contain shows the WHOLE design without cropping its
 // left/right edges the way background-size:cover would if the uploaded image isn't exactly
-// A4-landscape shaped. No shared footer/credit line at all (hideFooter, and this component
-// draws no credit line of its own, unlike Admission Form/Invoice/Admit Card which draw their
-// own copy of it). Both Writer and Principal sign — Writer on the left, Principal on the right.
+// A4-landscape shaped. The shared logo watermark (same faint centered mark every other document
+// uses) is left ON here — that IS the certificate's watermark — but there's still no shared
+// footer/credit line (hideFooter, and this component draws no credit line of its own, unlike
+// Admission Form/Invoice/Admit Card which draw their own copy of it). Both Writer and Principal
+// sign — Writer on the left, Principal on the right.
 function CertificatePrint({ certificate: c, config }) {
-  usePrintChrome({ hideWatermark: true, hideFooter: true });
+  usePrintChrome({ hideFooter: true });
   const phones = (config.schoolPhones || []).filter(Boolean);
   return (
     <div className="print-landscape">
@@ -6572,7 +6606,8 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
             <PhotoBox label="Cashier Signature Image" folder="signatures" config={form} existingUrl={form.cashierSignUrl} onUploaded={(url) => setForm(f => ({ ...f, cashierSignUrl: url }))} />
             <Field label="Principal Name" hint="shown on Fee Invoice / Admission Form"><input type="text" value={form.principalName || ""} onChange={set("principalName")} /></Field>
             <PhotoBox label="Principal Signature Image" folder="signatures" config={form} existingUrl={form.principalSignUrl} onUploaded={(url) => setForm(f => ({ ...f, principalSignUrl: url }))} />
-            <PhotoBox label="Protyon (Certificate) Background Design" folder="certificate" config={form} existingUrl={form.certificateBgUrl} onUploaded={(url) => setForm(f => ({ ...f, certificateBgUrl: url }))} />
+            <PhotoBox label="Protyon (Certificate) Background Design" folder="certificate" config={form} existingUrl={form.certificateBgUrl} maxDim={2200} preserveTransparency onUploaded={(url) => setForm(f => ({ ...f, certificateBgUrl: url }))} />
+            <p style={{ fontSize: 11, color: "var(--slate-soft)", marginTop: -8 }}>A4 Landscape, high-resolution image recommended. PNG with a transparent center (a frame/border design) is kept transparent — it won't turn black.</p>
           </div>
         </Modal>
       )}
