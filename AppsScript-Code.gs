@@ -284,7 +284,13 @@ function deleteRow(sheetName, id) {
   try {
     const sheet = getSheet(sheetName);
     const lastRow = sheet.getLastRow();
-    if (lastRow < 2) return { success: false, error: "Row not found" };
+    // NOTE: deliberately no "error" key on the not-found outcomes below. The frontend's
+    // sheetsCall() treats ANY response with a truthy "error" field as a hard failure and throws
+    // (showing a scary "Delete failed on server" toast) — but "there was no row with this id to
+    // delete" is a perfectly normal, benign outcome (e.g. a student who never had a Promotion
+    // row yet, or a row already removed by another device/tab), not a real server error. Using
+    // "notFound" instead of "error" keeps that distinction so callers can tell the difference.
+    if (lastRow < 2) return { success: false, notFound: true };
     const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
     const targetId = String(id);
     for (let i = 0; i < ids.length; i++) {
@@ -294,7 +300,7 @@ function deleteRow(sheetName, id) {
         return { success: true };
       }
     }
-    return { success: false, error: "Row not found" };
+    return { success: false, notFound: true };
   } finally {
     lock.releaseLock();
   }

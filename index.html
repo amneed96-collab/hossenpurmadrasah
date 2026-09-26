@@ -311,6 +311,7 @@ tbody tr:last-child td{border-bottom:none;}
   box-shadow:var(--shadow-lg);
 }
 .modal.modal-lg{max-width:920px;}
+.modal.modal-xl{max-width:1240px;}
 .modal-head{
   padding:18px 24px;border-bottom:1px solid var(--line);
   display:flex;align-items:center;justify-content:space-between;
@@ -543,13 +544,13 @@ tbody tr:last-child td{border-bottom:none;}
 .protyon-print{
   font-size:16px; line-height:1.9; width:297mm; min-height:210mm; max-width:none;
   box-sizing:border-box; padding:22mm 28mm; margin:0 auto; position:relative; color:#000;
-  border:none; border-radius:0; box-shadow:none;
-  background-size:cover; background-position:center; background-repeat:no-repeat;
+  border:none; border-radius:0; box-shadow:none; overflow:hidden;
 }
 @media print{
   .protyon-print{ width:100%; min-height:100vh; box-shadow:none; border:none; }
 }
 .protyon-content{ position:relative; z-index:1; }
+.protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:0; }
 .protyon-title{
   text-align:center; font-family:'Fraunces',serif; font-size:30px; font-weight:800;
   letter-spacing:0.08em; margin-bottom:8px; text-transform:uppercase;
@@ -1066,7 +1067,11 @@ function useDataStore(config) {
     });
     if (!config.sheetsUrl) return;
     try {
-      await SheetsAPI.remove(config, sheet, id);
+      const res = await SheetsAPI.remove(config, sheet, id);
+      // res.notFound means there was simply no row with this id on the server (e.g. a student
+      // who never had a Promotion row yet) — not a failure, so it gets no toast either way,
+      // rather than a misleading "Deleted" for something that was never there.
+      if (res && res.notFound) return;
       toast && toast("Deleted", "success");
     } catch (err) {
       toast && toast("Delete failed on server", "error");
@@ -1106,7 +1111,7 @@ function Modal({ title, onClose, children, footer, size }) {
   }, []);
   const overlay = (
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`modal ${size === "lg" ? "modal-lg" : ""}`}>
+      <div className={`modal ${size === "xl" ? "modal-xl" : size === "lg" ? "modal-lg" : ""}`}>
         <div className="modal-head no-print">
           <h3>{title}</h3>
           <button className="modal-close" onClick={onClose}><Icon.x /></button>
@@ -4104,7 +4109,7 @@ function CertificateFormModal({ students, promotions, certificates, config, onSa
 function CertificatePrintModal({ certificate, config, onClose }) {
   function handlePrint() { window.print(); }
   return (
-    <Modal title="Print Protyon" onClose={onClose} size="lg"
+    <Modal title="Print Protyon" onClose={onClose} size="xl"
       footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print / Save as PDF</button></>}>
       <CertificatePrint certificate={certificate} config={config} />
     </Modal>
@@ -4112,17 +4117,20 @@ function CertificatePrintModal({ certificate, config, onClose }) {
 }
 
 // The certificate itself — plain A4 Landscape page (via .print-landscape, no border/frame),
-// font-size 16 (.protyon-print), fully in English, background image from Settings
-// (config.certificateBgUrl) drawn full-bleed, and NO shared footer/credit line at all
-// (hideFooter, and this component draws no credit line of its own, unlike Admission
-// Form/Invoice/Admit Card which draw their own copy of it). Only the Principal signs —
-// there's deliberately no "Prepared By" line.
+// font-size 16 (.protyon-print), fully in English, background image from Settings drawn as a
+// real <img> with object-fit:contain (not a CSS background-image) — a real <img> always shows
+// up in print regardless of the browser's "print background graphics" setting, and
+// object-fit:contain shows the WHOLE design without cropping its left/right edges the way
+// background-size:cover would if the uploaded image isn't exactly A4-landscape shaped. No
+// shared footer/credit line at all (hideFooter, and this component draws no credit line of
+// its own, unlike Admission Form/Invoice/Admit Card which draw their own copy of it). Only the
+// Principal signs — there's deliberately no "Prepared By" line.
 function CertificatePrint({ certificate: c, config }) {
   usePrintChrome({ hideWatermark: true, hideFooter: true });
-  const bgStyle = config.certificateBgUrl ? { backgroundImage: `url(${config.certificateBgUrl})` } : {};
   return (
     <div className="print-landscape">
-      <div className="doc-preview protyon-print" style={bgStyle}>
+      <div className="doc-preview protyon-print">
+        {config.certificateBgUrl && <img src={config.certificateBgUrl} alt="" className="protyon-bg-img" />}
         <div className="protyon-content">
           <div className="protyon-title">Certificate</div>
           <div className="protyon-title-underline" />
