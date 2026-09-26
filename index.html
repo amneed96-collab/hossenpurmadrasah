@@ -379,7 +379,7 @@ tbody tr:last-child td{border-bottom:none;}
 @media print{
   .admission-form-print{
     width:100%;min-height:100vh;box-sizing:border-box;
-    padding:0;border:1.5px solid var(--ink);box-shadow:none;
+    border:1.5px solid var(--ink);box-shadow:none;
   }
 }
 
@@ -543,7 +543,7 @@ tbody tr:last-child td{border-bottom:none;}
    the printed certificate carries no "@Poweredby" text anywhere. ===== */
 .protyon-print{
   font-size:16px; line-height:1.9; width:297mm; min-height:210mm; max-width:none;
-  box-sizing:border-box; padding:22mm 28mm; margin:0 auto; position:relative; color:#000;
+  box-sizing:border-box; padding:0.5in; margin:0 auto; position:relative; color:#000;
   border:none; border-radius:0; box-shadow:none; overflow:hidden;
 }
 @media print{
@@ -551,15 +551,27 @@ tbody tr:last-child td{border-bottom:none;}
 }
 .protyon-content{ position:relative; z-index:1; }
 .protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:0; }
+/* Institution header — logo left, name truly centered (the hidden spacer on the right balances
+   the logo's width so the center column doesn't drift), address, then Code/Email/Mobile, then
+   a divider. No opaque background here (unlike Admission Form's green banner) so the custom
+   certificate background design from Settings stays fully visible underneath. */
+.protyon-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.protyon-header-logo{ width:56px; height:56px; flex-shrink:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.protyon-header-logo img{ width:100%; height:100%; object-fit:contain; }
+.protyon-header-center{ flex:1; min-width:0; text-align:center; }
+.protyon-header-name{ font-family:'Fraunces',serif; font-size:20px; font-weight:800; text-transform:uppercase; letter-spacing:0.03em; }
+.protyon-header-address{ font-size:12px; margin-top:2px; }
+.protyon-header-contact{ font-size:11.5px; margin-top:2px; opacity:0.85; }
+.protyon-divider{ border:none; border-top:2px solid var(--gold); margin:8px 0 0; }
 .protyon-title{
-  text-align:center; font-family:'Fraunces',serif; font-size:30px; font-weight:800;
-  letter-spacing:0.08em; margin-bottom:8px; text-transform:uppercase;
+  text-align:center; font-family:'Fraunces',serif; font-size:28px; font-weight:800;
+  letter-spacing:0.06em; margin:22px 0 8px; text-transform:uppercase;
 }
-.protyon-title-underline{ width:110px; height:3px; background:var(--gold); margin:0 auto 30px; }
+.protyon-title-underline{ width:110px; height:3px; background:var(--gold); margin:0 auto 26px; }
 .protyon-body{ text-align:justify; }
 .protyon-body b{ font-weight:700; }
 .protyon-meta-row{ display:flex; justify-content:space-between; font-size:15px; margin-bottom:26px; }
-.protyon-signatures{ display:flex; justify-content:flex-end; margin-top:80px; }
+.protyon-signatures{ display:flex; justify-content:space-between; margin-top:80px; }
 .protyon-sig{ text-align:center; width:220px; }
 .protyon-sig-line{ border-top:1.5px solid #000; padding-top:6px; font-size:14px; font-weight:600; }
 
@@ -3502,7 +3514,7 @@ function AdmissionFormPrint({ student, config }) {
 function AdmissionFormPrintModal({ student, config, onClose }) {
   usePrintChrome({ hideFooter: true }); // admission form prints its own footer with slogan + credit
   return (
-    <Modal title={`Admission Form — ${student.name}`} onClose={onClose}
+    <Modal title={`Admission Form — ${student.name}`} onClose={onClose} size="lg"
       footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Admission Form (A4)</button></>}>
       <AdmissionFormPrint student={student} config={config} />
     </Modal>
@@ -4117,22 +4129,42 @@ function CertificatePrintModal({ certificate, config, onClose }) {
 }
 
 // The certificate itself — plain A4 Landscape page (via .print-landscape, no border/frame),
-// font-size 16 (.protyon-print), fully in English, background image from Settings drawn as a
-// real <img> with object-fit:contain (not a CSS background-image) — a real <img> always shows
-// up in print regardless of the browser's "print background graphics" setting, and
-// object-fit:contain shows the WHOLE design without cropping its left/right edges the way
-// background-size:cover would if the uploaded image isn't exactly A4-landscape shaped. No
-// shared footer/credit line at all (hideFooter, and this component draws no credit line of
-// its own, unlike Admission Form/Invoice/Admit Card which draw their own copy of it). Only the
-// Principal signs — there's deliberately no "Prepared By" line.
+// 0.5in margin on all four sides, font-size 16 (.protyon-print), fully in English, background
+// image from Settings drawn as a real <img> with object-fit:contain (not a CSS background-image)
+// — a real <img> always shows up in print regardless of the browser's "print background
+// graphics" setting, and object-fit:contain shows the WHOLE design without cropping its
+// left/right edges the way background-size:cover would if the uploaded image isn't exactly
+// A4-landscape shaped. No shared footer/credit line at all (hideFooter, and this component
+// draws no credit line of its own, unlike Admission Form/Invoice/Admit Card which draw their
+// own copy of it). Both Writer and Principal sign — Writer on the left, Principal on the right.
 function CertificatePrint({ certificate: c, config }) {
   usePrintChrome({ hideWatermark: true, hideFooter: true });
+  const phones = (config.schoolPhones || []).filter(Boolean);
   return (
     <div className="print-landscape">
       <div className="doc-preview protyon-print">
         {config.certificateBgUrl && <img src={config.certificateBgUrl} alt="" className="protyon-bg-img" />}
         <div className="protyon-content">
-          <div className="protyon-title">Certificate</div>
+          <div className="protyon-header-row">
+            <div className="protyon-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
+            <div className="protyon-header-center">
+              <div className="protyon-header-name">{config.schoolName || "School Name"}</div>
+              {config.schoolAddress && <div className="protyon-header-address">{config.schoolAddress}</div>}
+              {(config.instituteCode || config.schoolEmail || phones[0]) && (
+                <div className="protyon-header-contact">
+                  {config.instituteCode && <span>Code: {config.instituteCode}</span>}
+                  {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
+                  {config.schoolEmail && <span>Email: {config.schoolEmail}</span>}
+                  {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
+                  {phones[0] && <span>Mobile: {phones[0]}</span>}
+                </div>
+              )}
+            </div>
+            <div className="protyon-header-logo" />
+          </div>
+          <hr className="protyon-divider" />
+
+          <div className="protyon-title">Character Certificate</div>
           <div className="protyon-title-underline" />
           <div className="protyon-meta-row">
             <div>No: <b className="mono">{c.certificateNo}</b></div>
@@ -4146,6 +4178,7 @@ function CertificatePrint({ certificate: c, config }) {
             have been found satisfactory. We wish him/her every success in life.
           </div>
           <div className="protyon-signatures">
+            <div className="protyon-sig"><div className="protyon-sig-line">Writer</div></div>
             <div className="protyon-sig"><div className="protyon-sig-line">Principal{config.principalName ? <><br />{config.principalName}</> : null}</div></div>
           </div>
         </div>
@@ -6667,23 +6700,15 @@ function MenuBar({ active, subTab, setActive, config, store }) {
         </div>
       </div>
 
-      {/* Mobile layout: unchanged — brand mark+text (left), hamburger toggle (right) */}
+      {/* Mobile layout: hamburger toggle (left), logo (right) */}
       <div className="menubar-row menubar-row-mobile">
-        <div className="menubar-brand">
-          {config.schoolLogo ? (
-            <img src={config.schoolLogo} alt="" className="menubar-brand-logo" />
-          ) : (
-            <div className="menubar-brand-mark">V</div>
-          )}
-          <div>
-            <div className="menubar-brand-text">Vidyalaya</div>
-            <div className="menubar-brand-sub">{config.schoolName || "School Manager"}</div>
-          </div>
-        </div>
-
         <button className="menubar-toggle" onClick={toggleMenu} aria-label="Menu">
           <IconWrap name={mobileOpen ? "x" : "menu"} />
         </button>
+
+        <div className="menubar-desktop-logo">
+          {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : <div className="menubar-brand-mark">V</div>}
+        </div>
       </div>
 
       <div className={`menubar-mobile-panel ${mobileOpen ? "open" : ""}`}>
