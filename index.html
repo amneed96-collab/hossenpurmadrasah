@@ -627,7 +627,7 @@ tbody tr:last-child td{border-bottom:none;}
   .protyon-print{ width:100%; min-height:100vh; box-shadow:none; border:none; }
 }
 .protyon-content{ position:relative; z-index:1; display:flex; flex-direction:column; flex:1; }
-.protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; z-index:0; padding: 0.3in; }
+.protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; z-index:0; padding: 0.3in; object-fit:cover; }
 /* Institution header — logo left, name truly centered (the hidden spacer on the right balances
    the logo's width so the center column doesn't drift), address, then Code/Email/Mobile, then
    a divider. No opaque background here (unlike Admission Form's green banner) so the custom
@@ -1443,6 +1443,37 @@ function resizeImageFile(file, maxDim, opts) {
   });
 }
 
+// Used only when the Drive upload fails, as a last-resort embedded fallback so the image still
+// saves instead of being lost. The OLD version of this always shrank to a fixed 160px — fine for
+// a small square photo, but for something meant to be a full A4-landscape background design it
+// produced a visibly blurry result when stretched across the whole page, even though the ORIGINAL
+// upload (and the instant preview shown in Settings) was high-resolution. The Settings preview
+// looked sharp because it was showing that original preview — the actual saved value was the tiny
+// fallback, so what got used on the printed certificate was much lower quality than what the user
+// saw on screen.
+// This tries progressively smaller/lighter-weight encodes of the SAME image (instead of jumping
+// straight to a tiny thumbnail) until the result fits under a safe embedded-storage size budget,
+// so a fallback background stays as sharp as the storage limit allows rather than being needlessly
+// tiny. `targetDim` is the resolution we'd prefer (e.g. the original upload's intended maxDim);
+// it only steps down from there if the encoded size doesn't fit the budget.
+async function resizeImageFileUnderBudget(file, targetDim, opts) {
+  const preserveTransparency = !!(opts && opts.preserveTransparency);
+  const maxBytes = (opts && opts.maxBytes) || 40000; // keep comfortably under a ~50k-char sheet-cell limit
+  const dims = Array.from(new Set([targetDim, Math.round(targetDim * 0.7), Math.round(targetDim * 0.5), Math.round(targetDim * 0.35), 160]))
+    .filter(d => d >= 160)
+    .sort((a, b) => b - a);
+  let last = null;
+  for (const dim of dims) {
+    const result = await resizeImageFile(file, dim, { preserveTransparency });
+    last = result;
+    const approxBytes = result.base64.length * 0.75;
+    if (approxBytes <= maxBytes) return { ...result, downgraded: dim !== targetDim };
+  }
+  // Nothing fit under budget even at 160px (e.g. a very busy/high-entropy PNG) — return the
+  // smallest attempt anyway rather than failing the upload outright.
+  return { ...last, downgraded: true };
+}
+
 function PhotoBox({ label, folder, config, onUploaded, existingUrl, maxDim, preserveTransparency }) {
   const toast = useToast();
   const [preview, setPreview] = useState(existingUrl || "");
@@ -1470,12 +1501,21 @@ function PhotoBox({ label, folder, config, onUploaded, existingUrl, maxDim, pres
           }
         } catch (uploadErr) {
           // Drive upload failed (e.g. permission not yet granted on the Apps Script) —
-          // fall back to a smaller embedded thumbnail so the photo still saves and shows,
-          // rather than losing the photo entirely.
+          // fall back to the best-quality embedded copy that still fits safely in storage,
+          // rather than losing the photo entirely. Importantly, also correct the on-screen
+          // preview to match this fallback (instead of leaving the earlier full-res preview
+          // showing) so the admin can actually SEE that quality was reduced, rather than
+          // believing a sharp image was saved when a blurrier one actually was.
           console.error("Drive upload failed, using embedded fallback:", uploadErr);
-          const small = await resizeImageFile(file, 160, { preserveTransparency });
+          const small = await resizeImageFileUnderBudget(file, dim, { preserveTransparency });
+          setPreview(small.dataUrl);
           onUploaded(small.dataUrl);
-          toast && toast("Couldn't upload to Drive (check Apps Script permissions) — saved a small embedded copy instead", "error");
+          toast && toast(
+            small.downgraded
+              ? "Couldn't upload to Drive (check Apps Script permissions) — saved a lower-resolution embedded copy instead. Fix the Drive connection and re-upload for full quality."
+              : "Couldn't upload to Drive (check Apps Script permissions) — saved an embedded copy instead",
+            "error"
+          );
         }
       } else {
         // Offline mode — no backend configured, keep the (small, resized) data URL locally only.
