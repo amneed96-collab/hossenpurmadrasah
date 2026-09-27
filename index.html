@@ -10,6 +10,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{
   --ink:#1b232c;
@@ -490,8 +491,43 @@ tbody tr:last-child td{border-bottom:none;}
 }
 
 /* Fee Invoice — its own black-on-white look (no colored header/footer), separate from the Admission Form's. */
-.invoice-doc-print{max-width:480px;color:#000;font-size:11px;position:relative;}
+.invoice-doc-print{max-width:480px;color:#000;font-size:11px;position:relative;border:none;}
 @media print{ .invoice-doc-print{box-shadow:none;border:none;padding:0;} }
+
+/* Fee Invoice only: student-data / fee-table type is bumped to 12.5px and the table gets
+   tighter padding, without touching the Finance Invoice/Expense Voucher docs that reuse the
+   same .inv-* classes. */
+.fee-invoice-doc .inv-meta-grid .field-row{font-size:12.5px;}
+.fee-invoice-doc .inv-fee-table{font-size:12.5px;}
+.fee-invoice-doc .inv-fee-table thead th{padding:4px 3px;}
+.fee-invoice-doc .inv-fee-table tbody td{padding:3px 4px;}
+
+/* Dashed rule directly above the "@Poweredby" credit line (Fee Invoice only) — replaces the
+   solid gold divider used elsewhere so the credit line reads as a lightweight footnote. */
+.inv-credit-rule{border:none;border-top:1px dashed #000;margin:6px 0 3px;}
+
+/* Two identical copies of the Fee Invoice side-by-side on one A4 portrait page (e.g. office
+   copy + student copy), each effectively carrying its own 0.5in margin: the page's own
+   @page margin (0.5in) gives the outer edges, and the 0.5in gap between the two columns gives
+   each copy the same breathing room on its inner edge. No border/box is drawn around either
+   copy or between them — just the gap. The on-screen modal still shows a single copy (see
+   .inv-screen-only); the doubled layout only appears on the printed page. */
+.inv-screen-only{}
+.inv-print-pair{display:none;}
+@media print{
+  .inv-screen-only{display:none;}
+  .inv-print-pair{
+    display:flex;align-items:stretch;gap:0.5in;min-height:100vh;
+  }
+  .inv-print-pair > .invoice-doc-print{
+    flex:1 1 0;min-width:0;margin:0;display:flex;flex-direction:column;
+  }
+  /* Signature block is pinned to the bottom of the (now full page height) column via
+     margin-top:auto, so it — and the dashed rule + credit line right after it — line up at
+     a fixed position on the page regardless of how many fee rows are in the table above,
+     and both copies match each other exactly. */
+  .inv-print-pair .adm-signatures{margin-top:auto !important;}
+}
 .inv-watermark{
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   width:55%;pointer-events:none;z-index:0;
@@ -989,6 +1025,7 @@ const Icon = {
   search: (p)=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>,
   print: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2M6 14h12v7H6z"/></svg>,
   download: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>,
+  share: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5 15.4 17.5"/></svg>,
   edit: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>,
   trash: (p)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/></svg>,
   x: (p)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M18 6 6 18M6 6l12 12"/></svg>,
@@ -3026,6 +3063,7 @@ function FeeInvoiceModule({ data, save, remove, config }) {
   const [printInvoice, setPrintInvoice] = useState(null);
   const [showPaymentSheet, setShowPaymentSheet] = useState(false);
   const [query, setQuery] = useState("");
+  const [sharingId, setSharingId] = useState(null); // invoice id currently being turned into an image
   const toast = useToast();
 
   const students = data.students || [];
@@ -3046,6 +3084,17 @@ function FeeInvoiceModule({ data, save, remove, config }) {
   async function handleSaveStudent(record) { return save("students", record); }
   async function handleSaveInvoice(record) { return save("invoices", record); }
   function handlePrintList() { window.print(); }
+  // Shares this invoice as an image via the device's native share sheet (falls back to
+  // downloading the PNG if sharing isn't available/cancelled) — no need to open the print modal.
+  async function handleShareInvoice(inv) {
+    setSharingId(inv.id);
+    try {
+      await exportInvoiceImage(inv, config, "share");
+    } catch (e) {
+      toast && toast("Could not create invoice image", "error");
+    }
+    setSharingId(null);
+  }
 
   return (
     <div>
@@ -3085,6 +3134,7 @@ function FeeInvoiceModule({ data, save, remove, config }) {
                       <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditInvoice(inv)}><Icon.edit /></button>
                         <button className="btn btn-sm btn-icon" title="Print this Invoice" onClick={() => setPrintInvoice(inv)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Share as image" disabled={sharingId === inv.id} onClick={() => handleShareInvoice(inv)}><Icon.share /></button>
                         <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm("Delete this invoice record?")) remove("invoices", inv.id); }}><Icon.trash /></button>
                       </div>
                     </td>
@@ -3221,8 +3271,9 @@ function invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey)
 // Shared professional invoice layout — used both for the live submit-preview and for
 // reprinting a previously saved invoice from the list, so both look identical.
 function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, waiverTotal, paymentTotal, dueAfter }) {
+  const schoolNameLine = (config.schoolName || "School Name") + (config.instituteCode ? ` (${config.instituteCode})` : "");
   return (
-    <div className="doc-preview invoice-doc-print">
+    <div className="doc-preview invoice-doc-print fee-invoice-doc">
       {config.schoolLogo && (
         <div className="inv-watermark"><img src={config.schoolLogo} alt="" /></div>
       )}
@@ -3232,10 +3283,7 @@ function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, wai
             {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
           </div>
           <div className="inv-header-center">
-            <div className="inv-school-name">
-              {config.schoolName || "School Name"}
-              {config.instituteCode && <span className="inv-school-code"> ({config.instituteCode})</span>}
-            </div>
+            <AutoFitLine className="inv-school-name" text={schoolNameLine} maxPt={12} minPt={6} />
             {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
             <div className="inv-title">FEE INVOICE</div>
           </div>
@@ -3292,10 +3340,89 @@ function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, wai
         </div>
       </div>
 
-      <hr className="adm-divider inv-divider" style={{ marginTop: 14 }} />
+      <hr className="inv-credit-rule" />
       <div className="inv-credit">@Poweredby: AM Shahed: 01605721296</div>
     </div>
   );
+}
+
+// Renders a Fee Invoice for the screen (single copy, unchanged look) and, only at print time,
+// two identical copies side-by-side on the same A4 page (see .inv-print-pair CSS) — so printing
+// one invoice yields two ready-to-cut copies with no extra clicks.
+function FeeInvoicePrintDoc(props) {
+  const invoiceEl = <InvoiceDocPrint {...props} />;
+  return (
+    <>
+      <div className="inv-screen-only">{invoiceEl}</div>
+      <div className="inv-print-pair">
+        {invoiceEl}
+        {invoiceEl}
+      </div>
+    </>
+  );
+}
+
+function waitForImagesToLoad(node, timeoutMs = 3000) {
+  const imgs = Array.from(node.querySelectorAll("img"));
+  if (imgs.length === 0) return Promise.resolve();
+  return Promise.all(imgs.map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(resolve => {
+      const done = () => resolve();
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+      setTimeout(done, timeoutMs);
+    });
+  }));
+}
+
+// Renders a saved Fee Invoice off-screen (single copy, screen layout) and rasterizes it with
+// html2canvas so it can be shared as an image via the device's native share sheet, or downloaded
+// as a PNG — used both by the Fee Invoice list's per-row actions and the reprint modal, so
+// the exported image always matches what "Print / Save as PDF" would show on screen.
+async function exportInvoiceImage(invoice, config, mode) {
+  if (!window.html2canvas) throw new Error("html2canvas not loaded");
+  const props = savedInvoiceToProps(invoice);
+  const holder = document.createElement("div");
+  holder.style.position = "fixed";
+  holder.style.left = "-10000px";
+  holder.style.top = "0";
+  holder.style.background = "#fff";
+  holder.style.width = "480px";
+  document.body.appendChild(holder);
+  const root = ReactDOM.createRoot(holder);
+  let blob;
+  try {
+    await new Promise(resolve => {
+      root.render(<InvoiceDocPrint config={config} {...props} />);
+      // Two rAFs so layout (incl. AutoFitLine's useLayoutEffect) has settled before capture.
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+    await waitForImagesToLoad(holder);
+    const canvas = await window.html2canvas(holder.firstChild, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+    blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+  } finally {
+    root.unmount();
+    document.body.removeChild(holder);
+  }
+  if (!blob) throw new Error("Could not render invoice image");
+
+  const filename = `Invoice-${invoice.invoiceNo || "invoice"}.png`;
+  const file = new File([blob], filename, { type: "image/png" });
+  if (mode === "share" && navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    try {
+      await navigator.share({ files: [file], title: "Fee Invoice", text: `Fee Invoice ${invoice.invoiceNo || ""}`.trim() });
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return; // user cancelled the share sheet
+      // otherwise fall through and offer a download instead
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoices, promotions, classHistories, activations, onSave, saveInvoice, onClose }) {
@@ -3381,7 +3508,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
         <button className="btn" onClick={onClose}>Close</button>
       )}>
       {showPrint && submittedInvoice ? (
-        <InvoiceDocPrint config={config} student={displayStudent} invoiceNo={submittedInvoice.invoiceNo} date={submittedInvoice.date}
+        <FeeInvoicePrintDoc config={config} student={displayStudent} invoiceNo={submittedInvoice.invoiceNo} date={submittedInvoice.date}
           rows={submittedInvoice.rows} subtotal={submittedInvoice.subtotal} waiverTotal={submittedInvoice.waiverTotal}
           paymentTotal={submittedInvoice.paymentTotal} dueAfter={submittedInvoice.dueAfter} />
       ) : !selected ? (
@@ -3457,8 +3584,10 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
   );
 }
 
-function SavedInvoicePrintModal({ invoice, config, onClose }) {
-  usePrintChrome({ hideWatermark: true, hideFooter: true }); // invoice draws its own centered watermark + credit line
+// Normalizes a saved Invoice record (old and new field names alike) into the flat props
+// InvoiceDocPrint/FeeInvoicePrintDoc expect — shared by the print/reprint modal and by the
+// list's Share/Download-image actions so both render byte-for-byte the same invoice.
+function savedInvoiceToProps(invoice) {
   const student = { studentId: invoice.studentDisplayId, name: invoice.studentName, className: invoice.className, roll: invoice.roll, photoUrl: invoice.photoUrl };
   const legacyRows = !Array.isArray(invoice.rows) && Array.isArray(invoice.breakdownSnapshot)
     ? invoice.breakdownSnapshot.map((r, i) => ({ no: i + 1, description: r.head, amountDue: r.due, waiver: r.waived, payment: r.paid }))
@@ -3468,11 +3597,34 @@ function SavedInvoicePrintModal({ invoice, config, onClose }) {
   const waiverTotal = invoice.waiverTotal != null ? invoice.waiverTotal : invoice.totalWaived;
   const paymentTotal = invoice.paymentTotal != null ? invoice.paymentTotal : invoice.paidThisTime;
   const dueAfter = invoice.dueAfter != null ? invoice.dueAfter : invoice.totalDue;
+  return { student, invoiceNo: invoice.invoiceNo, date: invoice.date, rows, subtotal, waiverTotal, paymentTotal, dueAfter };
+}
+
+function SavedInvoicePrintModal({ invoice, config, onClose }) {
+  usePrintChrome({ hideWatermark: true, hideFooter: true }); // invoice draws its own centered watermark + credit line
+  const { student, invoiceNo, date, rows, subtotal, waiverTotal, paymentTotal, dueAfter } = savedInvoiceToProps(invoice);
+
+  const [busy, setBusy] = useState(null); // "share" | "download" | null
+  const toast = useToast();
+  async function handleImage(mode) {
+    setBusy(mode);
+    try {
+      await exportInvoiceImage(invoice, config, mode);
+    } catch (e) {
+      toast && toast("Could not create invoice image", "error");
+    }
+    setBusy(null);
+  }
 
   return (
     <Modal title={`Invoice — ${invoice.studentName}`} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button></>}>
-      <InvoiceDocPrint config={config} student={student} invoiceNo={invoice.invoiceNo} date={invoice.date}
+      footer={<>
+        <button className="btn" onClick={onClose}>Close</button>
+        <button className="btn" disabled={!!busy} onClick={() => handleImage("download")}><Icon.download />{busy === "download" ? "Preparing…" : "Download Image"}</button>
+        <button className="btn" disabled={!!busy} onClick={() => handleImage("share")}><Icon.share />{busy === "share" ? "Preparing…" : "Share"}</button>
+        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
+      </>}>
+      <FeeInvoicePrintDoc config={config} student={student} invoiceNo={invoiceNo} date={date}
         rows={rows} subtotal={subtotal} waiverTotal={waiverTotal} paymentTotal={paymentTotal} dueAfter={dueAfter} />
     </Modal>
   );
