@@ -932,6 +932,7 @@ function loadConfig() {
     schoolPhones: ["", "", ""],
     schoolEmail: "",
     instituteCode: "",
+    establishedYear: "",
     schoolLogo: "",
     facebookUrl: "",
     youtubeUrl: "",
@@ -2148,15 +2149,20 @@ function Dashboard({ data, setActiveModule }) {
 /* =========================================================
    STUDENTS MODULE
    ========================================================= */
-function generateStudentId(existingStudents) {
-  const year = new Date().getFullYear();
+// Student ID = "STU" + the institution's Founding Year (config.establishedYear — NOT the
+// current/admission year) + a running 4-digit number, all run together with no separators,
+// e.g. founding year 2026 → STU20260001, STU20260002, … Falls back to the current year only if
+// no founding year has been set in Settings yet.
+function generateStudentId(existingStudents, establishedYear) {
+  const year = establishedYear || new Date().getFullYear();
+  const prefix = `STU${year}`;
   const nums = (existingStudents || [])
     .map(s => s.studentId || "")
-    .filter(id => id.startsWith(`STU-${year}-`))
-    .map(id => parseInt(id.split("-")[2], 10))
+    .filter(id => id.startsWith(prefix))
+    .map(id => parseInt(id.slice(prefix.length), 10))
     .filter(n => !isNaN(n));
   const next = (nums.length ? Math.max(...nums) : 0) + 1;
-  return `STU-${year}-${String(next).padStart(4, "0")}`;
+  return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
 function generateStaffId(existingTeachers) {
@@ -2230,19 +2236,23 @@ function formatPermanentAddress(student) {
   return ADDRESS_FIELDS.map(f => student[addrKey("permanent", f)]).filter(Boolean).join(", ");
 }
 
-function generateCertificateNo(existingCertificates) {
-  const year = new Date().getFullYear();
+// Certificate No = "CCRT" + the institution's Founding Year (config.establishedYear) + a
+// running 4-digit number, no separators — e.g. founding year 2026 → CCRT20260001. Same
+// fallback-to-current-year rule as generateStudentId.
+function generateCertificateNo(existingCertificates, establishedYear) {
+  const year = establishedYear || new Date().getFullYear();
+  const prefix = `CCRT${year}`;
   const nums = (existingCertificates || [])
     .map(c => c.certificateNo || "")
-    .filter(id => id.startsWith(`CRT-${year}-`))
-    .map(id => parseInt(id.split("-")[2], 10))
+    .filter(id => id.startsWith(prefix))
+    .map(id => parseInt(id.slice(prefix.length), 10))
     .filter(n => !isNaN(n));
   const next = (nums.length ? Math.max(...nums) : 0) + 1;
-  return `CRT-${year}-${String(next).padStart(4, "0")}`;
+  return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
-const emptyStudent = (existingStudents) => {
-  const studentId = generateStudentId(existingStudents);
+const emptyStudent = (existingStudents, config) => {
+  const studentId = generateStudentId(existingStudents, config && config.establishedYear);
   const student = {
     id: studentId, studentId, admissionFormNo: generateFormNo(existingStudents),
     name: "", fatherName: "", motherName: "", dob: "", gender: "Male",
@@ -2312,7 +2322,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
     return matchQ && matchC;
   });
 
-  function openNew() { setEditing(emptyStudent(students)); }
+  function openNew() { setEditing(emptyStudent(students, config)); }
   function openEdit(s) {
     const current = getCurrentStatus(s, promotions);
     setEditing({ ...s, className: current.className, roll: current.roll, section: current.section, subjectGroup: current.subjectGroup, session: current.session });
@@ -4399,9 +4409,10 @@ function CertificateFormModal({ students, promotions, certificates, config, onSa
     if (!selected) return;
     setSaving(true);
     const today = new Date().toISOString().slice(0, 10);
+    const certificateNo = generateCertificateNo(certificates, config.establishedYear);
     const record = {
-      id: generateCertificateNo(certificates),
-      certificateNo: generateCertificateNo(certificates),
+      id: certificateNo,
+      certificateNo,
       studentId: selected.id,
       studentDisplayId: selected.studentId,
       name: selected.name,
@@ -6767,7 +6778,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
   // Exactly the fields the Settings form edits — sheetsUrl (and anything else on `config`) is
   // local-only connection config and must never be written into the Settings sheet as a column.
   const SETTINGS_SHEET_FIELDS = [
-    "schoolName", "instituteCode", "schoolAddress", "schoolEmail",
+    "schoolName", "instituteCode", "establishedYear", "schoolAddress", "schoolEmail",
     "schoolLogo", "facebookUrl", "youtubeUrl", "cashierName", "cashierSignUrl",
     "principalName", "principalSignUrl", "certificateBgUrl",
   ];
@@ -6821,6 +6832,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           <div className="kv-row"><span className="k">Email</span><span className="v">{config.schoolEmail || "—"}</span></div>
           <div className="kv-row"><span className="k">Phone</span><span className="v">{(config.schoolPhones || []).filter(Boolean).join(", ") || "—"}</span></div>
           <div className="kv-row"><span className="k">Institute Code</span><span className="v">{config.instituteCode || "—"}</span></div>
+          <div className="kv-row"><span className="k">Founding Year</span><span className="v">{config.establishedYear || "—"}</span></div>
           <div className="kv-row"><span className="k">Principal</span><span className="v">{config.principalName || "—"}</span></div>
           <div className="kv-row"><span className="k">Cashier</span><span className="v">{config.cashierName || "—"}</span></div>
         </div>
@@ -6884,6 +6896,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
             <Field label="Institution Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
             <Field label="Institute Code No." hint="shown on Admission Form"><input type="text" value={form.instituteCode || ""} onChange={set("instituteCode")} /></Field>
+            <Field label="Founding Year (প্রতিষ্ঠাকাল)" hint="used in Student ID (STU) and Certificate No. (CCRT)"><input type="number" value={form.establishedYear || ""} onChange={set("establishedYear")} placeholder="e.g. 2026" /></Field>
             <Field label="Address"><textarea value={form.schoolAddress || ""} onChange={set("schoolAddress")} placeholder="Full address" /></Field>
             <Field label="Email"><input type="email" value={form.schoolEmail || ""} onChange={set("schoolEmail")} placeholder="school@example.com" /></Field>
             <Field label="Mobile Number 1"><input type="tel" value={form.schoolPhones[0] || ""} onChange={(e) => setPhone(0, e.target.value)} placeholder="e.g. 01XXXXXXXXX" /></Field>
