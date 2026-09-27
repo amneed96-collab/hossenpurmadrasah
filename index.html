@@ -543,19 +543,22 @@ tbody tr:last-child td{border-bottom:none;}
    the printed certificate carries no "@Poweredby" text anywhere. ===== */
 .protyon-print{
   font-size:16px; line-height:1.9; width:297mm; min-height:210mm; max-width:none;
-  box-sizing:border-box; padding:0.4in 0.35in; margin:0 auto; position:relative; color:#000;
+  box-sizing:border-box; padding:0.3in; margin:0 auto; position:relative; color:#000;
   border:none; border-radius:0; box-shadow:none; overflow:hidden;
+  display:flex; flex-direction:column;
 }
 @media print{
   .protyon-print{ width:100%; min-height:100vh; box-shadow:none; border:none; }
 }
-.protyon-content{ position:relative; z-index:1; }
+.protyon-content{ position:relative; z-index:1; display:flex; flex-direction:column; flex:1; }
 .protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:0; }
 /* Institution header — logo left, name truly centered (the hidden spacer on the right balances
    the logo's width so the center column doesn't drift), address, then Code/Email/Mobile, then
    a divider. No opaque background here (unlike Admission Form's green banner) so the custom
-   certificate background design from Settings stays fully visible underneath. */
-.protyon-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+   certificate background design from Settings stays fully visible underneath. The row itself
+   gets its own inset (beyond .protyon-print's own 0.3in) so the logo sits noticeably clear of
+   the decorative frame corner rather than flush against it; the divider below stays full-width. */
+.protyon-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:0 0.3in; }
 .protyon-header-logo{ width:56px; height:56px; flex-shrink:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
 .protyon-header-logo img{ width:100%; height:100%; object-fit:contain; }
 .protyon-header-center{ flex:1; min-width:0; text-align:center; }
@@ -563,6 +566,13 @@ tbody tr:last-child td{border-bottom:none;}
 .protyon-header-address{ font-size:12px; margin-top:3px; }
 .protyon-header-contact{ font-size:11.5px; margin-top:2px; opacity:0.85; }
 .protyon-divider{ border:none; border-top:2px solid var(--gold); margin:8px 0 0; }
+/* Everything below the divider (title, No/Date, the certificate paragraph, signatures) gets an
+   EXTRA 0.8in of its own left/right padding on top of .protyon-print's 0.3in — so the paragraph
+   text reads as a narrower, centered column well clear of the frame, while the header above
+   stays at the frame's own width. flex:1 + the signatures block's margin-top:auto (below) is what
+   pushes the signature lines down to sit near the bottom of the page rather than right under the
+   paragraph, regardless of exactly how many lines the certificate text wraps to. */
+.protyon-main{ padding:0 0.8in; display:flex; flex-direction:column; flex:1; }
 /* The title's underline is a border-bottom on the title text itself (display:inline-block, so it
    shrinks to the text's own width) rather than a separately-sized bar — wrapped in a
    text-align:center block so the now-content-width title still sits centered on the page. */
@@ -575,8 +585,12 @@ tbody tr:last-child td{border-bottom:none;}
 .protyon-body{ text-align:justify; }
 .protyon-body b{ font-weight:700; }
 .protyon-meta-row{ display:flex; justify-content:space-between; font-size:15px; margin-bottom:26px; }
-.protyon-signatures{ display:flex; justify-content:space-between; margin-top:80px; }
-.protyon-sig{ text-align:center; width:220px; }
+/* space-evenly (not space-between) is what pulls Writer in from the left edge and Principal in
+   from the right edge instead of each sitting flush at the column's own edge; margin-top:auto
+   pushes the whole row down within .protyon-main's flex column, and a smaller .protyon-sig width
+   makes the signature line itself shorter. */
+.protyon-signatures{ display:flex; justify-content:space-evenly; margin-top:auto; padding-top:40px; }
+.protyon-sig{ text-align:center; width:170px; }
 .protyon-sig-line{ border-top:1.5px solid #000; padding-top:6px; font-size:14px; font-weight:600; }
 
 .id-card-grid{display:flex;flex-wrap:wrap;gap:0.2in;justify-content:flex-start;align-content:flex-start;}
@@ -4215,21 +4229,23 @@ function CertificatePrint({ certificate: c, config }) {
           </div>
           <hr className="protyon-divider" />
 
-          <div className="protyon-title-wrap"><div className="protyon-title">Character Certificate</div></div>
-          <div className="protyon-meta-row">
-            <div>No: <b className="mono">{c.certificateNo}</b></div>
-            <div>Date: <b>{fmtDate(c.date)}</b></div>
-          </div>
-          <div className="protyon-body">
-            This is to certify that <b>{c.name}</b>, son/daughter of <b>{c.fatherName || "—"}</b> and <b>{c.motherName || "—"}</b>,
-            permanent address <b>{c.permanentAddress || "—"}</b>, is a regular/former student of {config.schoolName || "this institution"}
-            {c.className ? <> (Class: {c.className}{c.section ? `, Section: ${c.section}` : ""}{c.roll ? `, Roll: ${c.roll}` : ""})</> : null}.
-            Student ID: <b className="mono">{c.studentDisplayId}</b>. To the best of our knowledge, his/her moral character and conduct
-            have been found satisfactory. We wish him/her every success in life.
-          </div>
-          <div className="protyon-signatures">
-            <div className="protyon-sig"><div className="protyon-sig-line">Writer</div></div>
-            <div className="protyon-sig"><div className="protyon-sig-line">Principal{config.principalName ? <><br />{config.principalName}</> : null}</div></div>
+          <div className="protyon-main">
+            <div className="protyon-title-wrap"><div className="protyon-title">Character Certificate</div></div>
+            <div className="protyon-meta-row">
+              <div>No: <b className="mono">{c.certificateNo}</b></div>
+              <div>Date: <b>{fmtDate(c.date)}</b></div>
+            </div>
+            <div className="protyon-body">
+              This is to certify that <b>{c.name}</b>, son/daughter of <b>{c.fatherName || "—"}</b> and <b>{c.motherName || "—"}</b>,
+              permanent address <b>{c.permanentAddress || "—"}</b>, is a regular/former student of {config.schoolName || "this institution"}
+              {c.className ? <> (Class: {c.className}{c.section ? `, Section: ${c.section}` : ""}{c.roll ? `, Roll: ${c.roll}` : ""})</> : null}.
+              Student ID: <b className="mono">{c.studentDisplayId}</b>. To the best of our knowledge, his/her moral character and conduct
+              have been found satisfactory. We wish him/her every success in life.
+            </div>
+            <div className="protyon-signatures">
+              <div className="protyon-sig"><div className="protyon-sig-line">Writer</div></div>
+              <div className="protyon-sig"><div className="protyon-sig-line">Principal{config.principalName ? <><br />{config.principalName}</> : null}</div></div>
+            </div>
           </div>
         </div>
       </div>
