@@ -70,7 +70,7 @@ input,select,textarea{font-family:inherit;}
   top:0;
   z-index:50;
   box-shadow:var(--shadow-sm);
-  padding:10px;
+  padding:18px 26px;
 }
 .menubar-row{
   display:flex;
@@ -102,16 +102,16 @@ input,select,textarea{font-family:inherit;}
 .menubar-brand-sub{font-size:10px;color:#a9c2b2;text-transform:uppercase;letter-spacing:0.08em;margin-top:1px;}
 
 .menubar-desktop-name{
-  flex:1;min-width:0;text-align:center;padding:0 14px;
-  display:flex;flex-direction:column;align-items:center;gap:1px;
+  flex:1;min-width:0;text-align:center;padding:0 26px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
 }
 .menubar-desktop-title{
-  font-family:'Fraunces',serif;font-size:17px;font-weight:700;
+  font-family:'Fraunces',serif;font-size:23px;font-weight:700;
   letter-spacing:0.02em;color:#fff;max-width:100%;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.menubar-desktop-address{font-size:11px;color:#dce8e0;opacity:0.9;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.menubar-desktop-contact{font-size:11px;color:#dce8e0;opacity:0.9;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.menubar-desktop-address{font-size:14px;color:#dce8e0;opacity:0.9;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.menubar-desktop-contact{font-size:14px;color:#dce8e0;opacity:0.9;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .menubar-desktop-logo{
   width:34px;height:34px;border-radius:8px;overflow:hidden;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;background:#fff;
@@ -372,6 +372,20 @@ tbody tr:last-child td{border-bottom:none;}
   .protyon-page-landscape{page:protyon-page;}
   /* On-screen page titles/descriptions are redundant with PrintDocHead's institution header */
   .section-head{display:none !important;}
+  /* Chrome/Blink inserts a spurious BLANK leading page whenever the first thing that actually
+     prints switches from the default (unnamed) page to one of the NAMED pages above — landscape-a4 /
+     invoice-page / protyon-page / admit-card-page — even when nothing else came before it. Declaring
+     the SAME named page starting from <body> itself (and, for documents shown inside a Modal's
+     portal, from .modal-overlay) means the default page is never actually in effect to begin with,
+     so there is no page-name change left to trigger that phantom first page. */
+  body:has(.print-landscape){page:landscape-a4;}
+  body:has(.invoice-print-page){page:invoice-page;}
+  body:has(.protyon-page-landscape){page:protyon-page;}
+  body:has(.print-admit-card){page:admit-card-page;}
+  .modal-overlay:has(.print-landscape){page:landscape-a4;}
+  .modal-overlay:has(.invoice-print-page){page:invoice-page;}
+  .modal-overlay:has(.protyon-page-landscape){page:protyon-page;}
+  .modal-overlay:has(.print-admit-card){page:admit-card-page;}
 }
 .doc-preview{
   background:#fff;border:1px solid var(--line);border-radius:var(--radius);
@@ -519,29 +533,33 @@ tbody tr:last-child td{border-bottom:none;}
    solid gold divider used elsewhere so the credit line reads as a lightweight footnote. */
 .inv-credit-rule{border:none;border-top:1px dashed #000;margin:6px 0 3px;}
 
-/* Two identical copies of the Fee Invoice side-by-side on one A4 LANDSCAPE page (e.g. office
-   copy + student copy) — the .invoice-print-page class on .inv-print-pair switches the page to
-   the dedicated invoice-page @page rule (A4 landscape, 0.5in top/left/right, 0.4in bottom). Each
-   copy effectively carries its own 0.5in margin on every side: the page's own outer margin gives
-   the outer edges, and the 1in gap between the two columns (0.5in + 0.5in) gives each copy the
-   same 0.5in on its inner edge too. No border/box is drawn around either copy or between them —
-   just the gap. The on-screen modal still shows a single copy (see .inv-screen-only); the doubled
-   layout only appears on the printed page. */
-.inv-screen-only{}
-.inv-print-pair{display:none;}
+/* Two identical copies of the Fee Invoice side-by-side (e.g. office copy + student copy) — shown
+   this way BOTH on screen and on the printed page, so the preview is a true what-you-see-is-what-
+   you-print match. At print time the .invoice-print-page class switches the page to the dedicated
+   invoice-page @page rule (A4 landscape, 0.5in top/left/right, 0.4in bottom); each copy then
+   effectively carries its own 0.5in margin on every side — the page's own outer margin gives the
+   outer edges, and the 1in gap between the two columns (0.5in + 0.5in) gives each copy the same
+   0.5in on its inner edge too. No border/box is drawn around either copy or between them — just
+   the gap. On screen the pair wraps onto its own line on narrow windows instead of squeezing. */
+.inv-print-pair{
+  display:flex;align-items:stretch;flex-wrap:wrap;gap:1in;
+}
+.inv-print-pair > .invoice-doc-print{
+  flex:1 1 320px;min-width:280px;margin:0;display:flex;flex-direction:column;
+}
+/* Signature block is pinned to the bottom of each column via margin-top:auto, so it — and the
+   dashed rule + credit line right after it — line up at a fixed position regardless of how many
+   fee rows are in the table above, and both copies match each other exactly. */
+.inv-print-pair .adm-signatures{margin-top:auto !important;}
 @media print{
-  .inv-screen-only{display:none;}
-  .inv-print-pair{
-    display:flex;align-items:stretch;gap:1in;min-height:100vh;
+  .inv-print-pair{flex-wrap:nowrap;
+    /* Fixed physical height of the invoice-page's own content box (A4 landscape's 210mm short
+       side, minus the page's 0.5in top + 0.4in bottom margin) — NOT 100vh. In print, vh resolves
+       against the browser's on-screen window size (whatever that happens to be), not the actual
+       printed page, so it silently overflowed onto a near-blank second page on many screens. */
+    min-height:187mm;
   }
-  .inv-print-pair > .invoice-doc-print{
-    flex:1 1 0;min-width:0;margin:0;display:flex;flex-direction:column;
-  }
-  /* Signature block is pinned to the bottom of the (now full page height) column via
-     margin-top:auto, so it — and the dashed rule + credit line right after it — line up at
-     a fixed position on the page regardless of how many fee rows are in the table above,
-     and both copies match each other exactly. */
-  .inv-print-pair .adm-signatures{margin-top:auto !important;}
+  .inv-print-pair > .invoice-doc-print{flex:1 1 0;min-width:0;}
 }
 .inv-watermark{
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
@@ -3399,19 +3417,16 @@ function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, wai
   );
 }
 
-// Renders a Fee Invoice for the screen (single copy, unchanged look) and, only at print time,
-// two identical copies side-by-side on the same A4 page (see .inv-print-pair CSS) — so printing
-// one invoice yields two ready-to-cut copies with no extra clicks.
+// Renders two identical copies of the Fee Invoice side-by-side (see .inv-print-pair CSS) — the
+// same layout on screen and at print time, so the preview matches the printed page exactly and
+// printing one invoice yields two ready-to-cut copies with no extra clicks.
 function FeeInvoicePrintDoc(props) {
   const invoiceEl = <InvoiceDocPrint {...props} />;
   return (
-    <>
-      <div className="inv-screen-only">{invoiceEl}</div>
-      <div className="inv-print-pair invoice-print-page">
-        {invoiceEl}
-        {invoiceEl}
-      </div>
-    </>
+    <div className="inv-print-pair invoice-print-page">
+      {invoiceEl}
+      {invoiceEl}
+    </div>
   );
 }
 
@@ -3477,19 +3492,15 @@ function SalaryInvoiceDocPrint({ config, teacher, invoiceNo, date, rows, totalCh
   );
 }
 
-// Renders a Salary Invoice for the screen (single copy) and, only at print time, two identical
-// copies side-by-side on one A4 landscape page — mirrors FeeInvoicePrintDoc exactly so both
-// documents print in the same format.
+// Renders two identical copies of the Salary Invoice side-by-side — the same layout on screen and
+// at print time (mirrors FeeInvoicePrintDoc exactly), so the preview matches the printed page.
 function SalaryInvoicePrintDoc(props) {
   const invoiceEl = <SalaryInvoiceDocPrint {...props} />;
   return (
-    <>
-      <div className="inv-screen-only">{invoiceEl}</div>
-      <div className="inv-print-pair invoice-print-page">
-        {invoiceEl}
-        {invoiceEl}
-      </div>
-    </>
+    <div className="inv-print-pair invoice-print-page">
+      {invoiceEl}
+      {invoiceEl}
+    </div>
   );
 }
 
@@ -3624,7 +3635,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
   }
 
   return (
-    <Modal title="Fee Invoice" onClose={onClose} size="lg"
+    <Modal title="Fee Invoice" onClose={onClose} size="xl"
       footer={selected && !showPrint ? (
         <>
           <button className="btn" onClick={() => { setSelected(null); setPayAmounts({}); setWaiverAmounts({}); }}>← Search Another Student</button>
@@ -3748,7 +3759,7 @@ function SavedInvoicePrintModal({ invoice, config, onClose }) {
   }
 
   return (
-    <Modal title={`Invoice — ${invoice.studentName}`} onClose={onClose}
+    <Modal title={`Invoice — ${invoice.studentName}`} onClose={onClose} size="xl"
       footer={<>
         <button className="btn" onClick={onClose}>Close</button>
         <button className="btn" disabled={!!busy} onClick={() => handleImage("download")}><Icon.download />{busy === "download" ? "Preparing…" : "Download Image"}</button>
@@ -4779,7 +4790,7 @@ function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, o
   }
 
   return (
-    <Modal title={`Salary Invoice — ${teacher.name}`} onClose={onClose} size="lg"
+    <Modal title={`Salary Invoice — ${teacher.name}`} onClose={onClose} size="xl"
       footer={showPrint ? (
         <>
           <button className="btn" onClick={() => setShowPrint(false)}>← Back</button>
