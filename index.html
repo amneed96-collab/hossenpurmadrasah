@@ -350,6 +350,12 @@ tbody tr:last-child td{border-bottom:none;}
   /* Landscape A4 page for wide tabular data (Due List, Master Fee grid) */
   @page landscape-a4{size:A4 landscape;margin:0.5in;}
   .print-landscape{page:landscape-a4;}
+  /* Certificate gets its OWN named page with a smaller page-margin — otherwise the shared
+     landscape-a4 page's 0.5in adds ON TOP of .protyon-print's own 0.3in padding, making the real
+     printed left/right margin 0.8in instead of the intended 0.3in. Left at 0 here because the
+     container's own padding is meant to BE the entire margin. */
+  @page protyon-page{size:A4 landscape;margin:0;}
+  .protyon-page-landscape{page:protyon-page;}
   /* On-screen page titles/descriptions are redundant with PrintDocHead's institution header */
   .section-head{display:none !important;}
 }
@@ -585,11 +591,12 @@ tbody tr:last-child td{border-bottom:none;}
 .protyon-body{ text-align:justify; }
 .protyon-body b{ font-weight:700; }
 .protyon-meta-row{ display:flex; justify-content:space-between; font-size:15px; margin-bottom:26px; }
-/* space-evenly (not space-between) is what pulls Writer in from the left edge and Principal in
-   from the right edge instead of each sitting flush at the column's own edge; margin-top:auto
-   pushes the whole row down within .protyon-main's flex column, and a smaller .protyon-sig width
-   makes the signature line itself shorter. */
-.protyon-signatures{ display:flex; justify-content:space-evenly; margin-top:auto; padding-top:40px; }
+/* space-between puts Writer and Principal at the edges of .protyon-main's own (already-inset)
+   content column — since .protyon-main carries its own 0.8in inset from the page margin, this
+   still keeps them well clear of the actual frame/border rather than flush against it.
+   margin-top:auto pushes the whole row down within .protyon-main's flex column, and a smaller
+   .protyon-sig width makes the signature line itself shorter. */
+.protyon-signatures{ display:flex; justify-content:space-between; margin-top:auto; padding-top:40px; }
 .protyon-sig{ text-align:center; width:170px; }
 .protyon-sig-line{ border-top:1.5px solid #000; padding-top:6px; font-size:14px; font-weight:600; }
 
@@ -4206,7 +4213,7 @@ function CertificatePrint({ certificate: c, config }) {
   usePrintChrome({ hideFooter: true });
   const phones = (config.schoolPhones || []).filter(Boolean);
   return (
-    <div className="print-landscape">
+    <div className="protyon-page-landscape">
       <div className="doc-preview protyon-print">
         {config.certificateBgUrl && <img src={config.certificateBgUrl} alt="" className="protyon-bg-img" />}
         <div className="protyon-content">
