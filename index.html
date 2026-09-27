@@ -70,13 +70,13 @@ input,select,textarea{font-family:inherit;}
   top:0;
   z-index:50;
   box-shadow:var(--shadow-sm);
+  padding:10px;
 }
 .menubar-row{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:0 20px;
-  height:58px;
+  gap:12px;
 }
 .menubar-row-desktop{display:none;}
 .menubar-row-mobile{display:flex;width:100%;}
@@ -102,10 +102,16 @@ input,select,textarea{font-family:inherit;}
 .menubar-brand-sub{font-size:10px;color:#a9c2b2;text-transform:uppercase;letter-spacing:0.08em;margin-top:1px;}
 
 .menubar-desktop-name{
-  flex:1;min-width:0;text-align:center;font-family:'Fraunces',serif;font-size:17px;font-weight:700;
-  letter-spacing:0.02em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 14px;
+  flex:1;min-width:0;text-align:center;padding:0 14px;
+  display:flex;flex-direction:column;align-items:center;gap:1px;
 }
-.menubar-desktop-code{font-size:15px;font-weight:600;color:#ffffff;}
+.menubar-desktop-title{
+  font-family:'Fraunces',serif;font-size:17px;font-weight:700;
+  letter-spacing:0.02em;color:#fff;max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.menubar-desktop-address{font-size:11px;color:#dce8e0;opacity:0.9;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.menubar-desktop-contact{font-size:11px;color:#dce8e0;opacity:0.9;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .menubar-desktop-logo{
   width:34px;height:34px;border-radius:8px;overflow:hidden;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;background:#fff;
@@ -351,6 +357,13 @@ tbody tr:last-child td{border-bottom:none;}
   /* Landscape A4 page for wide tabular data (Due List, Master Fee grid) */
   @page landscape-a4{size:A4 landscape;margin:0.5in;}
   .print-landscape{page:landscape-a4;}
+  /* Fee Invoice / Salary Invoice — its own named A4 landscape page: 0.5in top/left/right but a
+     0.4in bottom margin (per spec). These are the OUTER page margins, i.e. each copy's own
+     outer edge. The .inv-print-pair gap below is set to 1in — not the page's own margin — so
+     that each of the two side-by-side copies effectively also carries its own 0.5in INNER
+     margin (left copy's right margin + right copy's left margin = 0.5in + 0.5in = the 1in gap). */
+  @page invoice-page{size:A4 landscape;margin:0.5in 0.5in 0.4in 0.5in;}
+  .invoice-print-page{page:invoice-page;}
   /* Certificate gets its OWN named page with a smaller page-margin — otherwise the shared
      landscape-a4 page's 0.5in adds ON TOP of .protyon-print's own 0.3in padding, making the real
      printed left/right margin 0.8in instead of the intended 0.3in. Left at 0 here because the
@@ -507,19 +520,19 @@ tbody tr:last-child td{border-bottom:none;}
 .inv-credit-rule{border:none;border-top:1px dashed #000;margin:6px 0 3px;}
 
 /* Two identical copies of the Fee Invoice side-by-side on one A4 LANDSCAPE page (e.g. office
-   copy + student copy) — the .print-landscape class on .inv-print-pair switches the page to the
-   shared landscape-a4 @page rule (A4 landscape, 0.5in margin). Each copy effectively carries its
-   own 0.5in margin: the page's own @page margin (0.5in) gives the outer edges, and the 0.5in gap
-   between the two columns gives each copy the same breathing room on its inner edge. No
-   border/box is drawn around either copy or between them — just the gap. The on-screen modal
-   still shows a single copy (see .inv-screen-only); the doubled layout only appears on the
-   printed page. */
+   copy + student copy) — the .invoice-print-page class on .inv-print-pair switches the page to
+   the dedicated invoice-page @page rule (A4 landscape, 0.5in top/left/right, 0.4in bottom). Each
+   copy effectively carries its own 0.5in margin on every side: the page's own outer margin gives
+   the outer edges, and the 1in gap between the two columns (0.5in + 0.5in) gives each copy the
+   same 0.5in on its inner edge too. No border/box is drawn around either copy or between them —
+   just the gap. The on-screen modal still shows a single copy (see .inv-screen-only); the doubled
+   layout only appears on the printed page. */
 .inv-screen-only{}
 .inv-print-pair{display:none;}
 @media print{
   .inv-screen-only{display:none;}
   .inv-print-pair{
-    display:flex;align-items:stretch;gap:0.5in;min-height:100vh;
+    display:flex;align-items:stretch;gap:1in;min-height:100vh;
   }
   .inv-print-pair > .invoice-doc-print{
     flex:1 1 0;min-width:0;margin:0;display:flex;flex-direction:column;
@@ -3384,7 +3397,7 @@ function FeeInvoicePrintDoc(props) {
   return (
     <>
       <div className="inv-screen-only">{invoiceEl}</div>
-      <div className="inv-print-pair print-landscape">
+      <div className="inv-print-pair invoice-print-page">
         {invoiceEl}
         {invoiceEl}
       </div>
@@ -3462,7 +3475,7 @@ function SalaryInvoicePrintDoc(props) {
   return (
     <>
       <div className="inv-screen-only">{invoiceEl}</div>
-      <div className="inv-print-pair print-landscape">
+      <div className="inv-print-pair invoice-print-page">
         {invoiceEl}
         {invoiceEl}
       </div>
@@ -6969,6 +6982,7 @@ const MODULE_TITLES = {
 function MenuBar({ active, subTab, setActive, config, store }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expanded, setExpanded] = useState("");
+  const phones = (config.schoolPhones || []).filter(Boolean);
 
   // Picking a final destination (a subitem, or a top-level item with no submenu) always closes
   // the whole menu panel and resets the accordion — exactly like a normal drill-down menu.
@@ -6998,14 +7012,23 @@ function MenuBar({ active, subTab, setActive, config, store }) {
 
   return (
     <div className="menubar no-print">
-      {/* Desktop layout: hamburger (left) — institution name + code (center) — logo (right) */}
+      {/* Desktop layout: hamburger (left) — institution name + address + contact (center) — logo (right) */}
       <div className="menubar-row menubar-row-desktop">
         <button className="menubar-toggle" onClick={toggleMenu} aria-label="Menu">
           <IconWrap name={mobileOpen ? "x" : "menu"} />
         </button>
         <div className="menubar-desktop-name">
-          {(config.schoolName || "Vidyalaya").toUpperCase()}
-          {config.instituteCode && <span className="menubar-desktop-code"> ({config.instituteCode})</span>}
+          <div className="menubar-desktop-title">{(config.schoolName || "Vidyalaya").toUpperCase()}</div>
+          {config.schoolAddress && <div className="menubar-desktop-address">{config.schoolAddress}</div>}
+          {(config.instituteCode || config.schoolEmail || phones[0]) && (
+            <div className="menubar-desktop-contact">
+              {config.instituteCode && <span>{config.instituteCode}</span>}
+              {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
+              {config.schoolEmail && <span>{config.schoolEmail}</span>}
+              {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
+              {phones[0] && <span>{phones[0]}</span>}
+            </div>
+          )}
         </div>
         <div className="menubar-desktop-logo">
           {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : <div className="menubar-brand-mark">V</div>}
