@@ -506,12 +506,14 @@ tbody tr:last-child td{border-bottom:none;}
    solid gold divider used elsewhere so the credit line reads as a lightweight footnote. */
 .inv-credit-rule{border:none;border-top:1px dashed #000;margin:6px 0 3px;}
 
-/* Two identical copies of the Fee Invoice side-by-side on one A4 portrait page (e.g. office
-   copy + student copy), each effectively carrying its own 0.5in margin: the page's own
-   @page margin (0.5in) gives the outer edges, and the 0.5in gap between the two columns gives
-   each copy the same breathing room on its inner edge. No border/box is drawn around either
-   copy or between them — just the gap. The on-screen modal still shows a single copy (see
-   .inv-screen-only); the doubled layout only appears on the printed page. */
+/* Two identical copies of the Fee Invoice side-by-side on one A4 LANDSCAPE page (e.g. office
+   copy + student copy) — the .print-landscape class on .inv-print-pair switches the page to the
+   shared landscape-a4 @page rule (A4 landscape, 0.5in margin). Each copy effectively carries its
+   own 0.5in margin: the page's own @page margin (0.5in) gives the outer edges, and the 0.5in gap
+   between the two columns gives each copy the same breathing room on its inner edge. No
+   border/box is drawn around either copy or between them — just the gap. The on-screen modal
+   still shows a single copy (see .inv-screen-only); the doubled layout only appears on the
+   printed page. */
 .inv-screen-only{}
 .inv-print-pair{display:none;}
 @media print{
@@ -546,6 +548,7 @@ tbody tr:last-child td{border-bottom:none;}
 .inv-school-name{font-family:'Fraunces',serif;font-size:16px;font-weight:800;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .inv-school-code{font-size:10px;font-weight:400;color:#000;}
 .inv-school-address{font-size:10px;color:#000;margin-top:2px;}
+.inv-school-contact{font-size:10px;color:#000;margin-top:1px;}
 .inv-title{font-family:'Fraunces',serif;font-size:13px;font-weight:700;letter-spacing:0.06em;color:#000;margin-top:5px;}
 .inv-divider{border-top-color:#000;margin:7px 0 8px;}
 
@@ -2163,6 +2166,15 @@ function generateFormNo(existingStudents) {
   return `ADM-${String(next).padStart(4, "0")}`;
 }
 
+// Ad-hoc invoice number for the (unpersisted) Salary Invoice print-out — deterministic for a
+// given teacher based on how many salary payments they already have on file, since salary
+// invoices, unlike Fee Invoices, aren't saved as their own sheet/record.
+function generateSalaryInvoiceNo(teacher) {
+  const seq = ((teacher && teacher.payments) || []).length + 1;
+  const id = (teacher && (teacher.staffId || teacher.id)) || "0000";
+  return `SAL-${id}-${String(seq).padStart(3, "0")}`;
+}
+
 function generateInvoiceNo(existingInvoices) {
   const nums = (existingInvoices || [])
     .map(inv => inv.invoiceNo || "")
@@ -3270,29 +3282,47 @@ function invoiceRowsFromBreakdown(breakdown, waiverAmounts, payAmounts, lineKey)
 
 // Shared professional invoice layout — used both for the live submit-preview and for
 // reprinting a previously saved invoice from the list, so both look identical.
+// Shared institution header for the Fee Invoice and Salary Invoice print layouts: logo, school
+// name (no code appended), address, then a single unlabeled "Code | Email | Mobile" line, then
+// the document title. `photoUrl` is the subject's photo (student or staff), shown top-right.
+function InvoiceHeader({ config, title, photoUrl }) {
+  const phones = (config.schoolPhones || []).filter(Boolean);
+  return (
+    <div className="inv-header">
+      <div className="inv-header-row">
+        <div className="inv-header-logo">
+          {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
+        </div>
+        <div className="inv-header-center">
+          <AutoFitLine className="inv-school-name" text={config.schoolName || "School Name"} maxPt={12} minPt={6} />
+          {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
+          {(config.instituteCode || config.schoolEmail || phones[0]) && (
+            <div className="inv-school-contact">
+              {config.instituteCode && <span>{config.instituteCode}</span>}
+              {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
+              {config.schoolEmail && <span>{config.schoolEmail}</span>}
+              {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
+              {phones[0] && <span>{phones[0]}</span>}
+            </div>
+          )}
+          <div className="inv-title">{title}</div>
+        </div>
+        <div className="inv-header-photo">
+          {photoUrl ? <img src={photoUrl} alt="" /> : null}
+        </div>
+      </div>
+      <hr className="adm-divider inv-divider" />
+    </div>
+  );
+}
+
 function InvoiceDocPrint({ config, student, invoiceNo, date, rows, subtotal, waiverTotal, paymentTotal, dueAfter }) {
-  const schoolNameLine = (config.schoolName || "School Name") + (config.instituteCode ? ` (${config.instituteCode})` : "");
   return (
     <div className="doc-preview invoice-doc-print fee-invoice-doc">
       {config.schoolLogo && (
         <div className="inv-watermark"><img src={config.schoolLogo} alt="" /></div>
       )}
-      <div className="inv-header">
-        <div className="inv-header-row">
-          <div className="inv-header-logo">
-            {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
-          </div>
-          <div className="inv-header-center">
-            <AutoFitLine className="inv-school-name" text={schoolNameLine} maxPt={12} minPt={6} />
-            {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
-            <div className="inv-title">FEE INVOICE</div>
-          </div>
-          <div className="inv-header-photo">
-            {student && student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
-          </div>
-        </div>
-        <hr className="adm-divider inv-divider" />
-      </div>
+      <InvoiceHeader config={config} title="FEE INVOICE" photoUrl={student && student.photoUrl} />
 
       <div className="inv-meta-grid">
         <FieldRow name="Invoice No" value={<span className="mono">{invoiceNo}</span>} />
@@ -3354,7 +3384,85 @@ function FeeInvoicePrintDoc(props) {
   return (
     <>
       <div className="inv-screen-only">{invoiceEl}</div>
-      <div className="inv-print-pair">
+      <div className="inv-print-pair print-landscape">
+        {invoiceEl}
+        {invoiceEl}
+      </div>
+    </>
+  );
+}
+
+// Salary Invoice — same black-on-white A4-landscape layout as the Fee Invoice (shared
+// InvoiceHeader, .inv-meta-grid, .inv-fee-table, signatures, dashed credit rule), just with a
+// salary breakdown table (Head/Charged/Paid/Due) in place of the fee-heads table.
+function SalaryInvoiceDocPrint({ config, teacher, invoiceNo, date, rows, totalCharged, totalPaid, totalDue }) {
+  return (
+    <div className="doc-preview invoice-doc-print fee-invoice-doc">
+      {config.schoolLogo && (
+        <div className="inv-watermark"><img src={config.schoolLogo} alt="" /></div>
+      )}
+      <InvoiceHeader config={config} title="SALARY INVOICE" photoUrl={teacher && teacher.photoUrl} />
+
+      <div className="inv-meta-grid">
+        <FieldRow name="Invoice No" value={<span className="mono">{invoiceNo}</span>} />
+        <FieldRow name="Date" value={fmtDate(date)} />
+        <FieldRow name="Staff ID" value={<span className="mono">{(teacher && teacher.staffId) || "—"}</span>} />
+        <FieldRow name="Designation" value={(teacher && teacher.designation) || "—"} />
+        <FieldRow name="Name" value={(teacher && teacher.name) || "—"} />
+        <FieldRow name="Phone" value={(teacher && teacher.phone) || "—"} />
+      </div>
+
+      <table className="inv-fee-table">
+        <thead>
+          <tr><th>Sl</th><th>Head</th><th>Charged</th><th>Paid</th><th>Due</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.head}>
+              <td>{i + 1}</td>
+              <td>{r.head}</td>
+              <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+              <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+              <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div className="inv-summary">
+          <FieldRow name="Total Payable" value={"৳" + money(totalCharged)} />
+          <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
+          <FieldRow name="Balance Due" value={<strong>৳{money(totalDue)}</strong>} />
+        </div>
+      </div>
+
+      <div className="adm-signatures" style={{ marginTop: 40 }}>
+        <div className="adm-sig">
+          {config.cashierSignUrl && <img src={config.cashierSignUrl} alt="" className="adm-sig-img" />}
+          Cashier{config.cashierName ? <><br/>{config.cashierName}</> : null}
+        </div>
+        <div className="adm-sig">
+          {config.principalSignUrl && <img src={config.principalSignUrl} alt="" className="adm-sig-img" />}
+          Principal{config.principalName ? <><br/>{config.principalName}</> : null}
+        </div>
+      </div>
+
+      <hr className="inv-credit-rule" />
+      <div className="inv-credit">@Poweredby: AM Shahed: 01605721296</div>
+    </div>
+  );
+}
+
+// Renders a Salary Invoice for the screen (single copy) and, only at print time, two identical
+// copies side-by-side on one A4 landscape page — mirrors FeeInvoicePrintDoc exactly so both
+// documents print in the same format.
+function SalaryInvoicePrintDoc(props) {
+  const invoiceEl = <SalaryInvoiceDocPrint {...props} />;
+  return (
+    <>
+      <div className="inv-screen-only">{invoiceEl}</div>
+      <div className="inv-print-pair print-landscape">
         {invoiceEl}
         {invoiceEl}
       </div>
@@ -4626,6 +4734,13 @@ function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, o
   const totalCharged = sumBy(breakdown, r => r.charged);
   const totalPaid = sumBy(breakdown, r => r.paid);
   const totalDue = sumBy(breakdown, r => r.due);
+  // Generated once when the print view opens, not on every render, so the invoice number and
+  // date stay fixed while the user looks at / prints this one preview.
+  const [printMeta, setPrintMeta] = useState(null);
+  function openPrint() {
+    setPrintMeta({ invoiceNo: generateSalaryInvoiceNo(teacher), date: new Date().toISOString() });
+    setShowPrint(true);
+  }
 
   async function submitPayments() {
     const entries = Object.entries(payAmounts).filter(([head, amt]) => Number(amt) > 0);
@@ -4649,42 +4764,13 @@ function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, o
       ) : (
         <>
           <button className="btn" onClick={onClose}>Close</button>
-          <button className="btn" onClick={() => setShowPrint(true)}><Icon.print />Print Invoice</button>
+          <button className="btn" onClick={openPrint}><Icon.print />Print Invoice</button>
           <button className="btn btn-primary" disabled={saving} onClick={submitPayments}>Submit Payments</button>
         </>
       )}>
-      {showPrint ? (
-        <div className="doc-preview">
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 14, marginBottom: 18 }}>
-            <div>
-              <h3 style={{ fontSize: 20 }}>{config.schoolName || "School Name"}</h3>
-              <div style={{ fontSize: 12, color: "var(--slate-soft)" }}>Salary & Allowance Invoice</div>
-            </div>
-            <div style={{ textAlign: "right", fontSize: 12.5 }}>Date: {fmtDate(new Date().toISOString())}</div>
-          </div>
-          <FieldRow name="Staff Name" value={teacher.name} />
-          <FieldRow name="Designation" value={teacher.designation} />
-          <table style={{ width: "100%", margin: "16px 0" }}>
-            <thead><tr><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
-            <tbody>
-              {breakdown.map(r => (
-                <tr key={r.head}>
-                  <td>{r.head}</td>
-                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
-                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
-                  <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <div style={{ minWidth: 220 }}>
-              <FieldRow name="Total Payable" value={"৳" + money(totalCharged)} />
-              <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
-              <FieldRow name="Balance Due" value={<strong>৳{money(totalDue)}</strong>} />
-            </div>
-          </div>
-        </div>
+      {showPrint && printMeta ? (
+        <SalaryInvoicePrintDoc config={config} teacher={teacher} invoiceNo={printMeta.invoiceNo} date={printMeta.date}
+          rows={breakdown} totalCharged={totalCharged} totalPaid={totalPaid} totalDue={totalDue} />
       ) : (
         <div>
           <FieldRow name="Staff Name" value={teacher.name} />
