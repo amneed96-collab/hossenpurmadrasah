@@ -548,7 +548,7 @@ tbody tr:last-child td{border-bottom:none;}
    own (per requirement) — combined with usePrintChrome({hideFooter:true}) on the component,
    the printed certificate carries no "@Poweredby" text anywhere. ===== */
 .protyon-print{
-  font-size:16px; line-height:1.9; width:297mm; min-height:210mm; max-width:none;
+  font-size:18px; line-height:1.9; width:297mm; min-height:210mm; max-width:none;
   box-sizing:border-box; padding:0.3in; margin:0 auto; position:relative; color:#000;
   border:none; border-radius:0; box-shadow:none; overflow:hidden;
   display:flex; flex-direction:column;
@@ -557,18 +557,18 @@ tbody tr:last-child td{border-bottom:none;}
   .protyon-print{ width:100%; min-height:100vh; box-shadow:none; border:none; }
 }
 .protyon-content{ position:relative; z-index:1; display:flex; flex-direction:column; flex:1; }
-.protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:0; }
+.protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; z-index:0; padding: 0.3in; }
 /* Institution header — logo left, name truly centered (the hidden spacer on the right balances
    the logo's width so the center column doesn't drift), address, then Code/Email/Mobile, then
    a divider. No opaque background here (unlike Admission Form's green banner) so the custom
    certificate background design from Settings stays fully visible underneath. The row itself
    gets its own inset (beyond .protyon-print's own 0.3in) so the logo sits noticeably clear of
    the decorative frame corner rather than flush against it; the divider below stays full-width. */
-.protyon-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:0 0.3in; }
-.protyon-header-logo{ width:56px; height:56px; flex-shrink:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.protyon-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:0 0.6in; }
+.protyon-header-logo{ width:60px; height:60px; flex-shrink:0; display:flex; align-items:center; justify-content:center; overflow:hidden; margin-top: 0.5in; }
 .protyon-header-logo img{ width:100%; height:100%; object-fit:contain; }
 .protyon-header-center{ flex:1; min-width:0; text-align:center; }
-.protyon-header-name{ font-family:'Fraunces',serif; font-size:27px; font-weight:800; text-transform:uppercase; letter-spacing:0.03em; }
+.protyon-header-name{ font-family:'Fraunces',serif; font-size:27px; font-weight:800; text-transform:uppercase; letter-spacing:0.03em; padding-top: 0.4in;}
 .protyon-header-address{ font-size:12px; margin-top:3px; }
 .protyon-header-contact{ font-size:11.5px; margin-top:2px; opacity:0.85; }
 .protyon-divider{ border:none; border-top:2px solid var(--gold); margin:8px 0 0; }
@@ -586,7 +586,7 @@ tbody tr:last-child td{border-bottom:none;}
 .protyon-title{
   display:inline-block; font-family:'Fraunces',serif; font-size:28px; font-weight:800;
   letter-spacing:0.06em; text-transform:uppercase;
-  border-bottom:3px solid var(--gold); padding-bottom:8px;
+  border-bottom:3px solid var(--gold);
 }
 .protyon-body{ text-align:justify; }
 .protyon-body b{ font-weight:700; }
@@ -597,7 +597,7 @@ tbody tr:last-child td{border-bottom:none;}
    margin-top:auto pushes the whole row down within .protyon-main's flex column, and a smaller
    .protyon-sig width makes the signature line itself shorter. */
 .protyon-signatures{ display:flex; justify-content:space-between; margin-top:auto; padding-top:40px; }
-.protyon-sig{ text-align:center; width:170px; }
+.protyon-sig{ text-align:center; width:170px; padding-bottom: 0.5in; }
 .protyon-sig-line{ border-top:1.5px solid #000; padding-top:6px; font-size:14px; font-weight:600; }
 
 .id-card-grid{display:flex;flex-wrap:wrap;gap:0.2in;justify-content:flex-start;align-content:flex-start;}
