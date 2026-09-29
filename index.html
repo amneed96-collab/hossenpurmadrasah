@@ -118,6 +118,12 @@ input,select,textarea{font-family:inherit;}
 }
 .menubar-desktop-logo img{width:100%;height:100%;object-fit:cover;}
 
+.menubar-mobile-name{
+  flex:1;min-width:0;text-align:center;padding:0 8px;
+  font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
 .menubar-nav{
   display:flex;align-items:center;gap:2px;flex-wrap:wrap;
 }
@@ -131,7 +137,7 @@ input,select,textarea{font-family:inherit;}
 }
 .menubar-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
 .menubar-item.active{background:var(--gold);color:var(--moss-deep);font-weight:600;}
-.menubar-item svg{flex-shrink:0;opacity:0.9;}
+.menubar-item svg{flex-shrink:0;opacity:0.9;width:20px;height:20px;}
 .menubar-item-chevron{margin-left:auto;transition:transform .15s ease;opacity:0.75;}
 .menubar-item-chevron.open{transform:rotate(180deg);}
 
@@ -439,7 +445,7 @@ tbody tr:last-child td{border-bottom:none;}
 .letter-title-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:baseline;margin:20px 0 14px;}
 .letter-title{grid-column:2;font-family:'Fraunces',serif;font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;text-align:center;}
 .letter-date{grid-column:3;justify-self:end;font-size:11px;font-weight:600;white-space:nowrap;}
-.letter-body{font-size:12.5px;line-height:1.85;text-align:justify;}
+.letter-body{font-size:16px;line-height:1.85;text-align:justify;}
 .letter-body p{margin:0 0 12px;}
 @media print{
   .letter-print{width:100%;padding:0;min-height:264mm;max-height:264mm;overflow:hidden;}
@@ -882,7 +888,7 @@ tbody tr:last-child td{border-bottom:none;}
 
 .field-row{display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;gap:6px;}
 .field-row:last-child{border-bottom:none;}
-.field-row .fr-name{flex:1;text-align:left;color:#000;}
+.field-row .fr-name{flex:1;text-align:left;color:#000;white-space:nowrap;}
 .field-row .fr-colon{flex:0 0 14px;text-align:center;color:var(--slate-soft);}
 .field-row .fr-value{flex:1.4;text-align:left;font-weight:600;}
 
@@ -1238,6 +1244,7 @@ const SHEET_MAP = {
   notices: "Notices",
   seatplans: "SeatPlans",
   invoices: "Invoice",
+  salaryInvoices: "SalaryInvoice",
   promotions: "Promotion",
   classHistories: "ClassHistory",
   activations: "Activation",
@@ -3520,7 +3527,7 @@ function SalaryInvoiceDocPrint({ config, teacher, invoiceNo, date, rows, totalCh
       <div className="inv-meta-grid">
         <FieldRow name="Invoice No" value={<span className="mono">{invoiceNo}</span>} />
         <FieldRow name="Date" value={fmtDate(date)} />
-        <FieldRow name="Staff ID" value={<span className="mono">{(teacher && teacher.staffId) || "—"}</span>} />
+        <FieldRow name="Index No" value={<span className="mono">{(teacher && teacher.staffId) || "—"}</span>} />
         <FieldRow name="Designation" value={(teacher && teacher.designation) || "—"} />
         <FieldRow name="Name" value={(teacher && teacher.name) || "—"} />
         <FieldRow name="Phone" value={(teacher && teacher.phone) || "—"} />
@@ -4676,7 +4683,7 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
           {filtered.length === 0 ? <EmptyState title="No staff records" sub="Add your first staff member." /> : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Staff ID</th><th>Name</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th className="no-print"></th></tr></thead>
+                <thead><tr><th>Index No</th><th>Name</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th className="no-print"></th></tr></thead>
                 <tbody>
                   {filtered.map(t => {
                     const due = teacherDueFromRules(t, teacherFeeRules);
@@ -4741,7 +4748,7 @@ function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules })
     <Modal title={teacher.id ? "Edit Staff" : "Add Staff"} onClose={onClose} size="lg"
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save</button></>}>
       <div className="form-grid">
-        <Field label="Staff ID" hint="auto-generated"><input type="text" value={form.staffId || form.id || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
+        <Field label="Index No" hint="auto-generated"><input type="text" value={form.staffId || form.id || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
         <Field label="Full Name" span2><input type="text" value={form.name} onChange={set("name")} /></Field>
         <Field label="Designation"><select value={form.designation} onChange={set("designation")}>{DESIGNATIONS.map(d => <option key={d}>{d}</option>)}</select></Field>
         <Field label="Subject"><select value={form.subject} onChange={set("subject")}><option value="">—</option>{SUBJECTS.map(s => <option key={s}>{s}</option>)}</select></Field>
@@ -4792,7 +4799,7 @@ function TeacherLetterModal({ teacher, config, onClose }) {
           <div className="adm-header-row">
             <div className="adm-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
             <div className="adm-header-center">
-              <div className="adm-school-name">{config.schoolName || "School Name"}</div>
+              <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={15} minPt={7} style={{ textOverflow: "clip" }} />
               {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
               {(config.instituteCode || config.schoolEmail || phones[0]) && (
                 <div className="adm-school-contact">
@@ -4838,12 +4845,12 @@ function TeacherLetterModal({ teacher, config, onClose }) {
             <p style={{ marginTop: 28 }}>Sincerely,</p>
           </div>
 
-          <div className="adm-signatures">
+          <div className="adm-signatures" style={{ marginTop: "auto" }}>
             <div className="adm-sig">Authorized Signature</div>
             <div className="adm-sig">School Seal</div>
           </div>
 
-          <div className="adm-credit-outside" style={{ marginTop: "auto" }}>@Poweredby: AM Shahed- 01605721296</div>
+          <div className="adm-credit-outside">@Poweredby: AM Shahed- 01605721296</div>
         </div>
       </div>
     </Modal>
@@ -4867,14 +4874,14 @@ function TeacherIdCardPhysical({ teacher, config }) {
       <div className="icp-head">
         <AutoFitLine className="icp-school" text={config.schoolName || "School Name"} />
         {config.schoolAddress && <div className="icp-address">{config.schoolAddress}</div>}
-        <div className="icp-doctype">Staff Identity Card</div>
+        <div className="icp-doctype">Identity Card</div>
       </div>
       <div className="icp-photo">
         {teacher.photoUrl ? <img src={teacher.photoUrl} alt="" /> : <Icon.teachers style={{ opacity: 0.3 }} width={22} height={22} />}
       </div>
       <div className="icp-name">{teacher.name}</div>
       <div className="icp-body">
-        <FieldRow name="Staff ID" value={teacher.staffId || teacher.id || "—"} />
+        <FieldRow name="Index No" value={teacher.staffId || teacher.id || "—"} />
         <FieldRow name="Designation" value={teacher.designation || "—"} />
         <FieldRow name="Subject" value={teacher.subject || "—"} />
         <FieldRow name="Phone" value={teacher.phone || "—"} />
@@ -4910,7 +4917,7 @@ function TeacherIdCardModal({ teacher, config, onClose }) {
 function StaffFormPrint({ teacher, config }) {
   const phones = (config.schoolPhones || []).filter(Boolean);
   const dataFields = [
-    ["Staff ID", teacher.staffId || teacher.id || "—"], ["Designation", teacher.designation || "—"],
+    ["Index No", teacher.staffId || teacher.id || "—"], ["Designation", teacher.designation || "—"],
     ["Subject", teacher.subject || "—"], ["Status", teacher.status || "—"],
     ["Join Date", fmtDate(teacher.joinDate)], ["Resign Date", teacher.resignDate ? fmtDate(teacher.resignDate) : "—"],
     ["Full Name", teacher.name || "—"], ["Phone", teacher.phone || "—"],
@@ -5117,7 +5124,7 @@ function TeacherInvoiceModal({ teachers, initialTeacher, config, teacherFeeRules
           rows={submittedInvoice.rows} totalCharged={submittedInvoice.totalCharged} totalPaid={submittedInvoice.totalPaid} totalDue={submittedInvoice.totalDue} />
       ) : !selected ? (
         <div>
-          <Field label="Search Staff" hint="by name, designation, or Staff ID">
+          <Field label="Search Staff" hint="by name, designation, or Index No">
             <input className="search-input" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Type to search…" />
           </Field>
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -5127,14 +5134,14 @@ function TeacherInvoiceModal({ teachers, initialTeacher, config, teacherFeeRules
                 <span style={{ color: "var(--slate-soft)", fontSize: 12.5 }}>{t.designation} · <span className="mono">{t.staffId || t.id}</span></span>
               </button>
             ))}
-            {query.trim() && matches.length === 0 && <EmptyState title="No matching staff" sub="Try a different name, designation, or Staff ID." />}
-            {!query.trim() && <EmptyState title="Search for a staff member" sub="Type a name, designation, or Staff ID above to load their salary invoice." />}
+            {query.trim() && matches.length === 0 && <EmptyState title="No matching staff" sub="Try a different name, designation, or Index No." />}
+            {!query.trim() && <EmptyState title="Search for a staff member" sub="Type a name, designation, or Index No above to load their salary invoice." />}
           </div>
         </div>
       ) : (
         <div>
           <div className="grid grid-2" style={{ marginBottom: 18 }}>
-            <div className="kv-row"><span className="k">Staff ID</span><span className="v mono">{selected.staffId || selected.id}</span></div>
+            <div className="kv-row"><span className="k">Index No</span><span className="v mono">{selected.staffId || selected.id}</span></div>
             <div className="kv-row"><span className="k">Name</span><span className="v">{selected.name}</span></div>
             <div className="kv-row"><span className="k">Designation</span><span className="v">{selected.designation}</span></div>
             <div className="kv-row"><span className="k">Subject</span><span className="v">{selected.subject || "—"}</span></div>
@@ -5863,7 +5870,7 @@ function DueModule({ data, config, initialTab }) {
           {teacherDues.length === 0 ? <EmptyState title="No outstanding teacher dues" sub="All salaries are cleared up to this date." /> : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Staff ID</th><th>Name</th><th>Designation</th><th>Join Date</th><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
+                <thead><tr><th>Index No</th><th>Name</th><th>Designation</th><th>Join Date</th><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
                 <tbody>
                   {teacherDues.flatMap(t => {
                     const rows = teacherFilter ? t.breakdown : t.breakdown.filter(r => r.due > 0);
@@ -7532,11 +7539,13 @@ function MenuBar({ active, subTab, setActive, config, store }) {
         </div>
       </div>
 
-      {/* Mobile layout: hamburger toggle (left), logo (right) */}
+      {/* Mobile layout: hamburger toggle (left), institution name (center), logo (right) */}
       <div className="menubar-row menubar-row-mobile">
         <button className="menubar-toggle" onClick={toggleMenu} aria-label="Menu">
           <IconWrap name={mobileOpen ? "x" : "menu"} />
         </button>
+
+        <div className="menubar-mobile-name">{(config.schoolName || "Vidyalaya").toUpperCase()}</div>
 
         <div className="menubar-desktop-logo">
           {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : <div className="menubar-brand-mark">V</div>}
@@ -7793,11 +7802,120 @@ function StudentStatusPage({ studentId }) {
   );
 }
 
+function TeacherStatusPage({ staffId }) {
+  const [state, setState] = useState({ loading: true, error: null, teacher: null, config: null, breakdown: [] });
+
+  useEffect(() => {
+    const config = loadConfig();
+    if (!config.sheetsUrl) {
+      setState({ loading: false, error: "This school hasn't connected Google Sheets yet.", teacher: null, config, breakdown: [] });
+      return;
+    }
+    (async () => {
+      try {
+        const res = await SheetsAPI.bulkGet(config, ["Teachers", "MasterFees"]);
+        const teachers = res.data["Teachers"] || [];
+        const feeRulesAll = res.data["MasterFees"] || [];
+        const teacher = teachers.find(t => t.staffId === staffId || t.id === staffId);
+        if (!teacher) {
+          setState({ loading: false, error: "No staff record found for this ID.", teacher: null, config, breakdown: [] });
+          return;
+        }
+        const teacherFeeRules = feeRulesAll.filter(f => f.kind === "teacher");
+        const breakdown = teacherFeeBreakdown(teacher, teacherFeeRules);
+        setState({ loading: false, error: null, teacher, config, breakdown });
+      } catch (err) {
+        setState({ loading: false, error: "Couldn't load status: " + err.message, teacher: null, config, breakdown: [] });
+      }
+    })();
+  }, [staffId]);
+
+  if (state.loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <div>Loading staff status…</div>
+      </div>
+    );
+  }
+
+  const config = state.config || {};
+
+  if (state.error || !state.teacher) {
+    return (
+      <div className="status-page">
+        <div className="status-card">
+          <EmptyState title="Couldn't load status" sub={state.error || "Please try again."} />
+        </div>
+      </div>
+    );
+  }
+
+  const { teacher, breakdown } = state;
+  const totalCharged = sumBy(breakdown, r => r.charged);
+  const totalPaid = sumBy(breakdown, r => r.paid);
+  const totalDue = sumBy(breakdown, r => r.due);
+
+  return (
+    <div className="status-page">
+      <div className="status-card">
+        <div className="status-header">
+          {config.schoolLogo && <img src={config.schoolLogo} alt="" className="status-logo" />}
+          <div className="status-school-name">{config.schoolName || "School"}</div>
+        </div>
+        <div className="status-photo-wrap">
+          {teacher.photoUrl ? <img src={teacher.photoUrl} alt="" className="status-photo" /> : null}
+        </div>
+        <h2 className="status-student-name">{teacher.name}</h2>
+        <div className="status-sub">{teacher.staffId || teacher.id}</div>
+
+        <div className="status-section">
+          <FieldRow name="Designation" value={teacher.designation || "—"} />
+          <FieldRow name="Subject" value={teacher.subject || "—"} />
+          <FieldRow name="Phone" value={teacher.phone || "—"} />
+          <FieldRow name="Joined" value={fmtDate(teacher.joinDate)} />
+          <FieldRow name="Status" value={teacher.status || "—"} />
+        </div>
+
+        <div className="status-section-title">Salary Status</div>
+        {breakdown.length === 0 ? (
+          <EmptyState title="No salary records yet" sub="" />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th></tr></thead>
+              <tbody>
+                {breakdown.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.head}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.charged)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.paid)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(r.due)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="status-summary">
+          <FieldRow name="Total Payable" value={"৳" + money(totalCharged)} />
+          <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
+          <FieldRow name="Total Due" value={<strong style={{ color: totalDue > 0 ? "var(--red)" : "var(--moss)" }}>৳{money(totalDue)}</strong>} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Root() {
   const params = new URLSearchParams(window.location.search);
   const sid = params.get("sid");
   if (sid) {
     return <StudentStatusPage studentId={sid} />;
+  }
+  const staffid = params.get("staffid");
+  if (staffid) {
+    return <TeacherStatusPage staffId={staffid} />;
   }
   return (
     <ToastProvider>
