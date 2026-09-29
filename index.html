@@ -223,6 +223,7 @@ input,select,textarea{font-family:inherit;}
 .grid-4{grid-template-columns:repeat(4,1fr);}
 .grid-3{grid-template-columns:repeat(3,1fr);}
 .grid-2{grid-template-columns:repeat(2,1fr);}
+@media(max-width:768px){.dash-two{grid-template-columns:1fr;}}
 @media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:repeat(2,1fr);}}
 
 .stat-card{
@@ -356,6 +357,13 @@ tbody tr:last-child td{border-bottom:none;}
 
 /* ===== Print Templates ===== */
 .print-only{display:none;}
+/* Institution name on every print: one line, UPPERCASE, auto-sized to the box, never clipped / "..." */
+.fit-wrap{container-type:inline-size;width:100%;min-width:0;}
+.fit-name{display:block;text-align:center;white-space:nowrap !important;overflow:visible !important;text-overflow:clip !important;line-height:1.25;font-size:var(--fit-max) !important;}
+@supports (width:1cqw){
+  .fit-name{font-size:min(var(--fit-max), calc(98cqw / var(--fit-em))) !important;}
+}
+
 @media print{
   .app-shell > .menubar, .topbar, .no-print{display:none !important;}
   .print-only{display:block;}
@@ -1459,8 +1467,8 @@ function PrintDocHead({ config, headline, layout }) {
       <div className="print-only" style={{ padding: "0 18px 10px", borderBottom: "2px solid var(--moss-deep)", marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
           {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 56, flexShrink: 0 }} />}
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>{(config && config.schoolName) || "School Name"}</div>
+          <div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
+            <AutoFitLine text={(config && config.schoolName) || "School Name"} maxPt={22} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
             {config && config.schoolAddress && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
           </div>
         </div>
@@ -1475,11 +1483,13 @@ function PrintDocHead({ config, headline, layout }) {
     return (
       <div className="print-only" style={{ padding: "0 18px 10px", borderBottom: "2px solid var(--moss-deep)", marginBottom: 10, position: "relative", textAlign: "center" }}>
         {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 50, position: "absolute", left: 0, top: 0 }} />}
-        <div style={{ fontFamily: "'Fraunces',serif", fontSize: 20, fontWeight: 700 }}>{(config && config.schoolName) || "School Name"}</div>
+        <div style={{ padding: config && config.schoolLogo ? "0 62px" : 0 }}>
+          <AutoFitLine text={(config && config.schoolName) || "School Name"} maxPt={22} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
+        </div>
         {config && config.schoolAddress && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
-        {config && [config.instituteCode, config.schoolEmail, (config.schoolPhones || []).filter(Boolean)[0]].filter(Boolean).length > 0 && (
+        {config && [config.schoolEmail, (config.schoolPhones || []).filter(Boolean)[0]].filter(Boolean).length > 0 && (
           <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>
-            {[config.instituteCode, config.schoolEmail, (config.schoolPhones || []).filter(Boolean)[0]].filter(Boolean).join("  |  ")}
+            {[config.schoolEmail, (config.schoolPhones || []).filter(Boolean)[0]].filter(Boolean).join("  |  ")}
           </div>
         )}
         {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{headline}</div>}
@@ -1489,7 +1499,7 @@ function PrintDocHead({ config, headline, layout }) {
   return (
     <div className="print-only" style={{ padding: "0 18px 10px", textAlign: "center", borderBottom: "2px solid var(--moss-deep)", marginBottom: 10 }}>
       {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 44, marginBottom: 6 }} />}
-      <div style={{ fontFamily: "'Fraunces',serif", fontSize: 18, fontWeight: 600 }}>{(config && config.schoolName) || "School Name"}</div>
+      <AutoFitLine text={(config && config.schoolName) || "School Name"} maxPt={20} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
       {config && config.schoolAddress && <div style={{ fontSize: 11.5, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
       {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{headline}</div>}
     </div>
@@ -1504,7 +1514,7 @@ function SingleRecordPrintModal({ title, config, fields, onClose }) {
       <div className="doc-preview">
         <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 12, marginBottom: 14 }}>
           {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 40, marginBottom: 6 }} />}
-          <div style={{ fontFamily: "'Fraunces',serif", fontSize: 17, fontWeight: 600 }}>{(config && config.schoolName) || "School Name"}</div>
+          <AutoFitLine text={(config && config.schoolName) || "School Name"} maxPt={18} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
           {config && config.schoolAddress && <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>{config.schoolAddress}</div>}
         </div>
         {fields.map(f => <FieldRow key={f.name} name={f.name} value={f.value} />)}
@@ -2317,7 +2327,7 @@ function Dashboard({ data, setActiveModule }) {
         <StatCard label="This Month's Expense" value={"৳" + money(monthExpense)} sub={`All-time: ৳${money(totalExpense)}`} accent="var(--red)" />
       </div>
 
-      <div className="grid grid-2" style={{ marginBottom: 20 }}>
+      <div className="grid grid-2 dash-two" style={{ marginBottom: 20 }}>
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <h3 style={{ fontSize: 15 }}>Outstanding Dues</h3>
@@ -2626,7 +2636,7 @@ function StudentsModule({ data, save, remove, config, initialTab }) {
     <div>
       <div className="section-actions">
         {tab === "list" && <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />New Admission</button>}
-        {tab === "promotion" && <button className="btn btn-primary no-print" onClick={() => setPromotionFormOpen(true)}><Icon.plus />Open Promotion Form</button>}
+        {tab === "promotion" && <button className="btn btn-primary no-print" onClick={() => setPromotionFormOpen(true)}><Icon.plus />Promotion</button>}
       </div>
 
       {/* Section switching is handled entirely by the sidebar's Students submenu now. */}
@@ -3556,12 +3566,10 @@ function InvoiceHeader({ config, title, photoUrl }) {
           {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
         </div>
         <div className="inv-header-center">
-          <AutoFitLine className="inv-school-name" text={config.schoolName || "School Name"} maxPt={12} minPt={6} />
+          <AutoFitLine className="inv-school-name" text={config.schoolName || "School Name"} maxPt={14} />
           {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
-          {(config.instituteCode || config.schoolEmail || phones[0]) && (
+          {(config.schoolEmail || phones[0]) && (
             <div className="inv-school-contact">
-              {config.instituteCode && <span>{config.instituteCode}</span>}
-              {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
               {config.schoolEmail && <span>{config.schoolEmail}</span>}
               {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
               {phones[0] && <span>{phones[0]}</span>}
@@ -3865,7 +3873,7 @@ function StudentInvoiceModal({ students, initialStudent, config, feeRules, invoi
       ) : showPrint ? (
         <>
           <button className="btn" onClick={() => { setShowPrint(false); setSelected(null); }}>← New Invoice</button>
-          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
+          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button>
         </>
       ) : (
         <button className="btn" onClick={onClose}>Close</button>
@@ -3985,7 +3993,7 @@ function SavedInvoicePrintModal({ invoice, config, onClose }) {
         <button className="btn" onClick={onClose}>Close</button>
         <button className="btn" disabled={!!busy} onClick={() => handleImage("download")}><Icon.download />{busy === "download" ? "Preparing…" : "Download Image"}</button>
         <button className="btn" disabled={!!busy} onClick={() => handleImage("share")}><Icon.share />{busy === "share" ? "Preparing…" : "Share"}</button>
-        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
+        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button>
       </>}>
       <FeeInvoicePrintDoc config={config} student={student} invoiceNo={invoiceNo} date={date}
         rows={rows} subtotal={subtotal} waiverTotal={waiverTotal} paymentTotal={paymentTotal} dueAfter={dueAfter} />
@@ -4034,14 +4042,10 @@ function AdmissionFormPrint({ student, config }) {
             {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
           </div>
           <div className="adm-header-center">
-            <div className="adm-school-name">
-              {(config.schoolName || "School Name").toUpperCase()}
-            </div>
+            <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={17} />
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-            {(config.instituteCode || config.schoolEmail || phones[0]) && (
+            {(config.schoolEmail || phones[0]) && (
               <div className="adm-school-contact">
-                {config.instituteCode && <span>{config.instituteCode}</span>}
-                {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
                 {config.schoolEmail && <span>{config.schoolEmail}</span>}
                 {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
                 {phones[0] && <span>{phones[0]}</span>}
@@ -4100,7 +4104,7 @@ function AdmissionFormPrintModal({ student, config, onClose }) {
   usePrintChrome({ hideFooter: true }); // admission form prints its own footer with slogan + credit
   return (
     <Modal title={`Admission Form — ${student.name}`} onClose={onClose} size="lg"
-      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Admission Form (A4)</button></>}>
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button></>}>
       <FitPage><AdmissionFormPrint student={student} config={config} /></FitPage>
     </Modal>
   );
@@ -4168,7 +4172,7 @@ function StudentFormModal({ student, students, onClose, onSave, config }) {
       footer={showPrint ? (
         <>
           <button className="btn" onClick={() => setShowPrint(false)}>← Back to Form</button>
-          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Admission Form (A4)</button>
+          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button>
         </>
       ) : (
         <>
@@ -4257,7 +4261,7 @@ function DocShell({ title, onClose, children, filename }) {
     <Modal title={title} onClose={onClose} size="lg"
       footer={<>
         <button className="btn" onClick={onClose}>Close</button>
-        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print / Save as PDF</button>
+        <button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button>
       </>}>
       <div id="doc-capture-area">{children}</div>
     </Modal>
@@ -4269,27 +4273,38 @@ function studentStatusUrl(studentId) {
   return `${base}?sid=${encodeURIComponent(studentId)}`;
 }
 
-// Shrinks the ID Card school-name font so long names still fit on exactly one line —
-// no ellipsis/truncation, the text itself gets smaller instead. Uses the actual rendered
-// width (scrollWidth vs clientWidth) rather than a character-count guess, so it's correct
-// for every name/font/zoom combination and can never spill outside the card.
-function AutoFitLine({ text, className, minPt = 5, maxPt = 12, style }) {
-  const ref = useRef(null);
-  const [fontSize, setFontSize] = useState(maxPt);
+// Institution name for EVERY printout: always UPPERCASE, always exactly ONE line, never cut off and
+// never ending in "...". The text's natural width is measured once with a canvas (in "em" units,
+// so it is independent of the actual font size) and CSS container-query units then size the font so
+// that width exactly fits the available box (font-size = min(maxPt, boxWidth / textWidthInEm)).
+// Because the fitting is done by CSS at layout time, it is correct on screen, in the print preview
+// and on paper, even inside .print-only blocks that are display:none on screen, and it
+// re-fits automatically if the page/box width changes.
+const _fitCanvasCtx = document.createElement("canvas").getContext("2d");
+function AutoFitLine({ text, className = "", maxPt = 12, style, ls = 0.02 }) {
+  const innerRef = useRef(null);
+  const label = String(text || "").toUpperCase();
+  const [em, setEm] = useState(label.length * (0.8 + ls));
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let size = maxPt;
-    el.style.fontSize = size + "pt";
-    let guard = 0;
-    while (el.scrollWidth > el.clientWidth + 0.5 && size > minPt && guard < 60) {
-      size -= 0.25;
-      el.style.fontSize = size + "pt";
-      guard++;
-    }
-    setFontSize(size);
-  }, [text, minPt, maxPt]);
-  return <div ref={ref} className={className} style={{ ...style, fontSize: fontSize + "pt" }}>{text}</div>;
+    let cancelled = false;
+    const measure = () => {
+      const el = innerRef.current;
+      if (!el || cancelled || !_fitCanvasCtx) return;
+      const cs = window.getComputedStyle(el);
+      _fitCanvasCtx.font = `${cs.fontWeight} 100px ${cs.fontFamily}`;
+      const w = _fitCanvasCtx.measureText(label).width / 100;
+      if (w > 0) setEm((w + label.length * ls) * 1.03);
+    };
+    measure();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+    return () => { cancelled = true; };
+  }, [label, ls, className]);
+  return (
+    <div className="fit-wrap">
+      <div ref={innerRef} className={`${className} fit-name`}
+        style={{ ...style, "--fit-em": em, "--fit-max": maxPt + "pt", letterSpacing: ls + "em" }}>{label}</div>
+    </div>
+  );
 }
 
 function StudentIdCardPhysical({ student, config }) {
@@ -4332,7 +4347,7 @@ function SeatCardPhysical({ student, config, examName }) {
   return (
     <div className="seat-card-physical">
       {config.schoolLogo && <img className="scp-watermark" src={config.schoolLogo} alt="" />}
-      <div className="scp-school">{config.schoolName || "School Name"}</div>
+      <AutoFitLine className="scp-school" text={config.schoolName || "School Name"} maxPt={11} ls={0.01} />
       {config.schoolAddress && <div className="scp-address">{config.schoolAddress}</div>}
       <div className="scp-exam">{examName || "Examination"}</div>
       <div className="scp-body">
@@ -4364,12 +4379,10 @@ function AdmitCardPhysical({ student, config, examName }) {
             {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
           </div>
           <div className="acp-center">
-            <div className="acp-school-name">{config.schoolName || "School Name"}</div>
+            <AutoFitLine className="acp-school-name" text={config.schoolName || "School Name"} maxPt={20} ls={0.01} />
             {config.schoolAddress && <div className="acp-school-address">{config.schoolAddress}</div>}
-            {(config.instituteCode || config.schoolEmail || phones[0]) && (
+            {(config.schoolEmail || phones[0]) && (
               <div className="acp-school-phone" style={{ whiteSpace: "nowrap" }}>
-                {config.instituteCode && <span>{config.instituteCode}</span>}
-                {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
                 {config.schoolEmail && <span>{config.schoolEmail}</span>}
                 {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
                 {phones[0] && <span>{phones[0]}</span>}
@@ -4586,7 +4599,7 @@ function ProtyonModule({ students, promotions, certificates, config, save, remov
     <div>
       <div className="section-actions no-print">
         <button className="btn" onClick={onBack}>← Back to All Card</button>
-        <button className="btn btn-primary" onClick={() => setFormOpen((o) => !o)}><Icon.plus />{formOpen ? "Close Certificate Form" : "Open Certificate Form"}</button>
+        <button className="btn btn-primary" onClick={() => setFormOpen((o) => !o)}><Icon.plus />{formOpen ? "Close" : "New Certificate"}</button>
       </div>
 
       {formOpen && (
@@ -4597,7 +4610,7 @@ function ProtyonModule({ students, promotions, certificates, config, save, remov
 
       <div className="card card-flush">
         {sorted.length === 0 ? (
-          <EmptyState title="No certificates issued yet" sub={`Use "Open Certificate Form" above to issue and print a Protyon.`} />
+          <EmptyState title="No certificates issued yet" sub={`Use "New Certificate" above to issue and print a Protyon.`} />
         ) : (
           <div className="table-wrap">
             <table>
@@ -4715,7 +4728,7 @@ function CertificatePrintModal({ certificate, config, onClose }) {
   function handlePrint() { window.print(); }
   return (
     <Modal title="Print Protyon" onClose={onClose} size="xl"
-      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print / Save as PDF</button></>}>
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={handlePrint}><Icon.print />Print</button></>}>
       <CertificatePrint certificate={certificate} config={config} />
     </Modal>
   );
@@ -4743,12 +4756,10 @@ function CertificatePrint({ certificate: c, config }) {
           <div className="protyon-header-row">
             <div className="protyon-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
             <div className="protyon-header-center">
-              <div className="protyon-header-name">{config.schoolName || "School Name"}</div>
+              <AutoFitLine className="protyon-header-name" text={config.schoolName || "School Name"} maxPt={20} ls={0.03} />
               {config.schoolAddress && <div className="protyon-header-address">{config.schoolAddress}</div>}
-              {(config.instituteCode || config.schoolEmail || phones[0]) && (
+              {(config.schoolEmail || phones[0]) && (
                 <div className="protyon-header-contact">
-                  {config.instituteCode && <span>{config.instituteCode}</span>}
-                  {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
                   {config.schoolEmail && <span>{config.schoolEmail}</span>}
                   {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
                   {phones[0] && <span>{phones[0]}</span>}
@@ -4948,18 +4959,16 @@ function TeacherLetterModal({ teacher, config, onClose }) {
   const phones = (config.schoolPhones || []).filter(Boolean);
   return (
     <Modal title={`${isResign ? "Resignation Acceptance" : "Appointment"} Letter — ${teacher.name}`} onClose={onClose} size="lg"
-      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button></>}>
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button></>}>
       <div className="letter-print-page">
         <div className="letter-print">
           <div className="adm-header-row">
             <div className="adm-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
             <div className="adm-header-center">
-              <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={15} minPt={7} style={{ textOverflow: "clip" }} />
+              <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={16} />
               {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-              {(config.instituteCode || config.schoolEmail || phones[0]) && (
+              {(config.schoolEmail || phones[0]) && (
                 <div className="adm-school-contact">
-                  {config.instituteCode && <span>{config.instituteCode}</span>}
-                  {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
                   {config.schoolEmail && <span>{config.schoolEmail}</span>}
                   {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
                   {phones[0] && <span>{phones[0]}</span>}
@@ -5086,14 +5095,10 @@ function StaffFormPrint({ teacher, config }) {
             {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
           </div>
           <div className="adm-header-center">
-            <div className="adm-school-name">
-              {(config.schoolName || "School Name").toUpperCase()}
-            </div>
+            <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={17} />
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-            {(config.instituteCode || config.schoolEmail || phones[0]) && (
+            {(config.schoolEmail || phones[0]) && (
               <div className="adm-school-contact">
-                {config.instituteCode && <span>{config.instituteCode}</span>}
-                {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
                 {config.schoolEmail && <span>{config.schoolEmail}</span>}
                 {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
                 {phones[0] && <span>{phones[0]}</span>}
@@ -5134,7 +5139,7 @@ function StaffFormPrintModal({ teacher, config, onClose }) {
   usePrintChrome({ hideFooter: true }); // staff form prints its own footer with slogan + credit
   return (
     <Modal title={`Staff Form — ${teacher.name}`} onClose={onClose} size="lg"
-      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Staff Form (A4)</button></>}>
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button></>}>
       <FitPage><StaffFormPrint teacher={teacher} config={config} /></FitPage>
     </Modal>
   );
@@ -5269,7 +5274,7 @@ function TeacherInvoiceModal({ teachers, salaryInvoices, initialTeacher, config,
       ) : showPrint ? (
         <>
           <button className="btn" onClick={() => { setShowPrint(false); setSelected(null); }}>← New Invoice</button>
-          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
+          <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button>
         </>
       ) : (
         <button className="btn" onClick={onClose}>Close</button>
@@ -5360,7 +5365,7 @@ function SavedSalaryInvoicePrintModal({ invoice, config, onClose }) {
         <button className="btn" onClick={onClose}>Close</button>
         <button className="btn" disabled={!!busy} onClick={() => handleImage("download")}><Icon.download />{busy === "download" ? "Preparing…" : "Download Image"}</button>
         <button className="btn" disabled={!!busy} onClick={() => handleImage("share")}><Icon.share />{busy === "share" ? "Preparing…" : "Share"}</button>
-        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
+        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print</button>
       </>}>
       <SalaryInvoicePrintDoc config={config} teacher={teacher} invoiceNo={invoiceNo} date={date}
         rows={rows} totalCharged={totalCharged} totalPaid={totalPaid} totalDue={totalDue} />
@@ -5547,7 +5552,7 @@ function ZakatModule({ data, save, remove, config, initialTab }) {
   return (
     <div>
       <div className="section-actions">
-        <button className="btn btn-primary" onClick={() => setEditing(emptyZakat(tab, zakat))}><Icon.plus />New {isIncome ? "Jakat Invoice" : "Jakat Expense"}</button>
+        <button className="btn btn-primary" onClick={() => setEditing(emptyZakat(tab, zakat))}><Icon.plus />{isIncome ? "New Invoice" : "New Expense"}</button>
       </div>
 
       <div className="card" style={{ marginBottom: 18 }}>
@@ -5811,10 +5816,7 @@ function FinanceDocHeader({ config, docTitle }) {
       <div className="inv-header-row">
         <div className="inv-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
         <div className="inv-header-center">
-          <div className="inv-school-name">
-            {config.schoolName || "School Name"}
-            {config.instituteCode && <span className="inv-school-code"> ({config.instituteCode})</span>}
-          </div>
+          <AutoFitLine className="inv-school-name" text={config.schoolName || "School Name"} maxPt={14} />
           {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
           <div className="inv-title">{docTitle}</div>
         </div>
@@ -6148,7 +6150,7 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
         </select>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {((tab === "class" && classRowsFiltered.length > 0) || (tab === "teacher" && teacherRowsFiltered.length > 0)) && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
-          <button className="btn btn-primary" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
+          <button className="btn btn-primary" onClick={openNewGroup}><Icon.plus />New Fee</button>
         </div>
       </div>
 
@@ -6269,7 +6271,7 @@ function FeeGroupModal({ group, onClose, onSave }) {
   }
 
   return (
-    <Modal title={form.kind === "class" ? "Class Fee Group" : "Teacher Fee Scale Group"} onClose={onClose} size="lg"
+    <Modal title={form.kind === "class" ? "Class Fee" : "Teacher Fee Scale"} onClose={onClose} size="lg"
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => onSave(form)}>Save All</button></>}>
       <div className="form-grid" style={{ marginBottom: 16 }}>
         <Field label="Year" hint="fees can differ year to year"><input type="number" value={form.year} onChange={set("year")} placeholder={String(CURRENT_YEAR)} /></Field>
@@ -6695,7 +6697,7 @@ function SubjectListDocModal({ group, config, onClose }) {
       <div className="doc-preview">
         <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 12, marginBottom: 14 }}>
           {config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 40, marginBottom: 6 }} />}
-          <div style={{ fontFamily: "'Fraunces',serif", fontSize: 17, fontWeight: 600 }}>{config.schoolName || "School Name"}</div>
+          <AutoFitLine text={config.schoolName || "School Name"} maxPt={18} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
           <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Class Subject List — {group.className} ({group.year})</div>
           <div style={{ fontSize: 11, color: "var(--slate-soft)", marginTop: 3 }}>Model Exam Full Marks (all subjects): {group.modelExamMarks || 50}</div>
         </div>
@@ -7226,12 +7228,10 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
         <div className="adm-header-row">
           <div className="adm-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
           <div className="adm-header-center">
-            <div className="adm-school-name">{(config.schoolName || "School Name").toUpperCase()}</div>
+            <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={19} />
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-            {(config.instituteCode || config.schoolEmail || phones[0]) && (
+            {(config.schoolEmail || phones[0]) && (
               <div className="adm-school-contact">
-                {config.instituteCode && <span>{config.instituteCode}</span>}
-                {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
                 {config.schoolEmail && <span>{config.schoolEmail}</span>}
                 {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
                 {phones[0] && <span>{phones[0]}</span>}
@@ -7562,7 +7562,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           footer={<><button className="btn" onClick={() => setProfileEditing(false)}>Cancel</button><button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Settings"}</button></>}>
           <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
             <Field label="Institution Name"><input type="text" value={form.schoolName} onChange={set("schoolName")} /></Field>
-            <Field label="Institute Code No." hint="shown on Admission Form"><input type="text" value={form.instituteCode || ""} onChange={set("instituteCode")} /></Field>
+            <Field label="Institute Code No."><input type="text" value={form.instituteCode || ""} onChange={set("instituteCode")} /></Field>
             <Field label="Founding Year (প্রতিষ্ঠাকাল)" hint="used in Student ID (STU) and Certificate No. (CCRT)"><input type="number" value={form.establishedYear || ""} onChange={set("establishedYear")} placeholder="e.g. 2026" /></Field>
             <Field label="Address"><textarea value={form.schoolAddress || ""} onChange={set("schoolAddress")} placeholder="Full address" /></Field>
             <Field label="Email"><input type="email" value={form.schoolEmail || ""} onChange={set("schoolEmail")} placeholder="school@example.com" /></Field>
@@ -7700,10 +7700,8 @@ function MenuBar({ active, subTab, setActive, config, store }) {
         <div className="menubar-desktop-name">
           <div className="menubar-desktop-title">{(config.schoolName || "Vidyalaya").toUpperCase()}</div>
           {config.schoolAddress && <div className="menubar-desktop-address">{config.schoolAddress}</div>}
-          {(config.instituteCode || config.schoolEmail || phones[0]) && (
+          {(config.schoolEmail || phones[0]) && (
             <div className="menubar-desktop-contact">
-              {config.instituteCode && <span>{config.instituteCode}</span>}
-              {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
               {config.schoolEmail && <span>{config.schoolEmail}</span>}
               {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
               {phones[0] && <span>{phones[0]}</span>}
