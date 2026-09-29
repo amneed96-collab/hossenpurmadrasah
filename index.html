@@ -370,6 +370,9 @@ tbody tr:last-child td{border-bottom:none;}
      container's own padding is meant to BE the entire margin. */
   @page protyon-page{size:A4 landscape;margin:0;}
   .protyon-page-landscape{page:protyon-page;}
+  /* Join / Resign Letter — A4 portrait, 0.8in top/left/right, 0.5in bottom, no border */
+  @page letter-page{size:A4;margin:0.8in 0.8in 0.5in;}
+  .letter-print-page{page:letter-page;}
   /* On-screen page titles/descriptions are redundant with PrintDocHead's institution header */
   .section-head{display:none !important;}
   /* Chrome/Blink inserts a spurious BLANK leading page whenever the first thing that actually
@@ -381,10 +384,12 @@ tbody tr:last-child td{border-bottom:none;}
   body:has(.print-landscape){page:landscape-a4;}
   body:has(.invoice-print-page){page:invoice-page;}
   body:has(.protyon-page-landscape){page:protyon-page;}
+  body:has(.letter-print-page){page:letter-page;}
   body:has(.print-admit-card){page:admit-card-page;}
   .modal-overlay:has(.print-landscape){page:landscape-a4;}
   .modal-overlay:has(.invoice-print-page){page:invoice-page;}
   .modal-overlay:has(.protyon-page-landscape){page:protyon-page;}
+  .modal-overlay:has(.letter-print-page){page:letter-page;}
   .modal-overlay:has(.print-admit-card){page:admit-card-page;}
 }
 .doc-preview{
@@ -415,6 +420,29 @@ tbody tr:last-child td{border-bottom:none;}
     width:100%;min-height:100vh;box-sizing:border-box;
     border:1.5px solid var(--ink);box-shadow:none;
   }
+}
+
+/* Join / Resign Letter — on screen it simulates the exact print margins with padding (so the
+   preview matches the print); in print the @page margin is the real margin, so padding is 0.
+   Fixed 264mm height (297mm - 0.8in - 0.5in) + overflow hidden = never a spurious blank 2nd page,
+   and lets the credit footer sit at the very bottom via margin-top:auto. No border anywhere. */
+.letter-print{
+  font-size:12px;width:210mm;min-height:297mm;max-width:none;
+  box-sizing:border-box;padding:0.8in 0.8in 0.5in;margin:0 auto;
+  border:none;border-radius:0;box-shadow:none;background:#fff;
+  display:flex;flex-direction:column;
+}
+.letter-print .adm-school-name{color:#000;text-shadow:none;font-size:20px;}
+.letter-print .adm-school-address,.letter-print .adm-school-contact{color:#000;opacity:1;font-size:11px;}
+.letter-print .adm-divider{border-top-color:#000;}
+.letter-print .adm-credit-outside{border-top:1px dashed #000;color:#000;}
+.letter-title-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:baseline;margin:20px 0 14px;}
+.letter-title{grid-column:2;font-family:'Fraunces',serif;font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;text-align:center;}
+.letter-date{grid-column:3;justify-self:end;font-size:11px;font-weight:600;white-space:nowrap;}
+.letter-body{font-size:12.5px;line-height:1.85;text-align:justify;}
+.letter-body p{margin:0 0 12px;}
+@media print{
+  .letter-print{width:100%;padding:0;min-height:264mm;max-height:264mm;overflow:hidden;}
 }
 
 /* Notice — a plain A4 page (not the ~640px "card" .doc-preview default), no drop shadow */
@@ -558,6 +586,14 @@ tbody tr:last-child td{border-bottom:none;}
        against the browser's on-screen window size (whatever that happens to be), not the actual
        printed page, so it silently overflowed onto a near-blank second page on many screens. */
     min-height:187mm;
+    /* Also cap it at the same 187mm and clip anything past it. min-height alone still let the
+       REAL rendered page run a hair taller than 187mm once actual web fonts (Fraunces/Inter/IBM
+       Plex Mono) were loaded — their line-height/metrics differ slightly from the fallback fonts
+       used during local testing — and that small overflow was enough to push the whole invoice
+       onto a second, almost-entirely-blank page. Capping the height guarantees a single page:
+       worst case a stray pixel or two of bottom whitespace/border is clipped, which is far better
+       than a spurious blank page after every printed invoice. */
+    max-height:187mm; overflow:hidden;
   }
   .inv-print-pair > .invoice-doc-print{flex:1 1 0;min-width:0;}
 }
@@ -627,7 +663,7 @@ tbody tr:last-child td{border-bottom:none;}
   .protyon-print{ width:100%; min-height:100vh; box-shadow:none; border:none; }
 }
 .protyon-content{ position:relative; z-index:1; display:flex; flex-direction:column; flex:1; }
-.protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; z-index:0; padding: 0.3in; object-fit:cover; }
+.protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; z-index:0; padding: 0.3in; object-fit:contain; }
 /* Institution header — logo left, name truly centered (the hidden spacer on the right balances
    the logo's width so the center column doesn't drift), address, then Code/Email/Mobile, then
    a divider. No opaque background here (unlike Admission Form's green banner) so the custom
@@ -641,7 +677,7 @@ tbody tr:last-child td{border-bottom:none;}
 .protyon-header-name{ font-family:'Fraunces',serif; font-size:27px; font-weight:800; text-transform:uppercase; letter-spacing:0.03em; padding-top: 0.4in;}
 .protyon-header-address{ font-size:12px; margin-top:3px; }
 .protyon-header-contact{ font-size:11.5px; margin-top:2px; opacity:0.85; }
-.protyon-divider{ border:none; border-top:2px solid var(--gold); margin:8px 0 0; }
+.protyon-divider{ border:none; border-top:2px solid var(--gold); margin:8px 0.6in 0; }
 /* Everything below the divider (title, No/Date, the certificate paragraph, signatures) gets an
    EXTRA 0.8in of its own left/right padding on top of .protyon-print's 0.3in — so the paragraph
    text reads as a narrower, centered column well clear of the frame, while the header above
@@ -1081,7 +1117,7 @@ function IconWrap({ name, ...rest }) {
    DATA STORE — central hook wrapping Google Sheets as DB
    Collections: students, teachers, finance, fees, committee, seatplans
    ========================================================= */
-const COLLECTIONS = ["students", "teachers", "finance", "zakat", "fees", "committee", "notices", "seatplans", "invoices", "promotions", "classHistories", "activations", "subjects", "marks", "attendance", "deletedStudents", "certificates"];
+const COLLECTIONS = ["students", "teachers", "finance", "zakat", "fees", "committee", "notices", "seatplans", "invoices", "salaryInvoices", "promotions", "classHistories", "activations", "subjects", "marks", "attendance", "deletedStudents", "certificates"];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -1105,7 +1141,7 @@ function saveCachedData(sheetsUrl, data) {
   try { localStorage.setItem(DATA_CACHE_PREFIX + sheetsUrl, JSON.stringify(data)); } catch (e) {}
 }
 
-const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], zakat: [], fees: [], committee: [], notices: [], seatplans: [], invoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [], attendance: [], deletedStudents: [], certificates: [] };
+const EMPTY_STORE_DATA = { students: [], teachers: [], finance: [], zakat: [], fees: [], committee: [], notices: [], seatplans: [], invoices: [], salaryInvoices: [], promotions: [], classHistories: [], activations: [], subjects: [], marks: [], attendance: [], deletedStudents: [], certificates: [] };
 
 function useDataStore(config) {
   const cached = loadCachedData(config.sheetsUrl);
@@ -4624,7 +4660,7 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
   return (
     <div>
       <div className="section-actions">
-        <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />Add Staff</button>
+        {tab === "list" && <button className="btn btn-primary no-print" onClick={openNew}><Icon.plus />Add New</button>}
       </div>
 
       {/* Section switching is handled entirely by the sidebar's Teachers submenu now. */}
@@ -4655,6 +4691,7 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
                         <td><span className={`badge ${t.status === "Active" ? "badge-green" : "badge-slate"}`}>{t.status}</span></td>
                         <td className="no-print">
                           <div style={{ display: "flex", gap: 6 }}>
+                            <button className="btn btn-sm btn-icon" title="Print Staff Form" onClick={() => setDocTarget({ type: "form", teacher: t })}><Icon.print /></button>
                             <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditing({ ...t })}><Icon.edit /></button>
                             <button className="btn btn-sm btn-icon" title="Delete" onClick={() => { if (confirm(`Delete ${t.name}?`)) remove("teachers", t.id); }}><Icon.trash /></button>
                           </div>
@@ -4670,12 +4707,12 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
       )}
       {tab === "letter" && <TeacherPicker teachers={teachers} label="Select staff for Join / Resign Letter" onPick={(t) => setDocTarget({ type: "letter", teacher: t })} />}
       {tab === "idcard" && <TeacherPicker teachers={teachers} label="Select staff for ID Card" onPick={(t) => setDocTarget({ type: "id", teacher: t })} />}
-      {tab === "salary" && <TeacherPicker teachers={teachers} label="Select staff for Salary Invoice" onPick={(t) => setDocTarget({ type: "salary", teacher: t })} />}
+      {tab === "salary" && <SalaryInvoiceModule data={data} save={save} remove={remove} config={config} />}
 
       {editing && <TeacherFormModal teacher={editing} onClose={() => setEditing(null)} onSave={handleSave} config={config} teacherFeeRules={teacherFeeRules} />}
+      {docTarget && docTarget.type === "form" && <StaffFormPrintModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
       {docTarget && docTarget.type === "letter" && <TeacherLetterModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
       {docTarget && docTarget.type === "id" && <TeacherIdCardModal teacher={docTarget.teacher} config={config} onClose={() => setDocTarget(null)} />}
-      {docTarget && docTarget.type === "salary" && <TeacherSalaryInvoiceModal teacher={docTarget.teacher} config={config} teacherFeeRules={teacherFeeRules} onSave={handleSave} onClose={() => setDocTarget(null)} />}
     </div>
   );
 }
@@ -4732,129 +4769,382 @@ function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules })
   );
 }
 
+// Join / Resign Letter — plain A4 portrait page, its own named page (0.8in top/left/right,
+// 0.5in bottom margin per spec), no border anywhere. Header mirrors the Protyon (Certificate)
+// header exactly in structure (logo left, centered school name/address/code-email-mobile, then
+// a divider) — reusing the Admission Form's already-portrait-tuned header classes (adm-header-row
+// etc.) rather than the certificate's own classes, since those carry certificate-specific spacing
+// (large landscape font sizes, a 0.5in offset meant to clear the certificate's decorative frame)
+// that doesn't belong on a plain business letter. The title sits centered with the date pinned to
+// the right on the same row (a 3-column grid so the title stays truly centered regardless of the
+// date's width), and the dashed-line + credit footer is pushed to the very bottom of the fixed-
+// height page via margin-top:auto — the same proven technique used for Fee Invoice's bottom block,
+// so it lands at the page's bottom edge however long or short the letter body is.
 function TeacherLetterModal({ teacher, config, onClose }) {
+  usePrintChrome({ hideFooter: true }); // this letter draws its own credit line
   const isResign = teacher.status === "Resigned";
+  const phones = (config.schoolPhones || []).filter(Boolean);
   return (
-    <DocShell title={`${isResign ? "Resignation Acceptance" : "Appointment"} Letter — ${teacher.name}`} onClose={onClose}>
-      <div className="doc-preview" style={{ textAlign: "left", lineHeight: 1.7 }}>
-        <div style={{ textAlign: "center", marginBottom: 22 }}>
-          <h3 style={{ fontSize: 19 }}>{config.schoolName || "School Name"}</h3>
-          <div style={{ fontSize: 11.5, color: "var(--slate-soft)" }}>{fmtDate(new Date().toISOString())}</div>
-        </div>
-        {isResign ? (
-          <>
-            <p><strong>Subject: Acceptance of Resignation</strong></p>
-            <p>Dear {teacher.name},</p>
-            <p>
-              We acknowledge receipt of your resignation as {teacher.designation}, effective {fmtDate(teacher.resignDate) || "the date noted in your letter"}.
-              Your resignation has been accepted, and we thank you for your service and contribution to our institution during your tenure.
-            </p>
-            <p>Please coordinate with the administration office to complete the handover and clearance formalities.</p>
-          </>
-        ) : (
-          <>
-            <p><strong>Subject: Letter of Appointment</strong></p>
-            <p>Dear {teacher.name},</p>
-            <p>
-              We are pleased to confirm your appointment as {teacher.designation}{teacher.subject ? ` (${teacher.subject})` : ""} at our institution,
-              effective from {fmtDate(teacher.joinDate)}. We look forward to your valuable contribution to our school community.
-            </p>
-            <p>Your compensation and other terms of employment will be communicated separately by the administration.</p>
-          </>
-        )}
-        <p style={{ marginTop: 40 }}>Sincerely,</p>
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 40 }}>
-          <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 180, textAlign: "center" }}>Authorized Signature</div>
-          <div style={{ borderTop: "1px solid var(--ink)", paddingTop: 6, fontSize: 11, width: 180, textAlign: "center" }}>School Seal</div>
+    <Modal title={`${isResign ? "Resignation Acceptance" : "Appointment"} Letter — ${teacher.name}`} onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button></>}>
+      <div className="letter-print-page">
+        <div className="letter-print">
+          <div className="adm-header-row">
+            <div className="adm-header-logo">{config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}</div>
+            <div className="adm-header-center">
+              <div className="adm-school-name">{config.schoolName || "School Name"}</div>
+              {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+              {(config.instituteCode || config.schoolEmail || phones[0]) && (
+                <div className="adm-school-contact">
+                  {config.instituteCode && <span>Code: {config.instituteCode}</span>}
+                  {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
+                  {config.schoolEmail && <span>Email: {config.schoolEmail}</span>}
+                  {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
+                  {phones[0] && <span>Mobile: {phones[0]}</span>}
+                </div>
+              )}
+            </div>
+            <div className="adm-header-logo" style={{ visibility: "hidden" }} />
+          </div>
+          <hr className="adm-divider" />
+
+          <div className="letter-title-row">
+            <div className="letter-title">{isResign ? "Resignation Acceptance Letter" : "Appointment Letter"}</div>
+            <div className="letter-date">Date: {fmtDate(new Date().toISOString())}</div>
+          </div>
+
+          <div className="letter-body">
+            {isResign ? (
+              <>
+                <p><strong>Subject: Acceptance of Resignation</strong></p>
+                <p>Dear {teacher.name},</p>
+                <p>
+                  We acknowledge receipt of your resignation as {teacher.designation}, effective {fmtDate(teacher.resignDate) || "the date noted in your letter"}.
+                  Your resignation has been accepted, and we thank you for your service and contribution to our institution during your tenure.
+                </p>
+                <p>Please coordinate with the administration office to complete the handover and clearance formalities.</p>
+              </>
+            ) : (
+              <>
+                <p><strong>Subject: Letter of Appointment</strong></p>
+                <p>Dear {teacher.name},</p>
+                <p>
+                  We are pleased to confirm your appointment as {teacher.designation}{teacher.subject ? ` (${teacher.subject})` : ""} at our institution,
+                  effective from {fmtDate(teacher.joinDate)}. We look forward to your valuable contribution to our school community.
+                </p>
+                <p>Your compensation and other terms of employment will be communicated separately by the administration.</p>
+              </>
+            )}
+            <p style={{ marginTop: 28 }}>Sincerely,</p>
+          </div>
+
+          <div className="adm-signatures">
+            <div className="adm-sig">Authorized Signature</div>
+            <div className="adm-sig">School Seal</div>
+          </div>
+
+          <div className="adm-credit-outside" style={{ marginTop: "auto" }}>@Poweredby: AM Shahed- 01605721296</div>
         </div>
       </div>
-    </DocShell>
+    </Modal>
   );
 }
 
+// Staff Identity Card — deliberately built to match StudentIdCardPhysical byte-for-byte in
+// structure/classes (same "id-card-physical" markup, same watermark/photo/name/body/footer/QR
+// layout), just with staff-appropriate fields and a QR code that encodes a staff-status URL
+// instead of a student one.
+function staffStatusUrl(staffId) {
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?staffid=${encodeURIComponent(staffId)}`;
+}
+function TeacherIdCardPhysical({ teacher, config }) {
+  const phone = (config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "";
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&margin=0&data=${encodeURIComponent(staffStatusUrl(teacher.staffId || teacher.id))}`;
+  return (
+    <div className="id-card-physical">
+      {config.schoolLogo && <img className="icp-watermark" src={config.schoolLogo} alt="" />}
+      <div className="icp-head">
+        <AutoFitLine className="icp-school" text={config.schoolName || "School Name"} />
+        {config.schoolAddress && <div className="icp-address">{config.schoolAddress}</div>}
+        <div className="icp-doctype">Staff Identity Card</div>
+      </div>
+      <div className="icp-photo">
+        {teacher.photoUrl ? <img src={teacher.photoUrl} alt="" /> : <Icon.teachers style={{ opacity: 0.3 }} width={22} height={22} />}
+      </div>
+      <div className="icp-name">{teacher.name}</div>
+      <div className="icp-body">
+        <FieldRow name="Staff ID" value={teacher.staffId || teacher.id || "—"} />
+        <FieldRow name="Designation" value={teacher.designation || "—"} />
+        <FieldRow name="Subject" value={teacher.subject || "—"} />
+        <FieldRow name="Phone" value={teacher.phone || "—"} />
+        <FieldRow name="Joined" value={fmtDate(teacher.joinDate)} />
+      </div>
+      <div className="icp-perch-row">
+        <div className="icp-principal-sign">
+          <div className="icp-sign-line"></div>
+          <div className="icp-sign-label">Principal</div>
+        </div>
+      </div>
+      <div className="icp-footer">
+        {phone && <div className="icp-footer-phone">☎ {phone}</div>}
+      </div>
+      <img className="icp-qr" src={qrUrl} alt="Scan for status" />
+    </div>
+  );
+}
 function TeacherIdCardModal({ teacher, config, onClose }) {
+  usePrintChrome({ hideWatermark: true, hideFooter: true });
   return (
     <DocShell title={`ID Card — ${teacher.name}`} onClose={onClose}>
       <div style={{ display: "flex", justifyContent: "center", padding: "10px 0" }}>
-        <div className="id-card-physical">
-          <div className="icp-head">
-            <AutoFitLine className="icp-school" text={config.schoolName || "School Name"} />
-            <div className="icp-doctype">Staff ID Card</div>
-          </div>
-          <div className="icp-photo">
-            {teacher.photoUrl ? <img src={teacher.photoUrl} alt="" /> : <Icon.teachers style={{ opacity: 0.3 }} width={22} height={22} />}
-          </div>
-          <div className="icp-name">{teacher.name}</div>
-          <div className="icp-sub">{teacher.designation}</div>
-          <div className="icp-body">
-            <FieldRow name="Subject" value={teacher.subject || "—"} />
-            <FieldRow name="Phone" value={teacher.phone || "—"} />
-            <FieldRow name="Joined" value={fmtDate(teacher.joinDate)} />
-          </div>
-          <div className="icp-footer">
-            Ins: {(config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "—"}
-          </div>
-        </div>
+        <TeacherIdCardPhysical teacher={teacher} config={config} />
       </div>
     </DocShell>
   );
 }
 
-function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, onClose }) {
+// Staff Form — a printable record of a staff member's own file data, formatted exactly like the
+// Admission Form (same header/field-grid/section/signature/footer classes), just with staff
+// fields instead of student ones. Opened from the per-row print button in the Staff list.
+function StaffFormPrint({ teacher, config }) {
+  const phones = (config.schoolPhones || []).filter(Boolean);
+  const dataFields = [
+    ["Staff ID", teacher.staffId || teacher.id || "—"], ["Designation", teacher.designation || "—"],
+    ["Subject", teacher.subject || "—"], ["Status", teacher.status || "—"],
+    ["Join Date", fmtDate(teacher.joinDate)], ["Resign Date", teacher.resignDate ? fmtDate(teacher.resignDate) : "—"],
+    ["Full Name", teacher.name || "—"], ["Phone", teacher.phone || "—"],
+    ["Email", teacher.email || "—"], ["NID Number", teacher.nid || "—"],
+  ];
+  return (
+    <div className="doc-preview admission-form-print">
+      <div className="adm-header">
+        <div className="adm-header-row">
+          <div className="adm-header-logo">
+            {config.schoolLogo ? <img src={config.schoolLogo} alt="" /> : null}
+          </div>
+          <div className="adm-header-center">
+            <div className="adm-school-name">
+              {(config.schoolName || "School Name").toUpperCase()}
+            </div>
+            {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
+            {(config.instituteCode || config.schoolEmail || phones[0]) && (
+              <div className="adm-school-contact">
+                {config.instituteCode && <span>Code: {config.instituteCode}</span>}
+                {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
+                {config.schoolEmail && <span>Email: {config.schoolEmail}</span>}
+                {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
+                {phones[0] && <span>Mobile: {phones[0]}</span>}
+              </div>
+            )}
+            <div className="adm-form-title">STAFF FORM</div>
+          </div>
+          <div className="adm-header-photo">
+            {teacher.photoUrl ? <img src={teacher.photoUrl} alt="" /> : null}
+          </div>
+        </div>
+        <hr className="adm-divider" />
+      </div>
+
+      <div className="adm-fields-grid">
+        {dataFields.map(([name, value]) => <FieldRow key={name} name={name} value={value} />)}
+      </div>
+
+      <div className="adm-section-title">Address</div>
+      <div className="adm-address-line">{teacher.address || "—"}</div>
+
+      <div className="adm-signatures">
+        <div className="adm-sig">{teacher.name}<br/>Staff Signature</div>
+        <div className="adm-sig">
+          {config.principalSignUrl && <img src={config.principalSignUrl} alt="" className="adm-sig-img" />}
+          Principal{config.principalName ? <><br/>{config.principalName}</> : null}
+        </div>
+      </div>
+
+      <div className="adm-footer">
+        <div className="adm-slogan">Education is the backbone of a nation — building an enlightened generation</div>
+      </div>
+      <div className="adm-credit-outside">@Powered by: AM Shahed: 01605-721296</div>
+    </div>
+  );
+}
+function StaffFormPrintModal({ teacher, config, onClose }) {
+  usePrintChrome({ hideFooter: true }); // staff form prints its own footer with slogan + credit
+  return (
+    <Modal title={`Staff Form — ${teacher.name}`} onClose={onClose} size="lg"
+      footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print Staff Form (A4)</button></>}>
+      <StaffFormPrint teacher={teacher} config={config} />
+    </Modal>
+  );
+}
+
+/* =========================================================
+   SALARY INVOICE — restructured to exactly mirror Fee Invoice: a "New Invoice" button that opens
+   a search-staff → pay-heads → submit → print flow, and a saved-invoice list below with per-row
+   Edit / Print / Share / Delete actions. Each submission is saved as its own snapshot record in
+   data.salaryInvoices (parallel to data.invoices for students) so it can be reprinted/reshared
+   later exactly as first submitted. The actual "Salary Due" calculation everywhere else in the
+   app (Staff list, Dashboard, Due List, Teacher Fee Scale preview) is untouched and keeps summing
+   teacher.payments as before — each submission here still appends to that same array, so due
+   amounts stay correct; the invoice record additionally remembers exactly which payment entries
+   it applied (paymentsApplied) so Delete can precisely reverse them and keep everything in sync.
+   ========================================================= */
+function savedSalaryInvoiceToProps(invoice) {
+  const teacher = { id: invoice.teacherId, staffId: invoice.staffId, name: invoice.teacherName, designation: invoice.designation, subject: invoice.subject, phone: invoice.phone, photoUrl: invoice.photoUrl };
+  const rows = Array.isArray(invoice.rows) ? invoice.rows : [];
+  return { teacher, invoiceNo: invoice.invoiceNo, date: invoice.date, rows, totalCharged: invoice.totalCharged, totalPaid: invoice.totalPaid, totalDue: invoice.totalDue };
+}
+
+async function exportSalaryInvoiceImage(invoice, config, mode) {
+  if (!window.html2canvas) throw new Error("html2canvas not loaded");
+  const props = savedSalaryInvoiceToProps(invoice);
+  const holder = document.createElement("div");
+  holder.style.position = "fixed";
+  holder.style.left = "-10000px";
+  holder.style.top = "0";
+  holder.style.background = "#fff";
+  holder.style.width = "480px";
+  document.body.appendChild(holder);
+  const root = ReactDOM.createRoot(holder);
+  let blob;
+  try {
+    await new Promise(resolve => {
+      root.render(<SalaryInvoiceDocPrint config={config} {...props} />);
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+    await waitForImagesToLoad(holder);
+    const canvas = await window.html2canvas(holder.firstChild, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+    blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+  } finally {
+    root.unmount();
+    document.body.removeChild(holder);
+  }
+  if (!blob) throw new Error("Could not render invoice image");
+
+  const filename = `Salary-Invoice-${invoice.invoiceNo || "invoice"}.png`;
+  const file = new File([blob], filename, { type: "image/png" });
+  if (mode === "share" && navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    try {
+      await navigator.share({ files: [file], title: "Salary Invoice", text: `Salary Invoice ${invoice.invoiceNo || ""}`.trim() });
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// The New Invoice / Edit flow — mirrors StudentInvoiceModal exactly: search & pick a staff
+// member (or start pre-selected, for the list's Edit button), show their pay-heads breakdown,
+// enter payment amounts, Submit saves a salaryInvoices snapshot and immediately shows the
+// print preview in the same official format.
+function TeacherInvoiceModal({ teachers, initialTeacher, config, teacherFeeRules, onSaveTeacher, saveInvoice, onClose }) {
+  const [selected, setSelected] = useState(initialTeacher || null);
+  const [query, setQuery] = useState("");
   const [payAmounts, setPayAmounts] = useState({});
   const [saving, setSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [submittedInvoice, setSubmittedInvoice] = useState(null);
+  usePrintChrome({ hideWatermark: true, hideFooter: true }); // invoice draws its own centered watermark + credit line
   const toast = useToast();
-  const breakdown = teacherFeeBreakdown(teacher, teacherFeeRules);
+
+  const matches = query.trim() ? teachers.filter(t =>
+    str(t.name).toLowerCase().includes(query.toLowerCase())
+    || str(t.designation).toLowerCase().includes(query.toLowerCase())
+    || str(t.staffId || t.id).toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 20) : [];
+
+  const breakdown = selected ? teacherFeeBreakdown(selected, teacherFeeRules) : [];
   const totalCharged = sumBy(breakdown, r => r.charged);
   const totalPaid = sumBy(breakdown, r => r.paid);
   const totalDue = sumBy(breakdown, r => r.due);
-  // Generated once when the print view opens, not on every render, so the invoice number and
-  // date stay fixed while the user looks at / prints this one preview.
-  const [printMeta, setPrintMeta] = useState(null);
-  function openPrint() {
-    setPrintMeta({ invoiceNo: generateSalaryInvoiceNo(teacher), date: new Date().toISOString() });
-    setShowPrint(true);
-  }
 
   async function submitPayments() {
     const entries = Object.entries(payAmounts).filter(([head, amt]) => Number(amt) > 0);
     if (entries.length === 0) { toast && toast("Enter at least one payment amount", "error"); return; }
     setSaving(true);
-    const newPayments = entries.map(([head, amt]) => ({ head, amount: Number(amt), date: new Date().toISOString().slice(0,10) }));
-    const updated = { ...teacher, payments: [...(teacher.payments || []), ...newPayments] };
-    await onSave(updated);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const invoiceNo = generateSalaryInvoiceNo(selected);
+    const newPayments = entries.map(([head, amt]) => ({ head, amount: Number(amt), date: todayIso }));
+    const updatedTeacher = { ...selected, payments: [...(selected.payments || []), ...newPayments] };
+    if (onSaveTeacher) await onSaveTeacher(updatedTeacher);
+    const freshBreakdown = teacherFeeBreakdown(updatedTeacher, teacherFeeRules);
+    const invoiceRecord = {
+      id: invoiceNo, invoiceNo,
+      teacherId: selected.id, staffId: selected.staffId || selected.id,
+      teacherName: selected.name, designation: selected.designation, subject: selected.subject,
+      phone: selected.phone, photoUrl: selected.photoUrl,
+      date: todayIso,
+      rows: freshBreakdown,
+      totalCharged: sumBy(freshBreakdown, r => r.charged),
+      totalPaid: sumBy(freshBreakdown, r => r.paid),
+      totalDue: sumBy(freshBreakdown, r => r.due),
+      paymentsApplied: newPayments,
+    };
+    let savedInvoiceRecord = invoiceRecord;
+    if (saveInvoice) {
+      const res = await saveInvoice(invoiceRecord);
+      savedInvoiceRecord = res || invoiceRecord;
+    }
+    setSubmittedInvoice(savedInvoiceRecord);
     setPayAmounts({});
     setSaving(false);
-    toast && toast("Payments submitted", "success");
+    toast && toast("Salary invoice saved", "success");
+    setShowPrint(true);
   }
 
   return (
-    <Modal title={`Salary Invoice — ${teacher.name}`} onClose={onClose} size="xl"
-      footer={showPrint ? (
+    <Modal title="Salary Invoice" onClose={onClose} size="xl"
+      footer={selected && !showPrint ? (
         <>
-          <button className="btn" onClick={() => setShowPrint(false)}>← Back</button>
+          <button className="btn" onClick={() => { setSelected(null); setPayAmounts({}); }}>← Search Another Staff</button>
+          <button className="btn btn-primary" disabled={saving} onClick={submitPayments}>Submit</button>
+        </>
+      ) : showPrint ? (
+        <>
+          <button className="btn" onClick={() => { setShowPrint(false); setSelected(null); }}>← New Invoice</button>
           <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
         </>
       ) : (
-        <>
-          <button className="btn" onClick={onClose}>Close</button>
-          <button className="btn" onClick={openPrint}><Icon.print />Print Invoice</button>
-          <button className="btn btn-primary" disabled={saving} onClick={submitPayments}>Submit Payments</button>
-        </>
+        <button className="btn" onClick={onClose}>Close</button>
       )}>
-      {showPrint && printMeta ? (
-        <SalaryInvoicePrintDoc config={config} teacher={teacher} invoiceNo={printMeta.invoiceNo} date={printMeta.date}
-          rows={breakdown} totalCharged={totalCharged} totalPaid={totalPaid} totalDue={totalDue} />
+      {showPrint && submittedInvoice ? (
+        <SalaryInvoicePrintDoc config={config} teacher={selected} invoiceNo={submittedInvoice.invoiceNo} date={submittedInvoice.date}
+          rows={submittedInvoice.rows} totalCharged={submittedInvoice.totalCharged} totalPaid={submittedInvoice.totalPaid} totalDue={submittedInvoice.totalDue} />
+      ) : !selected ? (
+        <div>
+          <Field label="Search Staff" hint="by name, designation, or Staff ID">
+            <input className="search-input" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Type to search…" />
+          </Field>
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            {matches.map(t => (
+              <button key={t.id} className="btn" style={{ justifyContent: "flex-start", textAlign: "left" }} onClick={() => setSelected(t)}>
+                <strong style={{ marginRight: 8 }}>{t.name}</strong>
+                <span style={{ color: "var(--slate-soft)", fontSize: 12.5 }}>{t.designation} · <span className="mono">{t.staffId || t.id}</span></span>
+              </button>
+            ))}
+            {query.trim() && matches.length === 0 && <EmptyState title="No matching staff" sub="Try a different name, designation, or Staff ID." />}
+            {!query.trim() && <EmptyState title="Search for a staff member" sub="Type a name, designation, or Staff ID above to load their salary invoice." />}
+          </div>
+        </div>
       ) : (
         <div>
-          <FieldRow name="Staff Name" value={teacher.name} />
-          <FieldRow name="Designation" value={teacher.designation} />
+          <div className="grid grid-2" style={{ marginBottom: 18 }}>
+            <div className="kv-row"><span className="k">Staff ID</span><span className="v mono">{selected.staffId || selected.id}</span></div>
+            <div className="kv-row"><span className="k">Name</span><span className="v">{selected.name}</span></div>
+            <div className="kv-row"><span className="k">Designation</span><span className="v">{selected.designation}</span></div>
+            <div className="kv-row"><span className="k">Subject</span><span className="v">{selected.subject || "—"}</span></div>
+          </div>
+
           {breakdown.length === 0 ? (
-            <EmptyState title="No fee scale set for this designation" sub={`Add salary components for ${teacher.designation} in Master Fee → Teacher Fee Scale.`} />
+            <EmptyState title="No fee scale set for this designation" sub={`Add salary components for ${selected.designation} in Master Fee → Teacher Fee Scale.`} />
           ) : (
-            <div className="table-wrap" style={{ marginTop: 14 }}>
-              <table style={{ width: "100%" }}>
+            <div className="table-wrap">
+              <table style={{ width: "100%", marginBottom: 16 }}>
                 <thead><tr><th>Head</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th>Pay Amount</th></tr></thead>
                 <tbody>
                   {breakdown.map(r => (
@@ -4874,7 +5164,7 @@ function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, o
               </table>
             </div>
           )}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <div style={{ minWidth: 220 }}>
               <FieldRow name="Total Payable" value={"৳" + money(totalCharged)} />
               <FieldRow name="Total Paid" value={"৳" + money(totalPaid)} />
@@ -4886,6 +5176,149 @@ function TeacherSalaryInvoiceModal({ teacher, config, teacherFeeRules, onSave, o
     </Modal>
   );
 }
+
+function SavedSalaryInvoicePrintModal({ invoice, config, onClose }) {
+  usePrintChrome({ hideWatermark: true, hideFooter: true });
+  const { teacher, invoiceNo, date, rows, totalCharged, totalPaid, totalDue } = savedSalaryInvoiceToProps(invoice);
+  const [busy, setBusy] = useState(null); // "share" | "download" | null
+  const toast = useToast();
+  async function handleImage(mode) {
+    setBusy(mode);
+    try {
+      await exportSalaryInvoiceImage(invoice, config, mode);
+    } catch (e) {
+      toast && toast("Could not create invoice image", "error");
+    }
+    setBusy(null);
+  }
+
+  return (
+    <Modal title={`Salary Invoice — ${invoice.teacherName}`} onClose={onClose} size="xl"
+      footer={<>
+        <button className="btn" onClick={onClose}>Close</button>
+        <button className="btn" disabled={!!busy} onClick={() => handleImage("download")}><Icon.download />{busy === "download" ? "Preparing…" : "Download Image"}</button>
+        <button className="btn" disabled={!!busy} onClick={() => handleImage("share")}><Icon.share />{busy === "share" ? "Preparing…" : "Share"}</button>
+        <button className="btn btn-primary" onClick={() => window.print()}><Icon.print />Print / Save as PDF</button>
+      </>}>
+      <SalaryInvoicePrintDoc config={config} teacher={teacher} invoiceNo={invoiceNo} date={date}
+        rows={rows} totalCharged={totalCharged} totalPaid={totalPaid} totalDue={totalDue} />
+    </Modal>
+  );
+}
+
+function SalaryInvoiceModule({ data, save, remove, config }) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [editTeacher, setEditTeacher] = useState(null); // reopen the form pre-selected on that staff member
+  const [printInvoice, setPrintInvoice] = useState(null);
+  const [query, setQuery] = useState("");
+  const [sharingId, setSharingId] = useState(null);
+  const toast = useToast();
+
+  const teachers = data.teachers || [];
+  const salaryInvoices = data.salaryInvoices || [];
+  const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
+
+  const filtered = salaryInvoices.filter(inv =>
+    !query
+    || str(inv.teacherName).toLowerCase().includes(query.toLowerCase())
+    || str(inv.designation).toLowerCase().includes(query.toLowerCase())
+    || str(inv.staffId).toLowerCase().includes(query.toLowerCase())
+    || str(inv.invoiceNo).toLowerCase().includes(query.toLowerCase())
+  );
+
+  async function handleSaveTeacher(record) { return save("teachers", record); }
+  async function handleSaveInvoice(record) { return save("salaryInvoices", record); }
+  function handlePrintList() { window.print(); }
+
+  async function handleShareInvoice(inv) {
+    setSharingId(inv.id);
+    try {
+      await exportSalaryInvoiceImage(inv, config, "share");
+    } catch (e) {
+      toast && toast("Could not create invoice image", "error");
+    }
+    setSharingId(null);
+  }
+
+  async function handleDeleteInvoice(inv) {
+    if (!confirm("Delete this salary invoice record?")) return;
+    // Best-effort reversal: strip out the exact payment entries this invoice applied to the
+    // staff member's payment history, so Salary Due stays correct after deleting the receipt.
+    const teacher = teachers.find(t => t.id === inv.teacherId);
+    if (teacher && Array.isArray(inv.paymentsApplied) && inv.paymentsApplied.length) {
+      const remaining = [...(teacher.payments || [])];
+      inv.paymentsApplied.forEach(applied => {
+        const idx = remaining.findIndex(p => p.head === applied.head && p.amount === applied.amount && p.date === applied.date);
+        if (idx !== -1) remaining.splice(idx, 1);
+      });
+      await save("teachers", { ...teacher, payments: remaining });
+    }
+    await remove("salaryInvoices", inv.id);
+  }
+
+  return (
+    <div>
+      <div className="section-actions no-print">
+        <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Icon.fee />New Invoice</button>
+      </div>
+
+      <div className="card card-flush">
+        <div className="no-print" style={{ padding: "16px 18px 0" }}>
+          <div className="search-row">
+            <input className="search-input" placeholder="Search by staff name, designation, ID, or invoice no…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            {filtered.length > 0 && <button className="btn btn-sm" onClick={handlePrintList}><Icon.print />Print Table</button>}
+          </div>
+        </div>
+        {filtered.length === 0 ? (
+          <EmptyState title="No salary invoices yet" sub={`Use "New Invoice" above to create and submit one.`} />
+        ) : (
+          <div className="table-wrap">
+            <PrintDocHead config={config} headline="All Salary Invoices" />
+            <table>
+              <thead>
+                <tr><th>Invoice No</th><th>Staff</th><th>Designation</th><th>Date</th><th style={{ textAlign: "right" }}>Charged</th><th style={{ textAlign: "right" }}>Paid</th><th style={{ textAlign: "right" }}>Due</th><th className="no-print"></th></tr>
+              </thead>
+              <tbody>
+                {filtered.map(inv => (
+                  <tr key={inv.id}>
+                    <td className="mono">{inv.invoiceNo}</td>
+                    <td>{inv.teacherName}</td>
+                    <td>{inv.designation}</td>
+                    <td>{fmtDate(inv.date)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalCharged)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalPaid)}</td>
+                    <td style={{ textAlign: "right" }} className="mono">৳{money(inv.totalDue)}</td>
+                    <td className="no-print">
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-sm btn-icon" title="Edit" onClick={() => setEditTeacher(teachers.find(t => t.id === inv.teacherId) || null)}><Icon.edit /></button>
+                        <button className="btn btn-sm btn-icon" title="Print this Invoice" onClick={() => setPrintInvoice(inv)}><Icon.print /></button>
+                        <button className="btn btn-sm btn-icon" title="Share as image" disabled={sharingId === inv.id} onClick={() => handleShareInvoice(inv)}><Icon.share /></button>
+                        <button className="btn btn-sm btn-icon" title="Delete" onClick={() => handleDeleteInvoice(inv)}><Icon.trash /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {formOpen && (
+        <TeacherInvoiceModal teachers={teachers} config={config} teacherFeeRules={teacherFeeRules}
+          onSaveTeacher={handleSaveTeacher} saveInvoice={handleSaveInvoice} onClose={() => setFormOpen(false)} />
+      )}
+      {editTeacher && (
+        <TeacherInvoiceModal teachers={teachers} initialTeacher={editTeacher} config={config} teacherFeeRules={teacherFeeRules}
+          onSaveTeacher={handleSaveTeacher} saveInvoice={handleSaveInvoice} onClose={() => setEditTeacher(null)} />
+      )}
+      {printInvoice && (
+        <SavedSalaryInvoicePrintModal invoice={printInvoice} config={config} onClose={() => setPrintInvoice(null)} />
+      )}
+    </div>
+  );
+}
+
 
 /* =========================================================
    FINANCE MODULE — Invoice (income), Expense Voucher
@@ -6987,7 +7420,7 @@ const NAV_GROUPS = [
       { key: "deleted", label: "Delete Students" },
     ]},
     { key: "teachers", label: "Teachers", icon: "teachers", subitems: [
-      { key: "list", label: "Staff List" },
+      { key: "list", label: "Teacher & Others" },
       { key: "letter", label: "Join / Resign Letter" },
       { key: "idcard", label: "ID Card" },
       { key: "salary", label: "Salary Invoice" },
