@@ -546,6 +546,18 @@ tbody tr:last-child td{border-bottom:none;}
 .adm-slogan{font-size:10.5px;font-style:italic;color:var(--gold);}
 .adm-footer .adm-divider{border-top-color:rgba(255,255,255,0.3);margin:6px 0 5px;}
 .adm-credit{font-size:9px;color:#fff;opacity:0.75;}
+/* Admission Form + Staff Form only: the green footer band is glued to the bottom margin (no gap
+   under it), and the "@Powered by" credit sits BELOW the page margin, right-aligned. */
+.admission-form-print{position:relative;}
+.admission-form-print .adm-footer{margin-bottom:-0.5in;}
+.admission-form-print .adm-credit-outside{
+  position:absolute;right:0;left:auto;bottom:-20px;margin:0;padding:0;border-top:none;
+  text-align:right;font-size:9px;
+}
+@media print{
+  .admission-form-print{padding-bottom:0;}
+  .admission-form-print .adm-footer{margin-bottom:0;}
+}
 .adm-credit-outside{
   font-size:9px;color:var(--slate-soft);text-align:center;
   margin-top:6px;padding-top:5px;border-top:1px dashed var(--line);
@@ -1599,8 +1611,20 @@ const SUBJECT_GROUPS = ["General", "Humanity", "Science"];
 const GUARDIAN_RELATIONS = ["Father", "Mother", "Uncle", "Grandfather", "Grandmother", "Brother", "Sister", "Other"];
 const GENDERS = ["Male", "Female", "Other"];
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-const DESIGNATIONS = ["Principal", "Vice Principal", "Senior Teacher", "Assistant Teacher", "Librarian", "Accountant", "Office Staff", "Lab Assistant", "Peon/Support Staff"];
-const SUBJECTS = ["Bangla", "English", "Mathematics", "Science", "Social Science", "Religion", "ICT", "Physical Education", "Arts", "General"];
+// Staff "Level" — the Designation dropdown in the Staff form only offers the designations that
+// belong to the chosen level.
+const STAFF_LEVELS = ["Alim / Higher Secondary", "Dakhil / Secondary", "Junior Dakhil / Junior Secondary", "Ebtedayee / Primary", "Noorani / KG"];
+const DESIGNATIONS_BY_LEVEL = {
+  "Alim / Higher Secondary": ["Principal", "Vice Principal", "Lecturer", "Assistant Teacher", "Faqih"],
+  "Dakhil / Secondary": ["Superintendent", "Assistant Superintendent", "Assistant Teacher", "Assistant Maulvi", "Qari", "Physical Exercise Teacher"],
+  "Junior Dakhil / Junior Secondary": ["Superintendent", "Assistant Superintendent", "Assistant Teacher", "Assistant Maulvi", "Qari", "Physical Exercise Teacher"],
+  "Ebtedayee / Primary": ["Ebtedayee Head", "Assistant Head", "Assistant Teacher", "Ebtedayee Maulvi", "Ebtedayee Qari"],
+  "Noorani / KG": ["Head Teacher", "Assistant Head", "Assistant Teacher", "Noorani Moallim", "Qari", "Hafez"],
+};
+// Every designation across all levels (de-duplicated) — used where no single level applies,
+// e.g. the Master Fee → Teacher Fee Scale group form.
+const DESIGNATIONS = [...new Set(STAFF_LEVELS.flatMap(l => DESIGNATIONS_BY_LEVEL[l]))];
+const SUBJECTS = ["Quran", "Hadith", "Arabic", "Fiqh", "Physical Exercise", "General Science", "Noorani", "Library", "Bangla", "English", "Mathematics", "Science", "Social Science", "Religion", "ICT", "Physical Education", "Arts", "General"];
 const INCOME_HEADS = ["Admission Fee", "Tuition Fee", "Semester Exam Fee", "Model Exam Fee", "Session Fee", "Transport Fee", "Hostel Fee", "ID Card", "Donation", "Other Income"];
 const EXPENSE_HEADS = [
   "House bill", "Electricity bill", "Gas bill", "Water bill", "Dustbin bill",
@@ -2266,14 +2290,20 @@ function generateStudentId(existingStudents, establishedYear) {
   return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
-function generateStaffId(existingTeachers) {
+// Staff Index No = "IN" + the institution's Founding Year (config.establishedYear) + a running
+// 3-digit number, no separators, e.g. founding year 2025 → IN2025001, IN2025002, … Falls back to
+// the current year only if no founding year has been set in Settings yet. Staff saved earlier
+// with an old "STF-0001" style number keep it unchanged.
+function generateStaffId(existingTeachers, establishedYear) {
+  const year = establishedYear || new Date().getFullYear();
+  const prefix = `IN${year}`;
   const nums = (existingTeachers || [])
     .map(t => t.staffId || "")
-    .filter(id => id.startsWith("STF-"))
-    .map(id => parseInt(id.split("-")[1], 10))
+    .filter(id => id.startsWith(prefix))
+    .map(id => parseInt(id.slice(prefix.length), 10))
     .filter(n => !isNaN(n));
   const next = (nums.length ? Math.max(...nums) : 0) + 1;
-  return `STF-${String(next).padStart(4, "0")}`;
+  return `${prefix}${String(next).padStart(3, "0")}`;
 }
 
 function generateFormNo(existingStudents) {
@@ -2289,10 +2319,16 @@ function generateFormNo(existingStudents) {
 // Ad-hoc invoice number for the (unpersisted) Salary Invoice print-out — deterministic for a
 // given teacher based on how many salary payments they already have on file, since salary
 // invoices, unlike Fee Invoices, aren't saved as their own sheet/record.
-function generateSalaryInvoiceNo(teacher) {
-  const seq = ((teacher && teacher.payments) || []).length + 1;
-  const id = (teacher && (teacher.staffId || teacher.id)) || "0000";
-  return `SAL-${id}-${String(seq).padStart(3, "0")}`;
+// Salary Invoice No = "SAL" + a running 4-digit number across ALL saved salary invoices,
+// e.g. SAL0001, SAL0002, … (older "SAL-<staff>-<seq>" numbers are ignored when counting).
+function generateSalaryInvoiceNo(existingSalaryInvoices) {
+  const nums = (existingSalaryInvoices || [])
+    .map(inv => String(inv.invoiceNo || ""))
+    .map(no => /^SAL(\d+)$/.exec(no))
+    .filter(Boolean)
+    .map(m => parseInt(m[1], 10));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `SAL${String(next).padStart(4, "0")}`;
 }
 
 function generateInvoiceNo(existingInvoices) {
@@ -4641,10 +4677,10 @@ function CertificatePrint({ certificate: c, config }) {
 /* =========================================================
    TEACHERS MODULE
    ========================================================= */
-const emptyTeacher = (existingTeachers) => {
-  const staffId = generateStaffId(existingTeachers);
+const emptyTeacher = (existingTeachers, establishedYear) => {
+  const staffId = generateStaffId(existingTeachers, establishedYear);
   return {
-    id: staffId, staffId, name: "", designation: "Assistant Teacher", subject: "", joinDate: new Date().toISOString().slice(0,10),
+    id: staffId, staffId, name: "", level: "", designation: "", subject: "", joinDate: new Date().toISOString().slice(0,10),
     phone: "", email: "", address: "", nid: "", photoUrl: "",
     status: "Active", resignDate: "", payments: [],
   };
@@ -4660,7 +4696,7 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
   const teacherFeeRules = (data.fees || []).filter(f => f.kind === "teacher");
   const filtered = teachers.filter(t => !query || str(t.name).toLowerCase().includes(query.toLowerCase()));
 
-  function openNew() { setEditing(emptyTeacher(teachers)); }
+  function openNew() { setEditing(emptyTeacher(teachers, config && config.establishedYear)); }
   async function handleSave(record) { const saved = await save("teachers", record); setEditing(null); return saved; }
   function handlePrint() { window.print(); }
 
@@ -4683,7 +4719,7 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
           {filtered.length === 0 ? <EmptyState title="No staff records" sub="Add your first staff member." /> : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Index No</th><th>Name</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th className="no-print"></th></tr></thead>
+                <thead><tr><th>Index No</th><th>Name</th><th>Level</th><th>Designation</th><th>Subject</th><th>Phone</th><th>Salary Due</th><th>Status</th><th className="no-print"></th></tr></thead>
                 <tbody>
                   {filtered.map(t => {
                     const due = teacherDueFromRules(t, teacherFeeRules);
@@ -4691,6 +4727,7 @@ function TeachersModule({ data, save, remove, config, initialTab }) {
                       <tr key={t.id}>
                         <td className="mono">{t.staffId || t.id}</td>
                         <td>{t.name}</td>
+                        <td>{t.level || "—"}</td>
                         <td>{t.designation}</td>
                         <td>{t.subject || "—"}</td>
                         <td>{t.phone || "—"}</td>
@@ -4750,7 +4787,16 @@ function TeacherFormModal({ teacher, onClose, onSave, config, teacherFeeRules })
       <div className="form-grid">
         <Field label="Index No" hint="auto-generated"><input type="text" value={form.staffId || form.id || ""} readOnly style={{ background: "var(--paper)", fontWeight: 700 }} className="mono" /></Field>
         <Field label="Full Name" span2><input type="text" value={form.name} onChange={set("name")} /></Field>
-        <Field label="Designation"><select value={form.designation} onChange={set("designation")}>{DESIGNATIONS.map(d => <option key={d}>{d}</option>)}</select></Field>
+        <Field label="Level"><select value={form.level || ""} onChange={(e) => {
+          const level = e.target.value;
+          const allowed = DESIGNATIONS_BY_LEVEL[level] || [];
+          setForm({ ...form, level, designation: allowed.includes(form.designation) ? form.designation : "" });
+        }}><option value="">—</option>{STAFF_LEVELS.map(l => <option key={l}>{l}</option>)}</select></Field>
+        <Field label="Designation"><select value={form.designation || ""} onChange={set("designation")}>
+          <option value="">{form.level ? "—" : "Select level first"}</option>
+          {(DESIGNATIONS_BY_LEVEL[form.level] || []).map(d => <option key={d}>{d}</option>)}
+          {form.designation && !(DESIGNATIONS_BY_LEVEL[form.level] || []).includes(form.designation) && !form.level && <option key={form.designation}>{form.designation}</option>}
+        </select></Field>
         <Field label="Subject"><select value={form.subject} onChange={set("subject")}><option value="">—</option>{SUBJECTS.map(s => <option key={s}>{s}</option>)}</select></Field>
         <Field label="Join Date"><input type="date" value={(form.joinDate || "").slice(0, 10)} onChange={set("joinDate")} /></Field>
         <Field label="Status"><select value={form.status} onChange={set("status")}><option>Active</option><option>Resigned</option><option>On Leave</option></select></Field>
@@ -4917,7 +4963,7 @@ function TeacherIdCardModal({ teacher, config, onClose }) {
 function StaffFormPrint({ teacher, config }) {
   const phones = (config.schoolPhones || []).filter(Boolean);
   const dataFields = [
-    ["Index No", teacher.staffId || teacher.id || "—"], ["Designation", teacher.designation || "—"],
+    ["Index No", teacher.staffId || teacher.id || "—"], ["Level", teacher.level || "—"], ["Designation", teacher.designation || "—"],
     ["Subject", teacher.subject || "—"], ["Status", teacher.status || "—"],
     ["Join Date", fmtDate(teacher.joinDate)], ["Resign Date", teacher.resignDate ? fmtDate(teacher.resignDate) : "—"],
     ["Full Name", teacher.name || "—"], ["Phone", teacher.phone || "—"],
@@ -5049,7 +5095,7 @@ async function exportSalaryInvoiceImage(invoice, config, mode) {
 // member (or start pre-selected, for the list's Edit button), show their pay-heads breakdown,
 // enter payment amounts, Submit saves a salaryInvoices snapshot and immediately shows the
 // print preview in the same official format.
-function TeacherInvoiceModal({ teachers, initialTeacher, config, teacherFeeRules, onSaveTeacher, saveInvoice, onClose }) {
+function TeacherInvoiceModal({ teachers, salaryInvoices, initialTeacher, config, teacherFeeRules, onSaveTeacher, saveInvoice, onClose }) {
   const [selected, setSelected] = useState(initialTeacher || null);
   const [query, setQuery] = useState("");
   const [payAmounts, setPayAmounts] = useState({});
@@ -5075,7 +5121,7 @@ function TeacherInvoiceModal({ teachers, initialTeacher, config, teacherFeeRules
     if (entries.length === 0) { toast && toast("Enter at least one payment amount", "error"); return; }
     setSaving(true);
     const todayIso = new Date().toISOString().slice(0, 10);
-    const invoiceNo = generateSalaryInvoiceNo(selected);
+    const invoiceNo = generateSalaryInvoiceNo(salaryInvoices);
     const newPayments = entries.map(([head, amt]) => ({ head, amount: Number(amt), date: todayIso }));
     const updatedTeacher = { ...selected, payments: [...(selected.payments || []), ...newPayments] };
     if (onSaveTeacher) await onSaveTeacher(updatedTeacher);
@@ -5312,11 +5358,11 @@ function SalaryInvoiceModule({ data, save, remove, config }) {
       </div>
 
       {formOpen && (
-        <TeacherInvoiceModal teachers={teachers} config={config} teacherFeeRules={teacherFeeRules}
+        <TeacherInvoiceModal teachers={teachers} salaryInvoices={salaryInvoices} config={config} teacherFeeRules={teacherFeeRules}
           onSaveTeacher={handleSaveTeacher} saveInvoice={handleSaveInvoice} onClose={() => setFormOpen(false)} />
       )}
       {editTeacher && (
-        <TeacherInvoiceModal teachers={teachers} initialTeacher={editTeacher} config={config} teacherFeeRules={teacherFeeRules}
+        <TeacherInvoiceModal teachers={teachers} salaryInvoices={salaryInvoices} initialTeacher={editTeacher} config={config} teacherFeeRules={teacherFeeRules}
           onSaveTeacher={handleSaveTeacher} saveInvoice={handleSaveInvoice} onClose={() => setEditTeacher(null)} />
       )}
       {printInvoice && (
