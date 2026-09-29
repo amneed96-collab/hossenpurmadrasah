@@ -240,6 +240,15 @@ input,select,textarea{font-family:inherit;}
 .form-grid.cols-4{grid-template-columns:repeat(4,1fr);}
 @media (max-width:640px){ .form-grid.cols-4{grid-template-columns:repeat(2,1fr);} }
 .form-field{display:flex;flex-direction:column;gap:5px;}
+/* Fee Group / Teacher Fee Scale rows: column titles shown once above the rows */
+.fee-grid{display:grid;grid-template-columns:1.5fr 1fr 1.7fr 40px;gap:10px 12px;align-items:center;}
+.fee-head-row{font-size:12px;font-weight:600;color:var(--slate);padding:0 10px;margin-bottom:6px;}
+.fee-mob-label{display:none;font-size:11.5px;font-weight:600;color:var(--slate);}
+@media (max-width:640px){
+  .fee-grid{grid-template-columns:1fr 1fr;}
+  .fee-head-row{display:none;}
+  .fee-mob-label{display:block;}
+}
 .form-field.span-2{grid-column:span 2;}
 .form-field label{font-size:12px;font-weight:600;color:var(--slate);}
 .form-field .hint{font-size:11px;color:var(--slate-soft);font-weight:400;}
@@ -379,6 +388,8 @@ tbody tr:last-child td{border-bottom:none;}
   /* Join / Resign Letter — A4 portrait, 0.8in top/left/right, 0.5in bottom, no border */
   @page letter-page{size:A4;margin:0.8in 0.8in 0.5in;}
   .letter-print-page{page:letter-page;}
+  @page notice-page{size:A4;margin:0.8in 0.8in 0.5in;}
+  .notice-print-page{page:notice-page;}
   /* Admission Form / Staff Form — A4 portrait with NO page margin: the 0.5in margin is the sheet's
      own padding, so the green header/footer can run edge-to-edge like in the preview. */
   @page admission-page{size:A4;margin:0;}
@@ -395,12 +406,14 @@ tbody tr:last-child td{border-bottom:none;}
   body:has(.invoice-print-page){page:invoice-page;}
   body:has(.protyon-page-landscape){page:protyon-page;}
   body:has(.letter-print-page){page:letter-page;}
+  body:has(.notice-print-page){page:notice-page;}
   body:has(.adm-full-bleed){page:admission-page;}
   body:has(.print-admit-card){page:admit-card-page;}
   .modal-overlay:has(.print-landscape){page:landscape-a4;}
   .modal-overlay:has(.invoice-print-page){page:invoice-page;}
   .modal-overlay:has(.protyon-page-landscape){page:protyon-page;}
   .modal-overlay:has(.letter-print-page){page:letter-page;}
+  .modal-overlay:has(.notice-print-page){page:notice-page;}
   .modal-overlay:has(.adm-full-bleed){page:admission-page;}
   .modal-overlay:has(.print-admit-card){page:admit-card-page;}
 }
@@ -459,12 +472,14 @@ tbody tr:last-child td{border-bottom:none;}
 
 /* Notice — a plain A4 page (not the ~640px "card" .doc-preview default), no drop shadow */
 .notice-print{
-  font-size:13px;width:210mm;min-height:297mm;max-width:none;
-  box-sizing:border-box;padding:0.5in;border:1px solid var(--line);border-radius:0;
+  font-size:16px;width:210mm;min-height:297mm;max-width:none;
+  box-sizing:border-box;padding:0.8in 0.8in 0.5in;border:1px solid var(--line);border-radius:0;
   display:flex;flex-direction:column;margin:0 auto;box-shadow:none;
 }
+/* Print: page margin is 0.8in top/left/right + 0.5in bottom (named notice-page); the content box
+   is fixed to the printable height (297mm - 0.8in - 0.5in) so nothing spills onto a 2nd page. */
 @media print{
-  .notice-print{width:100%;min-height:100vh;box-sizing:border-box;padding:0;border:none;box-shadow:none;}
+  .notice-print{width:100%;min-height:263mm;max-height:263mm;overflow:hidden;box-sizing:border-box;padding:0;border:none;box-shadow:none;}
 }
 
 .adm-header{
@@ -851,7 +866,7 @@ tbody tr:last-child td{border-bottom:none;}
 .seat-card-physical .scp-body{gap:0.16in;}
 /* Big Roll No badge: black filled circle, white number, bottom-right a little above the edge. */
 .scp-roll-circle{
-  position:absolute;right:0.14in;bottom:0.2in;width:0.5in;height:0.5in;border-radius:50%;
+  position:absolute;right:0.14in;bottom:0.2in;width:0.65in;height:0.65in;border-radius:50%;
   background:#000;color:#fff;display:flex;align-items:center;justify-content:center;
   font-weight:800;line-height:1;z-index:2;
   -webkit-print-color-adjust:exact;print-color-adjust:exact;
@@ -1462,6 +1477,11 @@ function PrintDocHead({ config, headline, layout }) {
         {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 50, position: "absolute", left: 0, top: 0 }} />}
         <div style={{ fontFamily: "'Fraunces',serif", fontSize: 20, fontWeight: 700 }}>{(config && config.schoolName) || "School Name"}</div>
         {config && config.schoolAddress && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
+        {config && [config.instituteCode, config.schoolEmail, (config.schoolPhones || []).filter(Boolean)[0]].filter(Boolean).length > 0 && (
+          <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>
+            {[config.instituteCode, config.schoolEmail, (config.schoolPhones || []).filter(Boolean)[0]].filter(Boolean).join("  |  ")}
+          </div>
+        )}
         {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{headline}</div>}
       </div>
     );
@@ -3354,7 +3374,7 @@ function FeeInvoiceModule({ data, save, remove, config }) {
     <div>
       <div className="section-actions no-print">
         <button className="btn" onClick={() => setShowPaymentSheet(true)}><Icon.print />Print List</button>
-        <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Icon.fee />Open Fee Invoice Form</button>
+        <button className="btn btn-primary" onClick={() => setFormOpen(true)}><Icon.fee />New Invoice</button>
       </div>
 
       <div className="card card-flush">
@@ -3365,7 +3385,7 @@ function FeeInvoiceModule({ data, save, remove, config }) {
           </div>
         </div>
         {filteredInvoices.length === 0 ? (
-          <EmptyState title="No saved invoices yet" sub={`Use "Open Fee Invoice Form" above to create and submit one.`} />
+          <EmptyState title="No saved invoices yet" sub={`Use "New Invoice" above to create and submit one.`} />
         ) : (
           <div className="table-wrap">
             <PrintDocHead config={config} headline="All Invoices" />
@@ -4328,7 +4348,7 @@ function SeatCardPhysical({ student, config, examName }) {
           <FieldRow name="Session" value={student.session || "—"} />
         </div>
       </div>
-      {student.roll ? <div className="scp-roll-circle" style={{ fontSize: String(student.roll).length > 3 ? "10pt" : String(student.roll).length > 2 ? "13pt" : "16pt" }}>{student.roll}</div> : null}
+      {student.roll ? <div className="scp-roll-circle" style={{ fontSize: String(student.roll).length > 3 ? "14pt" : String(student.roll).length > 2 ? "18pt" : "22pt" }}>{student.roll}</div> : null}
     </div>
   );
 }
@@ -6119,22 +6139,21 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
 
   return (
     <div>
-      <div className="section-actions">
-        <button className="btn btn-primary no-print" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
-      </div>
-      {/* Section switching is handled entirely by the sidebar's Master Fee submenu now. */}
-      <div className="no-print" style={{ marginBottom: 14 }}>
+      {/* Section switching is handled entirely by the sidebar's Master Fee submenu now.
+          Year filter (left) and the Print / New Fee Group buttons (right) share ONE line. */}
+      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
         <select className="filter-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
           <option value="">All Years</option>
           {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {((tab === "class" && classRowsFiltered.length > 0) || (tab === "teacher" && teacherRowsFiltered.length > 0)) && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
+          <button className="btn btn-primary" onClick={openNewGroup}><Icon.plus />New Fee Group</button>
+        </div>
       </div>
 
       {tab === "class" && (
         <div className="print-landscape">
-          <div className="no-print" style={{ textAlign: "right", marginBottom: 10 }}>
-            {classRowsFiltered.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
-          </div>
           <PrintDocHead config={config} headline="Class-wise Fee Structure" />
           {classRowsFiltered.length === 0 ? (
             <div className="card"><EmptyState title="No class fee rules yet" sub="Add a fee group with multiple heads (Tuition, Exam, etc.) per class and year." /></div>
@@ -6179,9 +6198,6 @@ function MasterFeeModule({ data, save, remove, config, initialTab }) {
       )}
       {tab === "teacher" && (
         <div className="print-landscape">
-          <div className="no-print" style={{ textAlign: "right", marginBottom: 10 }}>
-            {teacherRowsFiltered.length > 0 && <button className="btn btn-sm" onClick={handlePrint}><Icon.print />Print</button>}
-          </div>
           <PrintDocHead config={config} headline="Designation-wise Salary Scale" />
           {teacherRowsFiltered.length === 0 ? (
             <div className="card"><EmptyState title="No teacher fee scales yet" sub="Add a fee group with multiple components (Basic, Allowance, etc.) per designation and year." /></div>
@@ -6271,10 +6287,15 @@ function FeeGroupModal({ group, onClose, onSave }) {
         <label style={{ fontSize: 12, fontWeight: 600, color: "var(--slate)" }}>Fee Heads &amp; Amounts</label>
         <button className="link-btn" onClick={addItem}>+ Add another fee head</button>
       </div>
+      {/* Column titles appear ONCE here at the top; the rows below carry only the inputs. */}
+      <div className="fee-grid fee-head-row">
+        <div>Fee Type / Head</div><div>Amount</div><div>Category</div><div />
+      </div>
       {form.items.map((item, i) => (
-        <div key={i} style={{ marginBottom: 10, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 8 }}>
-          <div className="form-grid cols-4" style={{ alignItems: "end" }}>
-            <Field label="Fee Type / Head">
+        <div key={i} style={{ marginBottom: 8, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8 }}>
+          <div className="fee-grid">
+            <div className="form-field">
+              <span className="fee-mob-label">Fee Type / Head</span>
               {form.kind === "class" ? (
                 <select value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)}>
                   {INCOME_HEADS.map(h => <option key={h}>{h}</option>)}
@@ -6282,9 +6303,13 @@ function FeeGroupModal({ group, onClose, onSave }) {
               ) : (
                 <input type="text" value={item.feeType} onChange={(e) => updateItem(i, "feeType", e.target.value)} placeholder="e.g. Basic Salary, House Allowance" />
               )}
-            </Field>
-            <Field label="Amount"><input type="number" value={item.amount} onChange={(e) => updateItem(i, "amount", e.target.value)} /></Field>
-            <Field label="Category">
+            </div>
+            <div className="form-field">
+              <span className="fee-mob-label">Amount</span>
+              <input type="number" value={item.amount} onChange={(e) => updateItem(i, "amount", e.target.value)} />
+            </div>
+            <div className="form-field">
+              <span className="fee-mob-label">Category</span>
               <select value={item.category || "Yearly"} onChange={(e) => updateItem(i, "category", e.target.value)}>
                 <option value="Monthly">Monthly (প্রতি মাসে)</option>
                 <option value="Half Yearly">Half Yearly (বছরে ২ বার)</option>
@@ -6292,9 +6317,9 @@ function FeeGroupModal({ group, onClose, onSave }) {
                 <option value="3 Times">3 Times (নির্দিষ্ট মাস সিলেক্ট করুন)</option>
                 <option value="Admission Year">Admission Year (শুধুমাত্র ভর্তির বছরে একবার)</option>
               </select>
-            </Field>
+            </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn btn-sm btn-icon" style={{ marginBottom: 1 }} onClick={() => removeItem(i)}><Icon.trash /></button>
+              <button className="btn btn-sm btn-icon" onClick={() => removeItem(i)}><Icon.trash /></button>
             </div>
           </div>
           {item.category === "3 Times" && (
@@ -6447,18 +6472,20 @@ function NoticeViewModal({ notice, config, onClose }) {
   const phone = (config.schoolPhones && config.schoolPhones.filter(Boolean)[0]) || "";
   return (
     <DocShell title={notice.title || "Notice"} onClose={onClose}>
+      <div className="notice-print-page">
       <div className="doc-preview notice-print">
-        <PrintDocHead config={config} headline="NOTICE" layout="logo-left" />
+        <PrintDocHead config={config} layout="logo-left" />
         <div style={{ textAlign: "right", fontSize: 12, color: "var(--slate-soft)", marginBottom: 4 }}>Date: {fmtDate(notice.date)}</div>
         <h3 style={{ fontSize: 16, fontWeight: 700, textAlign: "center", margin: "6px 0 16px", textDecoration: "underline" }}>{notice.title}</h3>
-        <div style={{ fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", textAlign: "justify", minHeight: 120 }}>{notice.details}</div>
-        <div style={{ marginTop: 50, textAlign: "right" }}>
+        <div style={{ fontSize: 16, lineHeight: 1.8, whiteSpace: "pre-wrap", textAlign: "justify", minHeight: 120 }}>{notice.details}</div>
+        <div style={{ marginTop: 80, textAlign: "right" }}>
           <div style={{ display: "inline-block", textAlign: "center", borderTop: "1px solid var(--ink)", paddingTop: 6, minWidth: 200 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>{notice.signatoryName || "—"}</div>
             <div style={{ fontSize: 12 }}>{notice.signatoryDesignation || "Principal"}</div>
             {phone && <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>Mobile: {phone}</div>}
           </div>
         </div>
+      </div>
       </div>
     </DocShell>
   );
@@ -7385,6 +7412,9 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
   const [committeeEditing, setCommitteeEditing] = useState(null);
   const [noticeEditing, setNoticeEditing] = useState(null);
   const [profileEditing, setProfileEditing] = useState(false);
+  // Each Settings block lives behind its own button: click to show, click again to hide.
+  const [openSec, setOpenSec] = useState({ profile: false, committee: false, notice: false });
+  const toggleSec = (k) => setOpenSec(o => ({ ...o, [k]: !o[k] }));
   const toast = useToast();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const committees = (data && data.committee) || [];
@@ -7438,11 +7468,17 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
 
   return (
     <div>
-      <div className="section-actions">
-        <button className="btn btn-primary" onClick={openProfileEditor}><Icon.edit />Edit Institution Profile</button>
+      <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <button className={`btn ${openSec.profile ? "btn-primary" : ""}`} onClick={() => toggleSec("profile")}><Icon.settings />Institution Profile</button>
+        <button className={`btn ${openSec.committee ? "btn-primary" : ""}`} onClick={() => toggleSec("committee")}><Icon.committee />Committee</button>
+        <button className={`btn ${openSec.notice ? "btn-primary" : ""}`} onClick={() => toggleSec("notice")}><Icon.notice />Notice</button>
       </div>
 
-      <div className="card" style={{ maxWidth: 560, marginBottom: 20 }}>
+      {openSec.profile && (
+      <div className="card" style={{ maxWidth: 560, margin: "0 auto 20px" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button className="btn btn-sm btn-primary" onClick={openProfileEditor}><Icon.edit />Edit Institution Profile</button>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {config.schoolLogo ? (
             <img src={config.schoolLogo} alt="" style={{ width: 56, height: 56, borderRadius: 8, objectFit: "cover", border: "1px solid var(--line)" }} />
@@ -7463,8 +7499,10 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           <div className="kv-row"><span className="k">Cashier</span><span className="v">{config.cashierName || "—"}</span></div>
         </div>
       </div>
+      )}
 
-      <div className="card" style={{ maxWidth: 560 }}>
+      {openSec.committee && (
+      <div className="card" style={{ maxWidth: 560, margin: "0 auto 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <h3 style={{ fontSize: 15 }}>Committee</h3>
           <button className="btn btn-sm btn-primary" onClick={() => setCommitteeEditing(emptyCommittee())}><Icon.plus />New Committee</button>
@@ -7489,8 +7527,10 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           </div>
         )}
       </div>
+      )}
 
-      <div className="card" style={{ maxWidth: 560, marginTop: 20 }}>
+      {openSec.notice && (
+      <div className="card" style={{ maxWidth: 560, margin: "0 auto 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <h3 style={{ fontSize: 15 }}>Notice</h3>
           <button className="btn btn-sm btn-primary" onClick={() => setNoticeEditing(emptyNotice(config))}><Icon.plus />New Notice</button>
@@ -7515,6 +7555,7 @@ function SettingsModule({ config, setConfig, data, save, remove }) {
           </div>
         )}
       </div>
+      )}
 
       {profileEditing && (
         <Modal title="Edit Institution Profile" onClose={() => setProfileEditing(false)} size="lg"
