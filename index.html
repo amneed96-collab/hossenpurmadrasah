@@ -358,8 +358,8 @@ tbody tr:last-child td{border-bottom:none;}
 /* ===== Print Templates ===== */
 .print-only{display:none;}
 /* Institution name on every print: one line, UPPERCASE, auto-sized to the box, never clipped / "..." */
-.fit-wrap{container-type:inline-size;width:100%;min-width:0;}
-.fit-name{display:block;text-align:center;white-space:nowrap !important;overflow:visible !important;text-overflow:clip !important;line-height:1.25;font-size:var(--fit-max) !important;}
+.fit-wrap{container-type:inline-size;width:100%;min-width:0;position:relative;z-index:1;}
+.fit-name{display:block;text-align:center;font-optical-sizing:none;white-space:nowrap !important;overflow:visible !important;text-overflow:clip !important;line-height:1.25;font-size:var(--fit-max) !important;}
 @supports (width:1cqw){
   .fit-name{font-size:min(var(--fit-max), calc(98cqw / var(--fit-em))) !important;}
 }
@@ -820,7 +820,7 @@ tbody tr:last-child td{border-bottom:none;}
 .acp-header{display:flex;align-items:flex-start;gap:4mm;padding-bottom:2mm;margin-bottom:0;}
 .acp-logo,.acp-photo{width:20mm;height:24mm;flex-shrink:0;border:1px solid var(--line);border-radius:1mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--paper);}
 .acp-logo img,.acp-photo img{width:100%;height:100%;object-fit:cover;}
-.acp-center{flex:1;text-align:center;}
+.acp-center{flex:1;min-width:0;text-align:center;}
 .acp-school-name{font-family:'Fraunces',serif;font-size:17pt;font-weight:700;}
 .acp-school-address{font-size:9pt; color:#010e06; margin-top:1px;}
 .acp-school-phone{font-size:9pt; color:#010e06;white-space:nowrap;}
@@ -1461,6 +1461,14 @@ function FieldRow({ name, value }) {
 // Shared print-only header for list/table printouts: institution name, address, then a data headline.
 // Never shown on screen — only appears when printing (via .print-only), keeping list/table print
 // output limited to institution identity + headline + table, with no buttons/search/filters.
+// "Institute code | Email | Mobile" — the single contact line shown under the institution name on every
+// form and print. Blank parts are skipped, so nothing dangles if the code/email/mobile isn't set.
+function schoolContactText(config) {
+  if (!config) return "";
+  const phone = (config.schoolPhones || []).filter(Boolean)[0];
+  return [config.instituteCode, config.schoolEmail, phone].filter(Boolean).join("\u00A0\u00A0|\u00A0\u00A0");
+}
+
 function PrintDocHead({ config, headline, layout }) {
   if (layout === "inline") {
     return (
@@ -1470,6 +1478,7 @@ function PrintDocHead({ config, headline, layout }) {
           <div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
             <AutoFitLine text={(config && config.schoolName) || "School Name"} maxPt={22} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
             {config && config.schoolAddress && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
+            {schoolContactText(config) && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{schoolContactText(config)}</div>}
           </div>
         </div>
         {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, textAlign: "center" }}>{headline}</div>}
@@ -1487,11 +1496,7 @@ function PrintDocHead({ config, headline, layout }) {
           <AutoFitLine text={(config && config.schoolName) || "School Name"} maxPt={22} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
         </div>
         {config && config.schoolAddress && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
-        {config && [config.schoolEmail, (config.schoolPhones || []).filter(Boolean)[0]].filter(Boolean).length > 0 && (
-          <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>
-            {[config.schoolEmail, (config.schoolPhones || []).filter(Boolean)[0]].filter(Boolean).join("  |  ")}
-          </div>
-        )}
+        {schoolContactText(config) && <div style={{ fontSize: 12, color: "var(--slate-soft)", marginTop: 2 }}>{schoolContactText(config)}</div>}
         {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{headline}</div>}
       </div>
     );
@@ -1501,6 +1506,7 @@ function PrintDocHead({ config, headline, layout }) {
       {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 44, marginBottom: 6 }} />}
       <AutoFitLine text={(config && config.schoolName) || "School Name"} maxPt={20} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
       {config && config.schoolAddress && <div style={{ fontSize: 11.5, color: "var(--slate-soft)", marginTop: 2 }}>{config.schoolAddress}</div>}
+      {schoolContactText(config) && <div style={{ fontSize: 11.5, color: "var(--slate-soft)", marginTop: 2 }}>{schoolContactText(config)}</div>}
       {headline && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{headline}</div>}
     </div>
   );
@@ -1516,6 +1522,7 @@ function SingleRecordPrintModal({ title, config, fields, onClose }) {
           {config && config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 40, marginBottom: 6 }} />}
           <AutoFitLine text={(config && config.schoolName) || "School Name"} maxPt={18} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
           {config && config.schoolAddress && <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>{config.schoolAddress}</div>}
+          {schoolContactText(config) && <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>{schoolContactText(config)}</div>}
         </div>
         {fields.map(f => <FieldRow key={f.name} name={f.name} value={f.value} />)}
       </div>
@@ -3568,11 +3575,9 @@ function InvoiceHeader({ config, title, photoUrl }) {
         <div className="inv-header-center">
           <AutoFitLine className="inv-school-name" text={config.schoolName || "School Name"} maxPt={14} />
           {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
-          {(config.schoolEmail || phones[0]) && (
+          {schoolContactText(config) && (
             <div className="inv-school-contact">
-              {config.schoolEmail && <span>{config.schoolEmail}</span>}
-              {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
-              {phones[0] && <span>{phones[0]}</span>}
+                {schoolContactText(config)}
             </div>
           )}
           <div className="inv-title">{title}</div>
@@ -4044,11 +4049,9 @@ function AdmissionFormPrint({ student, config }) {
           <div className="adm-header-center">
             <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={17} />
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-            {(config.schoolEmail || phones[0]) && (
+            {schoolContactText(config) && (
               <div className="adm-school-contact">
-                {config.schoolEmail && <span>{config.schoolEmail}</span>}
-                {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
-                {phones[0] && <span>{phones[0]}</span>}
+                {schoolContactText(config)}
               </div>
             )}
             <div className="adm-form-title">ADMISSION FORM</div>
@@ -4280,24 +4283,39 @@ function studentStatusUrl(studentId) {
 // Because the fitting is done by CSS at layout time, it is correct on screen, in the print preview
 // and on paper, even inside .print-only blocks that are display:none on screen, and it
 // re-fits automatically if the page/box width changes.
-const _fitCanvasCtx = document.createElement("canvas").getContext("2d");
 function AutoFitLine({ text, className = "", maxPt = 12, style, ls = 0.02 }) {
   const innerRef = useRef(null);
   const label = String(text || "").toUpperCase();
-  const [em, setEm] = useState(label.length * (0.8 + ls));
+  const [em, setEm] = useState(label.length * (0.9 + ls));
   useLayoutEffect(() => {
     let cancelled = false;
+    // Measures the name's REAL rendered width with an off-screen probe that copies the element's
+    // font (family/weight/style) at 100px. Optical-size auto-scaling of variable fonts is switched
+    // off (see .fit-name) so the width is exactly proportional to the font size at any size.
     const measure = () => {
       const el = innerRef.current;
-      if (!el || cancelled || !_fitCanvasCtx) return;
+      if (!el || cancelled) return;
       const cs = window.getComputedStyle(el);
-      _fitCanvasCtx.font = `${cs.fontWeight} 100px ${cs.fontFamily}`;
-      const w = _fitCanvasCtx.measureText(label).width / 100;
-      if (w > 0) setEm((w + label.length * ls) * 1.03);
+      const probe = document.createElement("span");
+      const ps = probe.style;
+      ps.cssText = "position:absolute;left:-99999px;top:0;visibility:hidden;white-space:nowrap;font-optical-sizing:none;font-size:100px;";
+      ps.fontFamily = cs.fontFamily;
+      ps.fontWeight = cs.fontWeight;
+      ps.fontStyle = cs.fontStyle;
+      ps.letterSpacing = ls + "em";
+      probe.textContent = label;
+      document.body.appendChild(probe);
+      const w = probe.getBoundingClientRect().width / 100;
+      document.body.removeChild(probe);
+      if (w > 0) setEm(w * 1.03);
     };
     measure();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
-    return () => { cancelled = true; };
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", measure);
+    return () => {
+      cancelled = true;
+      if (document.fonts && document.fonts.removeEventListener) document.fonts.removeEventListener("loadingdone", measure);
+    };
   }, [label, ls, className]);
   return (
     <div className="fit-wrap">
@@ -4349,6 +4367,7 @@ function SeatCardPhysical({ student, config, examName }) {
       {config.schoolLogo && <img className="scp-watermark" src={config.schoolLogo} alt="" />}
       <AutoFitLine className="scp-school" text={config.schoolName || "School Name"} maxPt={11} ls={0.01} />
       {config.schoolAddress && <div className="scp-address">{config.schoolAddress}</div>}
+      {schoolContactText(config) && <div className="scp-address">{schoolContactText(config)}</div>}
       <div className="scp-exam">{examName || "Examination"}</div>
       <div className="scp-body">
         <div className="scp-photo">
@@ -4381,11 +4400,9 @@ function AdmitCardPhysical({ student, config, examName }) {
           <div className="acp-center">
             <AutoFitLine className="acp-school-name" text={config.schoolName || "School Name"} maxPt={20} ls={0.01} />
             {config.schoolAddress && <div className="acp-school-address">{config.schoolAddress}</div>}
-            {(config.schoolEmail || phones[0]) && (
+            {schoolContactText(config) && (
               <div className="acp-school-phone" style={{ whiteSpace: "nowrap" }}>
-                {config.schoolEmail && <span>{config.schoolEmail}</span>}
-                {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
-                {phones[0] && <span>{phones[0]}</span>}
+                {schoolContactText(config)}
               </div>
             )}
           </div>
@@ -4758,11 +4775,9 @@ function CertificatePrint({ certificate: c, config }) {
             <div className="protyon-header-center">
               <AutoFitLine className="protyon-header-name" text={config.schoolName || "School Name"} maxPt={20} ls={0.03} />
               {config.schoolAddress && <div className="protyon-header-address">{config.schoolAddress}</div>}
-              {(config.schoolEmail || phones[0]) && (
+              {schoolContactText(config) && (
                 <div className="protyon-header-contact">
-                  {config.schoolEmail && <span>{config.schoolEmail}</span>}
-                  {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
-                  {phones[0] && <span>{phones[0]}</span>}
+                {schoolContactText(config)}
                 </div>
               )}
             </div>
@@ -4967,11 +4982,9 @@ function TeacherLetterModal({ teacher, config, onClose }) {
             <div className="adm-header-center">
               <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={16} />
               {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-              {(config.schoolEmail || phones[0]) && (
+              {schoolContactText(config) && (
                 <div className="adm-school-contact">
-                  {config.schoolEmail && <span>{config.schoolEmail}</span>}
-                  {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
-                  {phones[0] && <span>{phones[0]}</span>}
+                {schoolContactText(config)}
                 </div>
               )}
             </div>
@@ -5097,11 +5110,9 @@ function StaffFormPrint({ teacher, config }) {
           <div className="adm-header-center">
             <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={17} />
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-            {(config.schoolEmail || phones[0]) && (
+            {schoolContactText(config) && (
               <div className="adm-school-contact">
-                {config.schoolEmail && <span>{config.schoolEmail}</span>}
-                {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
-                {phones[0] && <span>{phones[0]}</span>}
+                {schoolContactText(config)}
               </div>
             )}
             <div className="adm-form-title">STAFF FORM</div>
@@ -5818,6 +5829,7 @@ function FinanceDocHeader({ config, docTitle }) {
         <div className="inv-header-center">
           <AutoFitLine className="inv-school-name" text={config.schoolName || "School Name"} maxPt={14} />
           {config.schoolAddress && <div className="inv-school-address">{config.schoolAddress}</div>}
+          {schoolContactText(config) && <div className="inv-school-contact">{schoolContactText(config)}</div>}
           <div className="inv-title">{docTitle}</div>
         </div>
         <div className="inv-header-logo" style={{ visibility: "hidden" }} />
@@ -6698,6 +6710,8 @@ function SubjectListDocModal({ group, config, onClose }) {
         <div style={{ textAlign: "center", borderBottom: "2px solid var(--moss-deep)", paddingBottom: 12, marginBottom: 14 }}>
           {config.schoolLogo && <img src={config.schoolLogo} alt="" style={{ height: 40, marginBottom: 6 }} />}
           <AutoFitLine text={config.schoolName || "School Name"} maxPt={18} style={{ fontFamily: "'Fraunces',serif", fontWeight: 800 }} />
+          {config.schoolAddress && <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>{config.schoolAddress}</div>}
+          {schoolContactText(config) && <div style={{ fontSize: 11, color: "var(--slate-soft)" }}>{schoolContactText(config)}</div>}
           <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>Class Subject List — {group.className} ({group.year})</div>
           <div style={{ fontSize: 11, color: "var(--slate-soft)", marginTop: 3 }}>Model Exam Full Marks (all subjects): {group.modelExamMarks || 50}</div>
         </div>
@@ -7230,11 +7244,9 @@ function MarksheetDoc({ student, result, attendance, rank, className, examName, 
           <div className="adm-header-center">
             <AutoFitLine className="adm-school-name" text={config.schoolName || "School Name"} maxPt={19} />
             {config.schoolAddress && <div className="adm-school-address">{config.schoolAddress}</div>}
-            {(config.schoolEmail || phones[0]) && (
+            {schoolContactText(config) && (
               <div className="adm-school-contact">
-                {config.schoolEmail && <span>{config.schoolEmail}</span>}
-                {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
-                {phones[0] && <span>{phones[0]}</span>}
+                {schoolContactText(config)}
               </div>
             )}
             <div className="adm-form-title">ACADEMIC MARKSHEET</div>
@@ -7700,11 +7712,9 @@ function MenuBar({ active, subTab, setActive, config, store }) {
         <div className="menubar-desktop-name">
           <div className="menubar-desktop-title">{(config.schoolName || "Vidyalaya").toUpperCase()}</div>
           {config.schoolAddress && <div className="menubar-desktop-address">{config.schoolAddress}</div>}
-          {(config.schoolEmail || phones[0]) && (
+          {schoolContactText(config) && (
             <div className="menubar-desktop-contact">
-              {config.schoolEmail && <span>{config.schoolEmail}</span>}
-              {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
-              {phones[0] && <span>{phones[0]}</span>}
+                {schoolContactText(config)}
             </div>
           )}
         </div>
