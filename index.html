@@ -761,17 +761,17 @@ tbody tr:last-child td{border-bottom:none;}
    width, 5.7in tall, page margin 0, with the green border line inset 0.4in from every card edge
    (that inset is the card's padding). No drop shadow / outer frame around the card. */
 .admit-card-physical{
-  width:210mm;max-width:100%;height:5.7in;background:#fff;position:relative;overflow:hidden;
+  width:8.27in;max-width:100%;height:5.7in;background:#fff;position:relative;overflow:hidden;
   border:none;box-shadow:none;box-sizing:border-box;
   break-inside:avoid;page-break-inside:avoid;padding:0.4in;
 }
 @media print{
-  .admit-card-physical{box-shadow:none;width:210mm;margin:0;}
+  .admit-card-physical{box-shadow:none;width:8.27in;margin:0;}
   .admit-card-grid{gap:0;display:block;}
   .admit-card-physical{page-break-after:always;}
   .admit-card-physical:last-child{page-break-after:auto;}
 }
-.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:5mm 8mm;height:100%;display:flex;flex-direction:column;position:relative;z-index:1;}
+.acp-border{border:1.5px solid var(--moss-deep);border-radius:3mm;padding:4mm 8mm;height:100%;display:flex;flex-direction:column;position:relative;z-index:1;}
 .acp-watermark{
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   width:2.4in;height:2.4in;object-fit:contain;opacity:0.07;z-index:0;pointer-events:none;
@@ -783,19 +783,20 @@ tbody tr:last-child td{border-bottom:none;}
 .acp-center{flex:1;text-align:center;}
 .acp-school-name{font-family:'Fraunces',serif;font-size:17pt;font-weight:700;}
 .acp-school-address{font-size:9pt; color:#010e06; margin-top:1px;}
-.acp-school-phone{font-size:9pt; color:#010e06;}
+.acp-school-phone{font-size:9pt; color:#010e06;white-space:nowrap;}
 .acp-exam-line{text-align:center;font-size:11pt;font-weight:600;margin:0 0 2mm;padding-bottom:2mm;border-bottom:1px dashed #000;}
-.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:14pt;font-weight:700;margin:1mm 0 2mm;padding-bottom:2mm;border-bottom:1px dashed #000;width:100%;}
+.acp-title{text-align:center;font-family:'Fraunces',serif;font-size:14pt;font-weight:700;margin:-4mm 0 2mm;padding-bottom:2mm;border-bottom:1px dashed #000;width:100%;}
 /* Date sits above the student fields, right-aligned */
 .acp-date-row{text-align:right;font-size:9pt;font-weight:600;color:var(--ink);margin-bottom:1.5mm;}
 .acp-fields{font-size:10.5pt;margin-bottom:2mm;column-count:2;column-gap:10mm;}
-.acp-note{font-size:7.6pt;color:#000;margin-top:15px;padding-top:2mm;line-height:1.4;}
+.acp-note{font-size:7.6pt;color:#000;margin-top:6px;padding-top:2mm;line-height:1.4;}
 .acp-note-title{font-weight:700;color:var(--ink);margin-bottom:1mm;}
 .acp-note-list{margin:0;padding-left:3.5mm;}
 .acp-note-list li{margin-bottom:0.5mm;}
-.acp-signatures{display:flex;justify-content:space-between;margin-top:5mm;gap:60mm;padding:0 8mm;}
-.acp-sig{border-top:1px solid var(--ink);padding-top:1mm;font-size:8pt;text-align:center;flex:1;line-height:1.5; margin-top: 42px;}
-.acp-credit{text-align:right;font-size:7pt;color:var(--slate-soft);margin-top:1mm; padding-right: 15px;}
+.acp-signatures{display:flex;justify-content:space-between;margin-top:auto;gap:60mm;padding:0 8mm;}
+.acp-sig{border-top:1px solid var(--ink);padding-top:1mm;font-size:8pt;text-align:center;flex:1;line-height:1.5; margin-top: 24px;}
+/* credit sits in the 0.4in margin just below the border line, right-aligned */
+.acp-credit{position:absolute;right:0.5in;bottom:0.25in;line-height:1;margin:0;padding:0;text-align:right;font-size:7pt;color:var(--slate-soft);z-index:1;}
 
 /* ===== Seat Plan card — 3in x 2in ===== */
 .seat-card-grid{display:flex;flex-wrap:wrap;gap:0.12in;justify-content:flex-start;}
@@ -4320,7 +4321,15 @@ function AdmitCardPhysical({ student, config, examName }) {
           <div className="acp-center">
             <div className="acp-school-name">{config.schoolName || "School Name"}</div>
             {config.schoolAddress && <div className="acp-school-address">{config.schoolAddress}</div>}
-            {phones[0] && <div className="acp-school-phone">☎ {phones[0]}</div>}
+            {(config.instituteCode || config.schoolEmail || phones[0]) && (
+              <div className="acp-school-phone" style={{ whiteSpace: "nowrap" }}>
+                {config.instituteCode && <span>{config.instituteCode}</span>}
+                {config.instituteCode && (config.schoolEmail || phones[0]) && <span> &nbsp;|&nbsp; </span>}
+                {config.schoolEmail && <span>{config.schoolEmail}</span>}
+                {config.schoolEmail && phones[0] && <span> &nbsp;|&nbsp; </span>}
+                {phones[0] && <span>{phones[0]}</span>}
+              </div>
+            )}
           </div>
           <div className="acp-photo">
             {student.photoUrl ? <img src={student.photoUrl} alt="" /> : null}
@@ -4362,7 +4371,7 @@ function AdmitCardPhysical({ student, config, examName }) {
 
 const CARD_TYPES = {
   id: { title: "ID Card", needsExam: false, sizeClass: "id-card-grid", cardWidth: "2.2in" },
-  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "210mm" },
+  admit: { title: "Admit Card", needsExam: true, sizeClass: "admit-card-grid", cardWidth: "8.27in" },
   seat: { title: "Seat Plan", needsExam: true, sizeClass: "seat-card-grid", cardWidth: "3in" },
 };
 
