@@ -700,6 +700,23 @@ tbody tr:last-child td{border-bottom:none;}
 }
 @media print{
   .protyon-print{ width:100%; min-height:100vh; box-shadow:none; border:none; }
+  /* Phones/tablets print with a NARROW layout viewport (and their own 100vh), so "width:100%" /
+     "min-height:100vh" squeezed the certificate: the name jumped up and the bottom border spilled
+     onto a 2nd page. Lock the certificate — and every wrapper around it — to the physical A4
+     landscape sheet (297 x 210mm, height a hair under to avoid a spill page). Desktop unchanged. */
+  body:has(.protyon-page-landscape),
+  body:has(.protyon-page-landscape) .modal-overlay,
+  body:has(.protyon-page-landscape) .modal,
+  body:has(.protyon-page-landscape) .modal-body,
+  body:has(.protyon-page-landscape) .protyon-page-landscape{
+    width:297mm !important; min-width:297mm !important; max-width:none !important;
+    margin:0 !important; padding:0 !important; height:auto !important; min-height:0 !important;
+  }
+  .protyon-print{
+    width:297mm !important; min-width:297mm !important; height:209mm !important; min-height:0 !important; max-height:209mm;
+    overflow:hidden; page-break-inside:avoid; break-inside:avoid; page-break-after:avoid; break-after:avoid;
+  }
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 }
 .protyon-content{ position:relative; z-index:1; display:flex; flex-direction:column; flex:1; }
 .protyon-bg-img{ position:absolute; inset:0; width:100%; height:100%; z-index:0; padding: 0.3in; object-fit:contain; }
@@ -832,6 +849,13 @@ tbody tr:last-child td{border-bottom:none;}
 .seat-card-physical .field-row .fr-colon{flex:0 0 5px;text-align:left;}
 .seat-card-physical .field-row .fr-value{flex:1;}
 .seat-card-physical .scp-body{gap:0.16in;}
+/* Big Roll No badge: black filled circle, white number, bottom-right a little above the edge. */
+.scp-roll-circle{
+  position:absolute;right:0.14in;bottom:0.2in;width:0.5in;height:0.5in;border-radius:50%;
+  background:#000;color:#fff;display:flex;align-items:center;justify-content:center;
+  font-weight:800;line-height:1;z-index:2;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
 
 .field-form-title{text-align:center;margin-bottom:14px;}
 
@@ -4304,6 +4328,7 @@ function SeatCardPhysical({ student, config, examName }) {
           <FieldRow name="Session" value={student.session || "—"} />
         </div>
       </div>
+      {student.roll ? <div className="scp-roll-circle" style={{ fontSize: String(student.roll).length > 3 ? "10pt" : String(student.roll).length > 2 ? "13pt" : "16pt" }}>{student.roll}</div> : null}
     </div>
   );
 }
